@@ -351,11 +351,21 @@ impl Client {
             }
             return crate::github_profile::read(repo, number, login, |variables| {
                 let mut request = Request::get(format!("{API}/graphql"), &self.token);
-                request.json = Some(
-                    json!({"query":include_str!("github-profile.graphql"),"variables":variables}),
-                );
+                let review_read = variables["query"].is_string() || variables["number"].is_number();
+                let query = if variables["number"].is_number() {
+                    include_str!("github-profile-review-page.graphql")
+                } else if review_read {
+                    include_str!("github-profile-reviews.graphql")
+                } else {
+                    include_str!("github-profile.graphql")
+                };
+                request.json = Some(json!({"query":query,"variables":variables}));
                 let body = self.checked(request)?.body;
-                Ok(body["data"]["viewer"].clone())
+                Ok(if review_read {
+                    body["data"].clone()
+                } else {
+                    body["data"]["viewer"].clone()
+                })
             });
         }
         if operation == "repositories" {

@@ -4,6 +4,7 @@ mod github_auth;
 mod github_credentials;
 mod github_http;
 mod github_profile;
+mod github_profile_reviews;
 mod github_workspace;
 #[cfg(target_os = "macos")]
 mod macos;

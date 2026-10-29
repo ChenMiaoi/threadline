@@ -4,11 +4,9 @@ query Profile(
   $commits: String
   $issues: String
   $pulls: String
-  $reviews: String
   $readCommits: Boolean!
   $readIssues: Boolean!
   $readPulls: Boolean!
-  $readReviews: Boolean!
 ) {
   viewer {
     login
@@ -22,7 +20,6 @@ query Profile(
       totalRepositoriesWithContributedCommits
       totalRepositoriesWithContributedIssues
       totalRepositoriesWithContributedPullRequests
-      totalRepositoriesWithContributedPullRequestReviews
       commits: commitContributionsByRepository(maxRepositories: 100) @include(if: $readCommits) {
         repository {
           nameWithOwner
@@ -67,22 +64,6 @@ query Profile(
           nameWithOwner
         }
         contributions(first: 100, after: $pulls) {
-          totalCount
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
-          nodes {
-            occurredAt
-          }
-        }
-      }
-      reviews: pullRequestReviewContributionsByRepository(maxRepositories: 100)
-        @include(if: $readReviews) {
-        repository {
-          nameWithOwner
-        }
-        contributions(first: 100, after: $reviews) {
           totalCount
           pageInfo {
             hasNextPage

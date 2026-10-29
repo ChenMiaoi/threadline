@@ -2,7 +2,7 @@
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashSet};
 
-const KINDS: [(&str, &str, &str); 4] = [
+const KINDS: [(&str, &str, &str); 3] = [
     (
         "commits",
         "totalRepositoriesWithContributedCommits",
@@ -18,11 +18,6 @@ const KINDS: [(&str, &str, &str); 4] = [
         "totalRepositoriesWithContributedPullRequests",
         "totalPullRequestContributions",
     ),
-    (
-        "reviews",
-        "totalRepositoriesWithContributedPullRequestReviews",
-        "totalPullRequestReviewContributions",
-    ),
 ];
 pub fn read(
     repo: &str,
@@ -30,13 +25,13 @@ pub fn read(
     login: &str,
     mut fetch: impl FnMut(Value) -> Result<Value, String>,
 ) -> Result<Value, String> {
-    let mut variables = json!({"from":format!("{year}-01-01T00:00:00Z"),"to":format!("{year}-12-31T23:59:59Z"),"commits":null,"issues":null,"pulls":null,"reviews":null,"readCommits":true,"readIssues":true,"readPulls":true,"readReviews":true});
+    let mut variables = json!({"from":format!("{year}-01-01T00:00:00Z"),"to":format!("{year}-12-31T23:59:59Z"),"commits":null,"issues":null,"pulls":null,"readCommits":true,"readIssues":true,"readPulls":true});
     let mut viewer = fetch(variables.clone())?;
     let mut daily = BTreeMap::<String, u64>::new();
     let mut totals = [0_u64; 4];
-    let mut expected = [None; 4];
-    let mut active = [true; 4];
-    let mut cursors: [HashSet<String>; 4] = std::array::from_fn(|_| HashSet::new());
+    let mut expected = [None; 3];
+    let mut active = [true; 3];
+    let mut cursors: [HashSet<String>; 3] = std::array::from_fn(|_| HashSet::new());
     loop {
         if viewer["login"].as_str() != Some(login) {
             return Err("GH_ACCOUNT_CHANGED".into());
@@ -118,13 +113,18 @@ pub fn read(
         if active.iter().all(|value| !value) {
             break;
         }
-        for (index, flag) in ["readCommits", "readIssues", "readPulls", "readReviews"]
+        for (index, flag) in ["readCommits", "readIssues", "readPulls"]
             .iter()
             .enumerate()
         {
             variables[flag] = active[index].into();
         }
         viewer = fetch(variables.clone())?;
+    }
+    let review_dates = crate::github_profile_reviews::read(repo, year, login, &mut fetch)?;
+    totals[3] = review_dates.len() as u64;
+    for date in review_dates {
+        *daily.entry(date).or_default() += 1;
     }
     let mut days = Vec::new();
     let leap = year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400));
@@ -187,6 +187,7 @@ pub fn read(
     for (index, (_, _, field)) in KINDS.iter().enumerate() {
         collection[field] = totals[index].into();
     }
+    collection["totalPullRequestReviewContributions"] = totals[3].into();
     viewer["repository"] = repo.into();
     viewer["contributionsCollection"] = collection;
     Ok(viewer)
@@ -204,7 +205,7 @@ mod tests {
             collection[kind] = json!([]);
             collection[count] = 0.into();
         }
-        json!({"login":"tester","contributionsCollection":collection})
+        json!({"login":"tester","contributionsCollection":collection,"viewer":{"login":"tester"},"repository":{"isFork":false},"search":{"issueCount":0,"nodes":[],"pageInfo":{"hasNextPage":false}}})
     }
     #[test]
     fn repository_projection_paginates_and_sums_only_matching_contributions_with_full_leap_year() {
@@ -235,6 +236,9 @@ mod tests {
         );
         let mut requests = 0;
         let result = read("owner/repo", 2024, "tester", |variables| {
+            if variables["query"].is_string() {
+                return Ok(viewer());
+            }
             requests += 1;
             if requests == 1 {
                 Ok(first.clone())
@@ -267,6 +271,38 @@ mod tests {
             107
         );
         assert_eq!(days[0]["weekday"], 1);
+    }
+    #[test]
+    fn reviewed_prs_feed_both_category_total_and_calendar() {
+        let mut source = viewer();
+        for (kind, count, total) in [
+            ("commits", "totalRepositoriesWithContributedCommits", 8),
+            ("issues", "totalRepositoriesWithContributedIssues", 3),
+            ("pulls", "totalRepositoriesWithContributedPullRequests", 23),
+        ] {
+            let nodes: Vec<Value> = (0..total)
+                .map(|_| json!({"occurredAt":"2024-10-01T00:00:00Z", "commitCount":1}))
+                .collect();
+            source["contributionsCollection"][kind] =
+                json!([group("o/r", nodes.into(), total, false, Value::Null)]);
+            source["contributionsCollection"][count] = 1.into();
+        }
+        let nodes: Vec<Value> = (1..=26).map(|number| json!({"number":number,"reviews":{"nodes":[{"submittedAt":"2024-10-02T00:00:00Z"}],"pageInfo":{"hasPreviousPage":false}}})).collect();
+        let result = read("o/r", 2024, "tester", |variables| {
+            if variables["query"].is_string() { Ok(json!({"viewer":{"login":"tester"},"repository":{"isFork":false},"search":{"issueCount":26,"nodes":nodes,"pageInfo":{"hasNextPage":false}}})) }
+            else { Ok(source.clone()) }
+        }).unwrap();
+        let collection = &result["contributionsCollection"];
+        assert_eq!(collection["totalPullRequestReviewContributions"], 26);
+        assert_eq!(collection["contributionCalendar"]["totalContributions"], 60);
+        let sum: u64 = collection["contributionCalendar"]["weeks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|week| week["contributionDays"].as_array().unwrap())
+            .map(|day| day["contributionCount"].as_u64().unwrap())
+            .sum();
+        assert_eq!(sum, 60);
     }
     #[test]
     fn absence_is_zero_only_for_complete_repository_lists() {

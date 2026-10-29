@@ -1,0 +1,29 @@
+query ProfileReviewPage(
+  $owner: String!
+  $name: String!
+  $number: Int!
+  $before: String
+  $login: String!
+) {
+  viewer {
+    login
+  }
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      reviews(
+        last: 100
+        before: $before
+        author: $login
+        states: [COMMENTED, APPROVED, CHANGES_REQUESTED, DISMISSED]
+      ) {
+        pageInfo {
+          hasPreviousPage
+          startCursor
+        }
+        nodes {
+          submittedAt
+        }
+      }
+    }
+  }
+}
