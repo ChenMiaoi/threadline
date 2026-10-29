@@ -15,8 +15,18 @@ export function Modal({
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = ref.current!;
+    const trigger = document.activeElement;
     dialog.showModal();
-    return () => dialog.close();
+    return () => {
+      dialog.close();
+      if (
+        trigger instanceof HTMLElement &&
+        trigger.isConnected &&
+        !trigger.matches(':disabled') &&
+        !trigger.closest('[inert]')
+      )
+        trigger.focus();
+    };
   }, []);
   return (
     <dialog
