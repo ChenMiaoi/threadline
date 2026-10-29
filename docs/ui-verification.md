@@ -1,5 +1,17 @@
 # UI Verification
 
+## Repository Profile Native Check
+
+On October 29, 2026, the repository-scoped macOS build (executable SHA-256 `50fe36afc7931d4665eb33cf0dba6da46ef6eb640cb8c9f6b7358f766080d022`) restored the account and `llvm/llvm-project`. At a measured 900 × 680 web area, the real GitHub avatar and green contribution calendar appeared in both Dark and Light. The 2026 profile showed 51 contributions: eight commits, three Issues, 23 pull requests, and 17 reviews. Switching to 2025 showed zero, switching back restored 2026, and refresh completed with a new read time. With the calendar focused, Right moved the selected date from January 1 to January 8. The final calendar columns initially extended beyond the visible width at 900 pixels. After the layout fix, the rebuilt native app (SHA-256 `94df975df27a2d5b0cbe040d0a697ebf3ff061a239517dbfbf8fad011acc91e1`) displayed all January–December columns at 900 × 680, and End selected and visibly outlined December 31. Dark and the original 1100 × 741 outer window size were restored.
+
+The displayed total covers the four contribution categories in the selected repository, with dates in UTC and the latest review contribution per reviewed pull request, following [GitHub's contribution collection semantics](https://docs.github.com/en/graphql/reference/users#contributionscollection). It is not the account-wide GitHub total. The live repository data fit on one page; multi-page behavior was covered by a mocked 101-event regression. Cross-repository switching, deliberate network failure, and Windows native rendering were not exercised in this pass.
+
+The final `npm run check` passed lint, formatting, type checks, 216 frontend tests across 37 suites, 49 Rust tests, and configured frontend and desktop build checks. A regression test also covers preservation of nested HTML inside code. The final packaged executable SHA-256 was `5c06e5b4ee18ae31cb3fc54edfc1f7da670d152d1dc8fb7a1ce9dd8f5a53e6d8`. It was relaunched, but ScreenCaptureKit returned `-3811` before the final visual smoke check; the native profile observations above refer to the preceding builds as identified.
+
+## Syntax Highlighting Native Check
+
+On October 29, 2026, the rebuilt macOS app with executable SHA-256 `eda66cee9d03f2564cf25ee1e94ee77ba60dcc14542f1054b2e170ced41914c0` was opened by its full bundle path. In live LLVM PR #229328, the explicitly tagged C++ Markdown example displayed distinct syntax colors in both Dark and Light. The expanded `clang/test/SemaTemplate/ext-vector-type.cpp` patch displayed syntax colors alongside added and removed line backgrounds in both themes. At a measured 900 × 680 web area, enabling automatic wrapping visibly wrapped a long added line; with wrapping disabled the line extended beyond the visible patch width. The original Dark theme was restored. Untagged and unknown-language fallback were not exercised in native UI during this pass.
+
 ## October 29 Review Pass
 
 The native ThreadLine process was running, but Computer Use could not bind to it: ScreenCaptureKit returned `-3811` (audio/video capture failure), both initially and after resetting the Computer Use session. This initial attempt therefore does not establish native behavior. A local development preview on `127.0.0.1:1420` provided supplemental browser observations using the existing read-only account and `llvm/llvm-project`.
