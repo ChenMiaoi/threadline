@@ -10,6 +10,18 @@ A Terra xhigh native pass against the rebuilt app confirmed green open-PR icons 
 
 The user navigated to PR #234704 during the pass, so the agent stopped switching pages and left that detail open. Multi-display capture distortion limited visual inspection of the gray draft glyph. Purple merged/red closed author-list glyphs, the originally requested detail cases, light theme, and hover tooltips were not visually verified in this native pass. The code and automated tests cover the four lifecycle mappings; these limits are not represented as full native coverage.
 
+### Follow-up: All Remaining Lifecycle Colors Verified
+
+At the user's explicit request, the GPT-6.1 Terra xhigh subagent completed the three outstanding color checks against real LLVM PRs in the native desktop app's current dark theme. Each result was visually confirmed in a readable screenshot and cross-checked with its text badge and accessible name:
+
+| PR      | Lifecycle              | Visible icon                                                   |
+| ------- | ---------------------- | -------------------------------------------------------------- |
+| #236597 | Draft                  | Gray dashed branch; accessible name **草稿 PR**                |
+| #229010 | Merged                 | Purple joining branches; accessible name **已合并的 PR**       |
+| #230895 | Closed without merging | Red branch with a cross; accessible name **已关闭未合并的 PR** |
+
+Initial multi-display capture distortion was resolved using the native window menu to temporarily move the app to the built-in Retina display. The window was then returned to its original external display without changing its size or system permissions. The final app state remained signed in to LLVM, on the authored unfinished list, with search cleared, no selected row, and preview closed. This completes the previously missing dark-theme color/shape checks. Light theme and hover tooltips were not tested. No source changes were needed, so code tests were not rerun for this documentation-only follow-up.
+
 ## Remove the Status Explanation Panel
 
 The visible **状态说明** section was removed from the authored list, review list, and PR detail page at the user's request. Labeled status badges, badge hover descriptions, next-action text, and status classification are retained. The unused legend component and styles were deleted. Historical verification below describes the earlier interface. `npm run check` passed (123 frontend tests, 39 Rust tests, lint/format/types and configured builds). A Terra xhigh native check of the rebuilt app confirmed the control was absent on all three pages, with readable badges/actions and no obvious leftover gaps or overlap. The app was returned to the authored LLVM list with preview closed.
