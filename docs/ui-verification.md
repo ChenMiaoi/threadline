@@ -1,5 +1,15 @@
 # UI Verification
 
+## Lifecycle Icons and Explicit Reviewer Requests
+
+The authored-list letter avatars were replaced by text for active GitHub review requests. Empty requests no longer create a dash/avatar placeholder, recent review authors are not used as fallback assignees, and completed PRs do not display pending-reviewer metadata. Lifecycle icons are shared across authored rows, review rows, and detail headings: green/open, gray/dashed draft, purple/merged, and red/crossed closed without merge. They use inline vector strokes with theme-aware colors and accessible names; lifecycle badge colors match.
+
+`npm run check` passed with 125 frontend tests, 39 Rust tests, lint/format/types, and configured builds. New regressions verify that historical reviewers are not presented as pending requests and that icon names distinguish all four lifecycle states, with terminal states taking precedence over stale draft flags.
+
+A Terra xhigh native pass against the rebuilt app confirmed green open-PR icons in authored/review rows and a detail heading, with accessible lifecycle names and no title obstruction. The authored list no longer had right-hand letters/dash placeholders; real requests such as #229328 (`vgvassilev`) and #228990 (`hubert-reinterpretcast`) appeared as text after the next action. Draft #236597 exposed the accessible name **草稿 PR**; review rows exposed open and merged icon names.
+
+The user navigated to PR #234704 during the pass, so the agent stopped switching pages and left that detail open. Multi-display capture distortion limited visual inspection of the gray draft glyph. Purple merged/red closed author-list glyphs, the originally requested detail cases, light theme, and hover tooltips were not visually verified in this native pass. The code and automated tests cover the four lifecycle mappings; these limits are not represented as full native coverage.
+
 ## Remove the Status Explanation Panel
 
 The visible **状态说明** section was removed from the authored list, review list, and PR detail page at the user's request. Labeled status badges, badge hover descriptions, next-action text, and status classification are retained. The unused legend component and styles were deleted. Historical verification below describes the earlier interface. `npm run check` passed (123 frontend tests, 39 Rust tests, lint/format/types and configured builds). A Terra xhigh native check of the rebuilt app confirmed the control was absent on all three pages, with readable badges/actions and no obvious leftover gaps or overlap. The app was returned to the authored LLVM list with preview closed.
