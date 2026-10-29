@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { ActivityPage, ActivityRecord } from './ActivityPage';
 import { demoActivities } from '../../test/activities.fixture';
+import { describePull } from '../../core/pull-status';
 import { issueFromGitHub } from '../../core/github';
 import { record, repo, user } from '../../test/github.fixture';
 afterEach(cleanup);
@@ -141,4 +142,19 @@ it('marks all loaded unread inbox entries even while search hides them', () => {
   });
   fireEvent.click(screen.getByRole('button', { name: '全部标为已读' }));
   expect(onReadAll).toHaveBeenCalledWith(items.slice(2).map((item) => item.id));
+});
+
+it('omits comment previews in review rows while preserving inbox updates', () => {
+  const record = {
+    ...demoActivities.review[0],
+    pullStatus: describePull({ state: 'OPEN' }),
+    summary: 'Action summary',
+    detail: 'Welcome bot message',
+  };
+  const props = { record, onOpen: vi.fn() };
+  const { rerender } = render(<ActivityRecord {...props} />);
+  expect(screen.queryByText('Welcome bot message')).toBeNull();
+  expect(screen.queryByText('Action summary')).toBeNull();
+  rerender(<ActivityRecord {...props} showKind />);
+  expect(screen.getByText('Welcome bot message')).toBeTruthy();
 });

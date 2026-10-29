@@ -95,19 +95,13 @@ export function ActivityRecord({
           {record.pullStatus && !showKind && (
             <PullStatusBadges status={record.pullStatus} personal={record.personalReview} compact />
           )}
-          <span className="record-summary">
-            {record.pullStatus && !showKind
-              ? ['discussion', 'finished', 'draft'].includes(record.category)
-                ? record.detail
-                : t(record.summary)
-              : record.summary}
-          </span>
-          {(!record.pullStatus ||
-            showKind ||
-            !['discussion', 'finished', 'draft'].includes(record.category)) && (
-            <span className="record-detail" title={t(record.detail)}>
-              {t(record.detail)}
-            </span>
+          {(!record.pullStatus || showKind) && (
+            <>
+              <span className="record-summary">{record.summary}</span>
+              <span className="record-detail" title={t(record.detail)}>
+                {t(record.detail)}
+              </span>
+            </>
           )}
         </span>
         <span className="record-status">

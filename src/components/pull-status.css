@@ -36,29 +36,23 @@
 .status-merged {
   color: var(--merged);
 }
+.status-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin-right: 4px;
+}
 .status-compact .status-badge {
-  color: var(--dim);
-  background: transparent;
-  padding: 0;
   font-size: 11px;
+  padding: 1px 5px;
 }
-.status-compact .status-primary {
-  color: var(--text);
-}
-.status-compact .status-primary.status-warning {
-  color: var(--yellow);
-}
-.status-compact .status-primary.status-danger {
-  color: var(--danger);
-}
-.status-compact .status-primary.status-merged {
-  color: var(--merged);
-}
-.status-compact .status-primary.status-success {
-  color: var(--green);
-}
-.status-compact .status-primary.status-info {
-  color: var(--blue);
+.status-compact .status-dimension {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .pull-next-action {
   color: var(--muted);
