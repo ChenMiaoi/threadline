@@ -71,6 +71,8 @@ GitHub's Notifications REST API does not accept GitHub App user or installation 
 
 The interface includes authored pull requests, review participation, issues, pull request details, settings, onboarding, snoozed items, and synchronization error states. Search, filters, record previews, local read markers, themes, density changes, and snooze scheduling are interactive.
 
+The authored list starts without a selected PR or permanent preview. Single-click a row to open **PR 预览** using its already-synchronized summary; close it with its close button or Escape. The panel toggle can reopen the explicitly selected PR. Changing search, state, or attention filters clears the selection instead of previewing an unrelated first match. Wide windows (at least 1400 CSS pixels) use an inline right column; smaller windows use a closable floating panel. Double-click, Enter, or **打开完整详情** opens full details.
+
 PR state labels use separate dimensions rather than one combined status:
 
 | Dimension        | Meaning                                                                                                                                                                                                                                               |

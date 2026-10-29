@@ -1,5 +1,19 @@
 # UI Verification
 
+## On-demand PR Preview
+
+The authored list no longer automatically selects its first item or permanently displays a bottom "latest activity" area. A row click explicitly opens **PR 预览**, labeled as the last synchronized description/comment summary. Search, state, and attention-filter changes clear that selection. Closing or Escape restores row focus, and the panel toggle can reopen the selected record. Full details remain available by double-click, Enter, and the preview's explicit detail button.
+
+At 1400 CSS pixels and above, the list and a 320-pixel preview share a grid; below that width, the modeless preview floats on the right and does not reserve list space. The preview can scroll, and its header/close control stays available. The panel reads existing list data without adding a backend request.
+
+`npm run check` passed: 123 frontend tests, 39 Rust tests, lint, format, types, and frontend/native builds. Updated behavior tests cover no initial preview, no unrelated automatic selection after filtering, Escape/close/focus restoration, toolbar reopen, and all detail entry paths. App-level tests continue to cover read-marker consistency and preserved list search/scroll on returning from details.
+
+A GPT-6.1 Terra xhigh subagent verified the rebuilt macOS app. On initial entry there was no selected row or preview, and the preview toggle was disabled. Selecting PR #229328 opened a titled summary with its synchronization-source note; selecting #228749 changed the displayed record. Escape and the close control restored row focus, and the toolbar reopened the same selected PR.
+
+Search, lifecycle tabs, and the attention filter all cleared selection and hid the preview. Double-click, focused-row Enter, and the preview's detail button opened full details; returning preserved the corresponding selection and preview visibility. In the normal window (approximately 1100 CSS pixels wide), the floating panel's title, close control, summary, and actions were visible without overflow. The native Window → Zoom action reached the wide layout: the panel occupied its own right column, the left rows/statuses remained readable, and closing the panel restored the list width.
+
+The window was restored to its original size, the attention filter was cleared, and the app was left signed in to LLVM with an unselected authored list and hidden preview. Existing summaries were too short to exercise independent panel scrolling or sticky header behavior, so those CSS paths were not claimed as natively verified. The no-additional-request property is established by the component's use of existing props, not inferred from Computer Use observations. The rebuilt DMG checksum and packaged/native executable match were verified.
+
 ## Distinct PR Status Dimensions
 
 The next UI iteration separated lifecycle, aggregate review decision, current-HEAD checks, and GitHub merge conditions into labeled text badges. Review participation adds a separate personal-review badge with current/older/unknown revision context. A next-action sentence and expandable status explanations make the dimensions readable without relying on colors or tooltips alone.
