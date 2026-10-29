@@ -87,19 +87,34 @@ function ids(value: unknown, limit = 2000): string[] {
     : [];
 }
 
-export function workspaceInbox(records: Activity[], data: WorkspaceData, scope: string) {
+export function workspaceInbox(
+  records: Activity[],
+  data: Pick<WorkspaceData, 'restored' | 'snoozeRecords'>,
+  scope: string,
+) {
+  const currentThreads = new Set(records.map((record) => `${record.kind}:${record.number}`));
   const restored = data.restored
     .map((id) => data.snoozeRecords[id])
     .filter((record): record is Activity =>
       Boolean(
         record &&
         record.id.startsWith(scope) &&
-        !records.some(
-          (current) => current.kind === record.kind && current.number === record.number,
-        ),
+        !currentThreads.has(`${record.kind}:${record.number}`),
       ),
     );
   return [...records, ...restored];
+}
+
+export function inboxReadIds(
+  records: readonly Activity[],
+  read: readonly string[],
+  unread: readonly string[],
+) {
+  const ids = new Set(read);
+  const explicitUnread = new Set(unread);
+  for (const record of records)
+    if (record.serverRead && !explicitUnread.has(record.id)) ids.add(record.id);
+  return ids;
 }
 
 export function normalizeWorkspace(value: unknown, now: number): WorkspaceData {

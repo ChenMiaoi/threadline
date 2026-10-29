@@ -1,8 +1,70 @@
 import { describe, expect, it } from 'vitest';
 import { demoActivities } from '../../test/activities.fixture';
-import { filterActivities, groupActivities } from './model';
+import { activityCounts, filterActivities, groupActivities } from './model';
 
 describe('activity filters', () => {
+  it('counts overlapping filters while excluding snoozes and accepts prebuilt membership sets', () => {
+    const records = [
+      {
+        ...demoActivities.inbox[0],
+        id: 'one',
+        kind: 'pull' as const,
+        state: 'open' as const,
+        category: 'requested',
+        mentioned: true,
+      },
+      {
+        ...demoActivities.inbox[0],
+        id: 'two',
+        kind: 'issue' as const,
+        state: 'closed' as const,
+        category: 'authored',
+        mentioned: true,
+      },
+      {
+        ...demoActivities.inbox[0],
+        id: 'three',
+        kind: 'issue' as const,
+        state: 'open' as const,
+        category: 'participated',
+      },
+    ];
+    const filters = [
+      'all',
+      'unread',
+      'pull',
+      'issue',
+      'mentions',
+      'open',
+      'closed',
+      'requested',
+      'authored',
+      'participated',
+      'missing',
+    ];
+    const read = new Set(['one', 'one']);
+    const snoozed = new Set(['two']);
+    expect(activityCounts(records, filters, read, snoozed)).toEqual({
+      all: 2,
+      unread: 1,
+      pull: 1,
+      issue: 1,
+      mentions: 1,
+      open: 2,
+      closed: 0,
+      requested: 1,
+      authored: 0,
+      participated: 1,
+      missing: 0,
+    });
+    for (const filter of filters)
+      expect(filterActivities(records, filter, ' ', read, snoozed)).toEqual(
+        filterActivities(records, filter, '', [...read], [...snoozed]),
+      );
+    expect(filterActivities(records, 'unread', '', read, snoozed).map(({ id }) => id)).toEqual([
+      'three',
+    ]);
+  });
   it('keeps review updates ahead of discussion-only groups without reordering their rows', () => {
     const records = [...demoActivities.review].reverse();
     const grouped = groupActivities(records);

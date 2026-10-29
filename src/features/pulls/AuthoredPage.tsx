@@ -3,7 +3,13 @@ import { PageHeader } from '../../components/PageHeader';
 import { PullLifecycleIcon } from '../../components/PullLifecycleIcon';
 import { PullStatusBadges } from '../../components/PullStatusBadges';
 import { Icon, IconButton } from '../../components/Icon';
-import { filterPullRequests, groupPullRequests, type PullRequest, type PullState } from './model';
+import {
+  filterPullRequests,
+  groupPullRequests,
+  pullStateCounts,
+  type PullRequest,
+  type PullState,
+} from './model';
 
 export function AuthoredPage({
   onOpen,
@@ -28,6 +34,8 @@ export function AuthoredPage({
     [pulls, state, query, attentionOnly],
   );
   const groups = useMemo(() => groupPullRequests(rows), [rows]);
+  const counts = useMemo(() => pullStateCounts(pulls), [pulls]);
+  const readIds = useMemo(() => new Set(read), [read]);
 
   const selected = rows.find((p) => p.number === selectedNumber);
   const previewVisible = panelVisible && Boolean(selected);
@@ -98,7 +106,7 @@ export function AuthoredPage({
             }}
           >
             {label}
-            <span>{pulls.filter((p) => p.state === id).length}</span>
+            <span>{counts[id]}</span>
           </button>
         ))}
       </div>
@@ -216,10 +224,10 @@ export function AuthoredPage({
               <button
                 className="text-button"
                 onClick={() => onRead(selected.id ?? '')}
-                disabled={read.includes(selected.id ?? '')}
+                disabled={readIds.has(selected.id ?? '')}
               >
                 <Icon name="mark-read" />
-                {read.includes(selected.id ?? '') ? '已读' : '标记已读'}
+                {readIds.has(selected.id ?? '') ? '已读' : '标记已读'}
               </button>
             </div>
           </aside>

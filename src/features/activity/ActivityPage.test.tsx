@@ -2,10 +2,38 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { ActivityPage, ActivityRecord } from './ActivityPage';
+import { demoActivities } from '../../test/activities.fixture';
 import { issueFromGitHub } from '../../core/github';
 import { record, repo, user } from '../../test/github.fixture';
 afterEach(cleanup);
 describe('activity empty-state recovery', () => {
+  it('keeps tab totals independent of search and refreshes them with read and snooze changes', () => {
+    const props = {
+      view: 'inbox' as const,
+      items: demoActivities.inbox,
+      repo,
+      read: [],
+      snoozed: [],
+      onRead: vi.fn(),
+      onSnooze: vi.fn(),
+      onOpen: vi.fn(),
+    };
+    const { rerender } = render(<ActivityPage {...props} />);
+    expect(screen.getByRole('tab', { name: '未读 4' })).toBeTruthy();
+    fireEvent.change(screen.getByRole('textbox', { name: '搜索协作记录' }), {
+      target: { value: 'no matching record' },
+    });
+    expect(screen.getByRole('tab', { name: '未读 4' })).toBeTruthy();
+    rerender(<ActivityPage {...props} read={[props.items[0].id]} snoozed={[props.items[1].id]} />);
+    expect(screen.getByRole('tab', { name: '未读 2' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: '当前筛选下没有未读更新' })).toBeTruthy();
+    fireEvent.change(screen.getByRole('textbox', { name: '搜索协作记录' }), {
+      target: { value: '' },
+    });
+    expect(screen.getAllByRole('button', { name: /标记已读/ })).toHaveLength(2);
+    fireEvent.click(screen.getByRole('tab', { name: '全部' }));
+    expect(screen.getByRole('button', { name: '标记未读' })).toBeTruthy();
+  });
   it('clears search and labels when requesting all records', () => {
     const items = [
       issueFromGitHub(

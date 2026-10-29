@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   defaultWorkspace,
+  inboxReadIds,
   MAX_INBOX_REVISIONS,
   nextMorning,
   normalizeWorkspace,
@@ -27,6 +28,21 @@ describe('local workspace data', () => {
     expect(workspaceInbox([], data, `github:999:${repo}:`)).toEqual([]);
     expect(workspaceInbox([record], data, `github:${user.id}:${repo}:`)).toHaveLength(1);
     expect(data.unread).toContain(record.id);
+  });
+  it('merges local and server read markers while respecting explicit unread overrides', () => {
+    const record = notificationFromGitHub(notifications[0], user.id);
+    const records = [
+      { ...record, id: 'local', serverRead: false },
+      { ...record, id: 'server', serverRead: true },
+      { ...record, id: 'override', serverRead: true },
+      { ...record, id: 'both', serverRead: true },
+      { ...record, id: 'unknown', serverRead: false },
+    ];
+    expect([...inboxReadIds(records, ['local', 'both', 'both'], ['override', 'both'])]).toEqual([
+      'local',
+      'both',
+      'server',
+    ]);
   });
   it('validates persisted preferences without accepting unsupported values', () => {
     const data = normalizeWorkspace(

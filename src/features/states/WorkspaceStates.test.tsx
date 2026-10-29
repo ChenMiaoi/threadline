@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { SnoozeDialog } from './WorkspaceStates';
-import { nextMorning } from '../../core/workspace';
+import { demoActivities } from '../../test/activities.fixture';
+import { SnoozedPage, SnoozeDialog } from './WorkspaceStates';
+import { defaultWorkspace, nextMorning } from '../../core/workspace';
 const now = new Date(2026, 9, 29, 15).getTime();
 beforeEach(() => {
   vi.spyOn(Date, 'now').mockReturnValue(now);
@@ -46,5 +47,64 @@ describe('snooze deadlines', () => {
     fireEvent.click(screen.getByRole('radio', { name: label }));
     fireEvent.click(screen.getByRole('button', { name: '保存时间' }));
     expect(confirm).toHaveBeenCalledExactlyOnceWith(deadline);
+  });
+});
+
+describe('snoozed activity lookup and selection', () => {
+  it('uses the first live revision before saved fallback and keeps deadline order and recovery selection', () => {
+    const first = {
+      ...demoActivities.inbox[0],
+      id: 'first',
+      number: 1,
+      title: 'Live first revision',
+    };
+    const laterDuplicate = { ...first, title: 'Duplicate must not win' };
+    const saved = { ...demoActivities.inbox[1], id: 'saved', number: 2, title: 'Saved fallback' };
+    const restored = {
+      ...demoActivities.inbox[2],
+      id: 'restored',
+      number: 3,
+      title: 'Restored record',
+    };
+    const data = {
+      ...defaultWorkspace(),
+      snoozed: { saved: now + 7200000, first: now + 3600000, missing: now + 1 },
+      snoozeRecords: { first: { ...first, title: 'Outdated saved revision' }, saved, restored },
+      restored: ['restored'],
+    };
+    const props = {
+      data,
+      records: [first, laterDuplicate],
+      onRestore: vi.fn(),
+      onAdjust: vi.fn(),
+      onOpen: vi.fn(),
+    };
+    const { rerender } = render(<SnoozedPage {...props} />);
+    expect(screen.getByRole('button', { name: '已稍后处理 2' })).toBeTruthy();
+    expect(screen.queryByText('Duplicate must not win', { exact: false })).toBeNull();
+    expect(screen.queryByText('Outdated saved revision', { exact: false })).toBeNull();
+    expect(
+      screen.getAllByRole('checkbox').map((checkbox) => checkbox.getAttribute('aria-label')),
+    ).toEqual(['选择 #1', '选择 #2']);
+    fireEvent.click(screen.getByRole('button', { name: /#1/ }));
+    expect(props.onOpen).toHaveBeenCalledWith(expect.objectContaining({ title: first.title }));
+    fireEvent.click(screen.getByRole('checkbox', { name: '选择 #1' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: '选择 #2' }));
+    fireEvent.click(screen.getByRole('button', { name: '调整时间' }));
+    expect(props.onAdjust).toHaveBeenCalledWith(['first', 'saved']);
+    rerender(<SnoozedPage {...props} data={{ ...data, snoozed: { saved: now + 7200000 } }} />);
+    fireEvent.click(screen.getByRole('button', { name: '恢复选中条目' }));
+    expect(props.onRestore).toHaveBeenCalledWith(['saved']);
+    expect(
+      (screen.getByRole('button', { name: '恢复选中条目' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: '最近恢复' }));
+    expect(screen.getByRole('button', { name: /#3/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '恢复选中条目' })).toBeNull();
+    fireEvent.click(screen.getByRole('checkbox', { name: '选择 #3' }));
+    fireEvent.click(screen.getByRole('button', { name: '已稍后处理 1' }));
+    expect((screen.getByRole('checkbox', { name: '选择 #2' }) as HTMLInputElement).checked).toBe(
+      false,
+    );
   });
 });

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { isDesktop, loadAppState, saveLastView, type AppState, type View } from './lib/desktop';
 import { browserWorkspaceRepository, desktopWorkspaceRepository } from './lib/workspace-storage';
 import { useWorkspace } from './lib/useWorkspace';
-import { restoreSnoozes, workspaceInbox, type Preferences } from './core/workspace';
+import { inboxReadIds, restoreSnoozes, workspaceInbox, type Preferences } from './core/workspace';
 import { WorkspaceShell } from './components/WorkspaceShell';
 import { AuthoredPage } from './features/pulls/AuthoredPage';
 import { PullDetailPage } from './features/pulls/PullDetailPage';
@@ -58,20 +58,23 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   }, [openedPull]);
   const completedLogin = useRef(false);
   const writeQueue = useRef(Promise.resolve());
-  const inbox = workspaceInbox(
-    github.inbox,
-    data,
-    `github:${github.session?.user.id}:${github.repo}:`,
+  const { restored, snoozeRecords } = data;
+  const inbox = useMemo(
+    () =>
+      workspaceInbox(
+        github.inbox,
+        { restored, snoozeRecords },
+        `github:${github.session?.user.id}:${github.repo}:`,
+      ),
+    [github.inbox, github.session?.user.id, github.repo, restored, snoozeRecords],
   );
   const notices = useInboxNotifications(github, inbox, workspace);
-  const effectiveRead = [
-    ...new Set([
-      ...data.read,
-      ...inbox
-        .filter((record) => record.serverRead && !data.unread.includes(record.id))
-        .map((record) => record.id),
-    ]),
-  ];
+  const effectiveReadIds = useMemo(
+    () => inboxReadIds(inbox, data.read, data.unread),
+    [inbox, data.read, data.unread],
+  );
+  const effectiveRead = useMemo(() => [...effectiveReadIds], [effectiveReadIds]);
+  const snoozedIds = useMemo(() => Object.keys(data.snoozed), [data.snoozed]);
   function chooseRepository() {
     if (!github.session) {
       navigate('onboarding');
@@ -152,7 +155,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
             .map((record) => record.id)
         : []),
     ];
-    const isRead = effectiveRead.includes(id);
+    const isRead = effectiveReadIds.has(id);
     update((current) => ({
       ...current,
       read: isRead
@@ -164,7 +167,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
     }));
   }
   function openActivity(record: Activity) {
-    if (!effectiveRead.includes(record.id))
+    if (!effectiveReadIds.has(record.id))
       update((current) => ({
         ...current,
         read: [
@@ -213,10 +216,15 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   const light =
     data.preferences.theme === 'light' || (data.preferences.theme === 'system' && systemLight);
   const busy = loading || !workspace.loaded;
-  const unread = inbox.filter(
-    (item) => !effectiveRead.includes(item.id) && !(item.id in data.snoozed),
-  ).length;
-  const records = [...inbox, ...github.review, ...github.issues];
+  const unread = useMemo(
+    () =>
+      inbox.filter((item) => !effectiveReadIds.has(item.id) && !(item.id in data.snoozed)).length,
+    [inbox, effectiveReadIds, data.snoozed],
+  );
+  const records = useMemo(
+    () => [...inbox, ...github.review, ...github.issues],
+    [inbox, github.review, github.issues],
+  );
   const currentPage =
     view === 'authored' || view === 'inbox' || view === 'review' || view === 'issues' ? view : null;
   const syncError = currentPage
@@ -384,7 +392,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                     view === 'review' ? github.review : view === 'issues' ? github.issues : inbox
                   }
                   read={effectiveRead}
-                  snoozed={Object.keys(data.snoozed)}
+                  snoozed={snoozedIds}
                   onRead={toggleRead}
                   onSnooze={(id) => setSnoozeIds([id])}
                   onOpen={openActivity}
@@ -416,7 +424,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
           gateway={github.gateway}
           onClose={() => setRecordPreview(null)}
           onRead={() => toggleRead(recordPreview.id)}
-          isRead={effectiveRead.includes(recordPreview.id)}
+          isRead={effectiveReadIds.has(recordPreview.id)}
           onSnooze={() => {
             setSnoozeIds([recordPreview.id]);
             setRecordPreview(null);

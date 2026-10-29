@@ -14,6 +14,28 @@ function mount() {
   render(<AuthoredPage pulls={pulls} repo={repo} onOpen={vi.fn()} read={[]} onRead={vi.fn()} />);
 }
 describe('authored selection and filtering', () => {
+  it('preserves state totals through search and updates totals and read state when props change', () => {
+    const props = { pulls, repo, onOpen: vi.fn(), read: [], onRead: vi.fn() };
+    const { rerender } = render(<AuthoredPage {...props} />);
+    fireEvent.change(screen.getByRole('textbox', { name: '搜索 PR' }), {
+      target: { value: '1042' },
+    });
+    expect(screen.getByRole('tab', { name: /未结束\s*2/ })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: /已合并\s*1/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /#1042/ }));
+    fireEvent.click(screen.getByRole('button', { name: '标记已读' }));
+    expect(props.onRead).toHaveBeenCalledWith(pulls[0].id);
+    rerender(
+      <AuthoredPage
+        {...props}
+        pulls={[pulls[0], { ...pulls[1], state: 'closed' }, pulls[2]]}
+        read={[pulls[0].id!]}
+      />,
+    );
+    expect(screen.getByRole('tab', { name: /未结束\s*1/ })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: /已关闭（未合并）\s*1/ })).toBeTruthy();
+    expect((screen.getByRole('button', { name: '已读' }) as HTMLButtonElement).disabled).toBe(true);
+  });
   it('keeps actionable groups first without selecting or previewing a PR by default', () => {
     render(
       <AuthoredPage

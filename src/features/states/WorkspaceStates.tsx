@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { snoozeActivityIndex } from './snoozed-model';
 import { ActivityRecord } from '../activity/ActivityPage';
 import type { Activity } from '../activity/model';
 import { nextMorning, type WorkspaceData } from '../../core/workspace';
@@ -41,18 +42,38 @@ export function SnoozedPage({
 }) {
   const [recent, setRecent] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
-  const ids = recent
-    ? data.restored
-    : Object.keys(data.snoozed).sort((a, b) => data.snoozed[a] - data.snoozed[b]);
-  const rows = ids
-    .map((id) => {
-      const record = records.find((record) => record.id === id) ?? data.snoozeRecords[id];
+  const recordIndex = useMemo(
+    () => snoozeActivityIndex(records, data.snoozeRecords),
+    [records, data.snoozeRecords],
+  );
+  const ids = useMemo(
+    () =>
+      recent
+        ? data.restored
+        : Object.keys(data.snoozed).sort((a, b) => data.snoozed[a] - data.snoozed[b]),
+    [recent, data.restored, data.snoozed],
+  );
+  const visibleIds = useMemo(() => new Set(ids), [ids]);
+  const resolved = useMemo(
+    () => ids.map((id) => ({ id, record: recordIndex.get(id) })),
+    [ids, recordIndex],
+  );
+  const rows = resolved
+    .map(({ id, record }) => {
       if (!record) return undefined;
       const deadline = recent ? { day: '已恢复', time: '' } : formatDeadline(data.snoozed[id]);
       return { ...record, status: deadline.day, updated: deadline.time };
     })
     .filter((record): record is Activity => Boolean(record));
-  const selection = selected.filter((id) => ids.includes(id));
+  const selection = useMemo(
+    () => selected.filter((id) => visibleIds.has(id)),
+    [selected, visibleIds],
+  );
+  const selectionIds = useMemo(() => new Set(selection), [selection]);
+  const snoozedCount = useMemo(
+    () => Object.keys(data.snoozed).filter((id) => recordIndex.has(id)).length,
+    [data.snoozed, recordIndex],
+  );
   return (
     <>
       <StateLocation title="稍后处理" />
@@ -65,12 +86,7 @@ export function SnoozedPage({
               setSelected([]);
             }}
           >
-            已稍后处理{' '}
-            {
-              Object.keys(data.snoozed).filter(
-                (id) => records.some((r) => r.id === id) || data.snoozeRecords[id],
-              ).length
-            }
+            已稍后处理 {snoozedCount}
           </button>
           <button
             className={`chip ${recent ? 'active' : ''}`}
@@ -90,7 +106,7 @@ export function SnoozedPage({
                 <input
                   type="checkbox"
                   aria-label={`选择 #${record.number}`}
-                  checked={selection.includes(record.id)}
+                  checked={selectionIds.has(record.id)}
                   onChange={() =>
                     setSelected((current) =>
                       current.includes(record.id)
@@ -103,7 +119,7 @@ export function SnoozedPage({
               <ActivityRecord
                 record={record}
                 showKind
-                selected={selection.includes(record.id)}
+                selected={selectionIds.has(record.id)}
                 onOpen={onOpen}
               />
             </div>

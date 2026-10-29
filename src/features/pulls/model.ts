@@ -30,15 +30,26 @@ export function filterPullRequests(
     (pull) =>
       pull.state === state &&
       (!attentionOnly || (pull.presentation?.needsAuthorAction ?? pull.group === '需要我的处理')) &&
-      `${pull.number} ${pull.title} ${pull.status} ${pull.presentation?.review.label ?? ''} ${pull.presentation?.merge.label ?? ''} ${pull.presentation?.checks.label ?? ''} ${pull.presentation?.nextAction ?? ''}`
-        .toLowerCase()
-        .includes(normalized),
+      (!normalized ||
+        `${pull.number} ${pull.title} ${pull.status} ${pull.presentation?.review.label ?? ''} ${pull.presentation?.merge.label ?? ''} ${pull.presentation?.checks.label ?? ''} ${pull.presentation?.nextAction ?? ''}`
+          .toLowerCase()
+          .includes(normalized)),
   );
+}
+
+export function pullStateCounts(pulls: readonly PullRequest[]) {
+  const counts = { open: 0, merged: 0, closed: 0 };
+  for (const pull of pulls) counts[pull.state]++;
+  return counts;
 }
 
 export function groupPullRequests(pulls: readonly PullRequest[]) {
   const groups = new Map<string, PullRequest[]>();
-  for (const pull of pulls) groups.set(pull.group, [...(groups.get(pull.group) ?? []), pull]);
+  for (const pull of pulls) {
+    const group = groups.get(pull.group);
+    if (group) group.push(pull);
+    else groups.set(pull.group, [pull]);
+  }
   const order = [
     '需要我的处理',
     '合并条件未满足',

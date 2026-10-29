@@ -1,8 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { demoPulls } from '../../test/pulls.fixture';
-import { filterPullRequests, groupPullRequests } from './model';
+import { filterPullRequests, groupPullRequests, pullStateCounts } from './model';
 
 describe('pull request views', () => {
+  it('counts every state independently of search and keeps stable rows in tied groups', () => {
+    const pulls = [
+      { ...demoPulls[0], state: 'closed' as const, group: 'Other' },
+      { ...demoPulls[1], state: 'merged' as const, group: 'Another' },
+      { ...demoPulls[2], state: 'open' as const, group: 'Other' },
+      { ...demoPulls[3], state: 'open' as const, group: '需要我的处理' },
+    ];
+    expect(pullStateCounts(pulls)).toEqual({ open: 2, merged: 1, closed: 1 });
+    expect(pullStateCounts([])).toEqual({ open: 0, merged: 0, closed: 0 });
+    expect(groupPullRequests(pulls)).toEqual([
+      ['需要我的处理', [pulls[3]]],
+      ['Other', [pulls[0], pulls[2]]],
+      ['Another', [pulls[1]]],
+    ]);
+    expect(filterPullRequests(pulls, 'open', ' # ')).toEqual([pulls[2], pulls[3]]);
+    expect(pulls[0].state).toBe('closed');
+  });
   it('keeps actionable groups ahead of more recent waiting and draft groups', () => {
     const reversed = [...demoPulls].reverse();
     expect(groupPullRequests(reversed).map(([group]) => group)).toEqual([

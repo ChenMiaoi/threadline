@@ -5,7 +5,15 @@ import { chronological } from '../../core/inbox';
 import { PageHeader } from '../../components/PageHeader';
 import { IssueIcon } from '../../components/IssueIcon';
 import { Icon } from '../../components/Icon';
-import { filterActivities, groupActivities, type Activity, type ActivityView } from './model';
+import {
+  activityCounts,
+  filterActivities,
+  groupActivities,
+  type Activity,
+  type ActivityView,
+} from './model';
+
+const emptyIds: string[] = [];
 
 const config = {
   inbox: {
@@ -138,7 +146,7 @@ export function ActivityRecord({
 export function ActivityPage({
   view,
   read,
-  snoozed = [],
+  snoozed = emptyIds,
   onRead,
   onSnooze,
   onOpen,
@@ -169,11 +177,24 @@ export function ActivityPage({
     setAttention(false);
     setLabel('');
   }
-  const unread = items.filter(
-    (item) => !read.includes(item.id) && !snoozed.includes(item.id),
-  ).length;
+  const readIds = useMemo(() => new Set(read), [read]);
+  const snoozedIds = useMemo(() => new Set(snoozed), [snoozed]);
+  const counts = useMemo(
+    () =>
+      activityCounts(
+        items,
+        settings.tabs.map(([id]) => id),
+        readIds,
+        snoozedIds,
+      ),
+    [items, settings, readIds, snoozedIds],
+  );
+  const labels = useMemo(
+    () => [...new Set(items.flatMap((item) => item.labels ?? []))].sort(),
+    [items],
+  );
   const groups = useMemo(() => {
-    const records = filterActivities(items, filter, query, read, snoozed).filter(
+    const records = filterActivities(items, filter, query, readIds, snoozedIds).filter(
       (record) =>
         (!attention ||
           (record.needsAttention ??
@@ -187,7 +208,7 @@ export function ActivityPage({
         ? [['最新动态', chronological(records)] as [string, Activity[]]]
         : []
       : groupActivities(records);
-  }, [items, filter, query, read, snoozed, attention, label, view]);
+  }, [items, filter, query, readIds, snoozedIds, attention, label, view]);
   return (
     <>
       <PageHeader title={settings.title} description={repo}>
@@ -221,9 +242,7 @@ export function ActivityPage({
                 onClick={() => setFilter(id)}
               >
                 {label}
-                {id === 'all'
-                  ? ''
-                  : ` ${id === 'unread' ? unread : filterActivities(items, id, '', read, snoozed).length}`}
+                {id === 'all' ? '' : ` ${counts[id]}`}
               </button>
             ))}
           </div>
@@ -235,7 +254,7 @@ export function ActivityPage({
               onChange={(event) => setLabel(event.target.value)}
             >
               <option value="">全部标签</option>
-              {[...new Set(items.flatMap((item) => item.labels ?? []))].sort().map((name) => (
+              {labels.map((name) => (
                 <option key={name} value={name}>
                   {name}
                 </option>
@@ -259,7 +278,7 @@ export function ActivityPage({
                 onOpen={onOpen}
                 onRead={view === 'inbox' ? onRead : undefined}
                 onSnooze={view === 'inbox' ? onSnooze : undefined}
-                isRead={read.includes(record.id)}
+                isRead={readIds.has(record.id)}
               />
             ))}
           </section>

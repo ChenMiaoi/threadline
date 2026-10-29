@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { observeUpdates } from '../core/inbox';
 import { githubGateway } from './github';
 import { useGitHubLogin } from './useGitHubLogin';
@@ -246,6 +246,20 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
     }
   }
   const current = snapshot.key === key ? snapshot : empty;
+  const inbox = useMemo(
+    () =>
+      /GH_(FORBIDDEN|NOT_FOUND)/.test(current.errors.inbox ?? '')
+        ? []
+        : [
+            ...new Map(
+              [...current.inbox, ...Object.values(current.updates).flat()]
+                .sort((a, b) => (a.updatedAt ?? '').localeCompare(b.updatedAt ?? ''))
+                .map((record) => [record.kind + record.number, record]),
+            ).values(),
+          ].sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')),
+    [current.inbox, current.updates, current.errors.inbox],
+  );
+
   const auth = useGitHubLogin(gateway, connect);
   async function disconnect() {
     try {
@@ -269,15 +283,7 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
   }
   return {
     ...current,
-    inbox: /GH_(FORBIDDEN|NOT_FOUND)/.test(current.errors.inbox ?? '')
-      ? []
-      : [
-          ...new Map(
-            [...current.inbox, ...Object.values(current.updates).flat()]
-              .sort((a, b) => (a.updatedAt ?? '').localeCompare(b.updatedAt ?? ''))
-              .map((record) => [record.kind + record.number, record]),
-          ).values(),
-        ].sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')),
+    inbox,
     gateway,
     auth,
     disconnect,
