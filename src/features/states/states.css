@@ -25,10 +25,6 @@
 .repository-choice span {
   overflow-wrap: anywhere;
 }
-.github-body {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
 .github-patch {
   overflow: auto;
   max-height: 60vh;

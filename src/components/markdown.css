@@ -1,0 +1,85 @@
+.github-markdown {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  line-height: 1.65;
+}
+.github-markdown > :first-child {
+  margin-top: 0;
+}
+.github-markdown > :last-child {
+  margin-bottom: 0;
+}
+.github-markdown p,
+.github-markdown pre,
+.github-markdown ul,
+.github-markdown ol,
+.github-markdown blockquote,
+.github-markdown table,
+.github-markdown details {
+  margin: 12px 0;
+}
+.github-markdown h1,
+.github-markdown h2,
+.github-markdown h3 {
+  margin: 18px 0 10px;
+  line-height: 1.4;
+}
+.github-markdown h1 {
+  font-size: 22px;
+}
+.github-markdown h2 {
+  font-size: 19px;
+}
+.github-markdown h3 {
+  font-size: 16px;
+}
+.github-markdown a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.github-markdown ul,
+.github-markdown ol {
+  padding-left: 24px;
+}
+.github-markdown pre {
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--raised);
+}
+.github-markdown pre code {
+  white-space: pre;
+  overflow-wrap: normal;
+  font-size: 12px;
+}
+.github-markdown :not(pre) > code {
+  background: var(--raised);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+.github-markdown blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 14px;
+}
+.github-markdown table {
+  display: block;
+  max-width: 100%;
+  overflow: auto;
+  border-collapse: collapse;
+}
+.github-markdown th,
+.github-markdown td {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+}
+.github-markdown summary {
+  cursor: pointer;
+  color: var(--text);
+}
+.github-markdown details {
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  border-radius: 8px;
+}

@@ -1,0 +1,51 @@
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { GitHubMarkdown } from './GitHubMarkdown';
+afterEach(cleanup);
+describe('GitHub discussion rendering', () => {
+  it('renders bot comments with native foldable details and formatted code', async () => {
+    const { container } = render(
+      <GitHubMarkdown>
+        {
+          '<!--LLVM PR SUMMARY COMMENT-->\n\n<details>\n<summary>Changes</summary>\n\n**Fixed behavior**\n\n```diff\n-old\n+new\n```\n\n</details>'
+        }
+      </GitHubMarkdown>,
+    );
+    await screen.findByText('Changes');
+    const details = container.querySelector('details')!;
+    expect(details).not.toBeNull();
+    expect(details.open).toBe(false);
+    fireEvent.click(screen.getByText('Changes'));
+    expect(container.querySelector('strong')?.textContent).toBe('Fixed behavior');
+    expect(container.querySelector('pre code')?.textContent).toContain('+new');
+    expect(container.textContent).not.toContain('LLVM PR SUMMARY COMMENT');
+    expect(container.textContent).not.toContain('<summary>');
+  });
+  it('removes executable HTML, unsafe links, handlers, and styles from untrusted comments', async () => {
+    const { container } = render(
+      <GitHubMarkdown>
+        {
+          '<script>alert("secret")</script>\n\n[unsafe](javascript:alert%281%29)\n\n<img src="https://example.com/image" onerror="alert(1)" style="position:fixed">\n\n<iframe src="https://evil.test"></iframe>'
+        }
+      </GitHubMarkdown>,
+    );
+    await waitFor(() => expect(container.textContent).toContain('unsafe'));
+    expect(container.querySelector('script,iframe,[onerror],[style]')).toBeNull();
+    expect(container.innerHTML).not.toContain('javascript:');
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.textContent).not.toContain('secret');
+  });
+  it('renders GFM tables, task lists, and safe links', async () => {
+    const { container } = render(
+      <GitHubMarkdown>
+        {
+          '| Check | Result |\n| --- | --- |\n| Build | Passed |\n\n- [x] Done\n\n[GitHub](https://github.com/owner/project)'
+        }
+      </GitHubMarkdown>,
+    );
+    expect(await screen.findByRole('table')).toBeTruthy();
+    expect((container.querySelector('input') as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole('link', { name: 'GitHub' }).getAttribute('rel')).toContain('noopener');
+  });
+});

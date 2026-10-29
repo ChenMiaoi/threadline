@@ -1,3 +1,4 @@
+import { GitHubMarkdown } from '../../components/GitHubMarkdown';
 import { useEffect, useState } from 'react';
 import { Modal } from '../../components/Modal';
 import { shortTime, type GitHubGateway, type IssueDetail } from '../../core/github';
@@ -53,13 +54,13 @@ export function IssuePreview({
       {detail && (
         <>
           <p className="dim">{detail.issue.user?.login ?? '已删除用户'}</p>
-          <p className="github-body">{detail.issue.body || '暂无说明'}</p>
+          <GitHubMarkdown>{detail.issue.body || '暂无说明'}</GitHubMarkdown>
           {detail.comments.flat().map((comment) => (
             <article key={comment.id} className="detail-card">
               <h3>
                 {comment.user?.login ?? '已删除用户'} · {shortTime(comment.created_at)}
               </h3>
-              <p className="github-body">{comment.body}</p>
+              <GitHubMarkdown>{comment.body}</GitHubMarkdown>
             </article>
           ))}
         </>

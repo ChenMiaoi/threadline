@@ -1,3 +1,4 @@
+import { GitHubMarkdown } from '../../components/GitHubMarkdown';
 import { useEffect, useState } from 'react';
 import type { PullRequest } from './model';
 import {
@@ -194,7 +195,7 @@ export function PullDetailPage({
                 <>
                   <article className="detail-card">
                     <h2>说明</h2>
-                    <p className="github-body">{detail.pull.body || '暂无说明'}</p>
+                    <GitHubMarkdown>{detail.pull.body || '暂无说明'}</GitHubMarkdown>
                   </article>
                   {timeline.map((event) => (
                     <article
@@ -206,7 +207,7 @@ export function PullDetailPage({
                         <span className="muted">{event.label}</span>
                         <time className="dim">{event.date && shortTime(event.date)}</time>
                       </div>
-                      <p className="github-body">{event.body || '无正文'}</p>
+                      <GitHubMarkdown>{event.body || '无正文'}</GitHubMarkdown>
                       {event.version && <small>{event.version}</small>}
                     </article>
                   ))}
