@@ -77,6 +77,8 @@ pub fn run() {
             get_workspace_data,
             save_workspace_data,
             github_session,
+            github_cached_session,
+            github_cached_request,
             github_request,
             github_login,
             github_login_status,
@@ -95,6 +97,40 @@ async fn github_session(app: tauri::AppHandle) -> Result<serde_json::Value, Stri
         github_workspace::session(
             &app.state::<Workspace>().database,
             &app.state::<github_auth::AuthManager>(),
+        )
+    })
+    .await
+    .map_err(|_| "GH_TASK_FAILED")?
+}
+#[tauri::command]
+async fn github_cached_session(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        github_workspace::cached_session(
+            &app.state::<Workspace>().database,
+            &app.state::<github_auth::AuthManager>(),
+        )
+    })
+    .await
+    .map_err(|_| "GH_TASK_FAILED")?
+}
+#[tauri::command]
+async fn github_cached_request(
+    operation: String,
+    repo: String,
+    number: u64,
+    account_id: u64,
+    head: Option<String>,
+    app: tauri::AppHandle,
+) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        github_workspace::cached_request(
+            &app.state::<Workspace>().database,
+            &app.state::<github_auth::AuthManager>(),
+            &operation,
+            &repo,
+            number,
+            account_id,
+            head.as_deref().unwrap_or(""),
         )
     })
     .await
@@ -159,9 +195,14 @@ fn github_login_cancel(auth: State<'_, github_auth::AuthManager>) -> serde_json:
 }
 #[tauri::command]
 async fn github_logout(app: tauri::AppHandle) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || app.state::<github_auth::AuthManager>().logout())
-        .await
-        .map_err(|_| "GH_TASK_FAILED")?
+    tauri::async_runtime::spawn_blocking(move || {
+        github_workspace::logout(
+            &app.state::<Workspace>().database,
+            &app.state::<github_auth::AuthManager>(),
+        )
+    })
+    .await
+    .map_err(|_| "GH_TASK_FAILED")?
 }
 #[tauri::command]
 async fn github_open(url: String) -> Result<(), String> {

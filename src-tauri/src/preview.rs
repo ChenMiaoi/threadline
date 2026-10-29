@@ -12,6 +12,10 @@ use zeroize::Zeroizing;
 enum Command {
     #[serde(rename = "github_session")]
     Session,
+    #[serde(rename = "github_cached_session")]
+    CachedSession,
+    #[serde(rename = "github_cached_request")]
+    CachedRequest,
     #[serde(rename = "github_request")]
     Request,
     #[serde(rename = "github_select_repository")]
@@ -57,6 +61,16 @@ fn execute(
 ) -> Result<Value, String> {
     match request.command {
         Command::Session => github_workspace::session(database, auth),
+        Command::CachedSession => github_workspace::cached_session(database, auth),
+        Command::CachedRequest => github_workspace::cached_request(
+            database,
+            auth,
+            &request.args.operation,
+            &request.args.repo,
+            request.args.number,
+            request.args.account_id,
+            &request.args.head,
+        ),
         Command::Request => github_workspace::request_at_head(
             database,
             auth,
@@ -78,7 +92,7 @@ fn execute(
         Command::LoginStatus => Ok(auth.status()),
         Command::LoginCancel => Ok(auth.cancel()),
         Command::Logout => {
-            auth.logout()?;
+            github_workspace::logout(database, auth)?;
             Ok(Value::Null)
         }
     }

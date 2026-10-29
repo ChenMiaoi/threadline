@@ -501,7 +501,7 @@ fn http_error(status: u16, body: &Value) -> String {
     }
     .into()
 }
-fn valid_repo(repo: &str) -> bool {
+pub(crate) fn valid_repo(repo: &str) -> bool {
     let parts: Vec<_> = repo.split('/').collect();
     parts.len() == 2
         && parts.iter().all(|p| {

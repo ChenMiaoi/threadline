@@ -343,6 +343,19 @@ impl AuthManager {
             user_id,
         })
     }
+    pub fn local_account(&self) -> Result<Option<u64>, String> {
+        let _guard = self.credential_guard()?;
+        Ok(self
+            .store
+            .read()?
+            .filter(|credential| {
+                credential.client_id == self.config.client_id
+                    && credential.access_token.starts_with("ghu_")
+                    && credential.refresh_token.starts_with("ghr_")
+                    && credential.user_id > 0
+            })
+            .map(|credential| credential.user_id))
+    }
     pub fn ensure_account(&self, expected: u64) -> Result<(), String> {
         let _guard = self.credential_guard()?;
         let credential = self.store.read()?.ok_or("GH_AUTH_REQUIRED")?;
