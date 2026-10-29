@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -85,18 +85,29 @@ describe('release policy', () => {
       artifacts = join(root, 'artifacts'),
       output = join(root, 'output');
     for (const [target, file] of [
-      ['aarch64-apple-darwin', 'arm.app.tar.gz'],
-      ['x86_64-apple-darwin', 'intel.app.tar.gz'],
+      ['aarch64-apple-darwin', 'ThreadLine.app.tar.gz'],
+      ['x86_64-apple-darwin', 'ThreadLine.app.tar.gz'],
       ['x86_64-pc-windows-msvc', 'win.exe'],
     ]) {
       const directory = join(artifacts, `release-${target}`);
       mkdirSync(directory, { recursive: true });
-      writeFileSync(join(directory, file), 'artifact');
+      writeFileSync(join(directory, file), target);
       writeFileSync(join(directory, `${file}.sig`), 'signature');
     }
     const result = buildManifest(root, artifacts, 'v1.2.3', output);
     expect(Object.keys(result.platforms)).toHaveLength(3);
-    expect(result.platforms['darwin-aarch64'].url).toContain('/v1.2.3/arm.app.tar.gz');
+    expect(result.platforms['darwin-aarch64'].url).toContain(
+      '/v1.2.3/darwin-aarch64-ThreadLine.app.tar.gz',
+    );
+    expect(readFileSync(join(output, 'darwin-aarch64-ThreadLine.app.tar.gz'), 'utf8')).toBe(
+      'aarch64-apple-darwin',
+    );
+    expect(readFileSync(join(output, 'darwin-x86_64-ThreadLine.app.tar.gz'), 'utf8')).toBe(
+      'x86_64-apple-darwin',
+    );
+    expect(readFileSync(join(output, 'darwin-aarch64-ThreadLine.app.tar.gz.sig'), 'utf8')).toBe(
+      result.platforms['darwin-aarch64'].signature,
+    );
     rmSync(join(artifacts, 'release-x86_64-pc-windows-msvc/win.exe.sig'));
     expect(() => buildManifest(root, artifacts, 'v1.2.3', join(root, 'other'))).toThrow(
       'signed updater',

@@ -87,11 +87,11 @@ export function buildManifest(root: string, artifactRoot: string, tag: string, o
     const signature = readFileSync(signatures[0], 'utf8').trim();
     if (!signature) throw new Error(`Empty signature for ${target}.`);
     platforms[platform] = {
-      url: `https://github.com/ChenMiaoi/threadline/releases/download/${tag}/${encodeURIComponent(basename(artifact))}`,
+      url: `https://github.com/ChenMiaoi/threadline/releases/download/${tag}/${encodeURIComponent(`${platform}-${basename(artifact)}`)}`,
       signature,
     };
     for (const file of all.filter((file) => /\.(dmg|exe|sig|tar\.gz)$/.test(file))) {
-      const destination = join(output, basename(file));
+      const destination = join(output, `${platform}-${basename(file)}`);
       if (existsSync(destination)) throw new Error(`Duplicate release artifact: ${basename(file)}`);
       copyFileSync(file, destination);
     }
