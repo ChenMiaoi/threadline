@@ -1,8 +1,17 @@
 # ThreadLine
 
+[![CI status on main](https://github.com/ChenMiaoi/threadline/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ChenMiaoi/threadline/actions/workflows/ci.yml)
+[![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue)](LICENSE)
+[![Platforms: macOS and Windows](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows-lightgrey)](docs/development.md)
+[![Release: not published](https://img.shields.io/badge/release-not%20published-lightgrey)](https://github.com/ChenMiaoi/threadline/releases)
+
 A local-first desktop workspace for GitHub collaboration.
 
 ThreadLine brings the pull requests, reviews, and issues that need your attention into one repository-focused workspace. Read discussions, inspect changes, and keep track of what to return to without changing anything on GitHub.
+
+![ThreadLine authored PR workspace for the public llvm/llvm-project repository](docs/images/workspace.jpg)
+
+_The public `llvm/llvm-project` workspace in the current Simplified Chinese interface._
 
 ## Your repository, in one place
 
@@ -14,6 +23,15 @@ ThreadLine brings the pull requests, reviews, and issues that need your attentio
 - **Profile:** your GitHub avatar, annual contribution calendar, and contribution totals for the selected repository.
 
 Read markers, snoozes, themes, density, and refresh preferences stay on your device. Cached content opens quickly and remains available during temporary connection failures, with timestamps and update errors visible.
+
+<details>
+<summary>Profile and contribution calendar</summary>
+
+![ThreadLine Profile showing the selected repository's annual contribution calendar](docs/images/profile.jpg)
+
+_Profile contributions for the public `llvm/llvm-project` repository, shown in the current Simplified Chinese interface._
+
+</details>
 
 ## Read-only by design
 
