@@ -1,7 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { PullLifecycleIcon } from '../../components/PullLifecycleIcon';
 import { PullStatusBadges } from '../../components/PullStatusBadges';
-import { checkResultLabel, describePull } from '../../core/pull-status';
+import { CodeDiff } from '../../components/CodeDiff';
+import { describeChecks } from '../../core/checks';
+import { describePull } from '../../core/pull-status';
 import { GitHubMarkdown } from '../../components/GitHubMarkdown';
 import type { PullRequest } from './model';
 import { shortTime, type GitHubGateway, type PullDetail } from '../../core/github';
@@ -184,15 +186,17 @@ function FilePatch({ file }: { file: Files['files'][number][number] }) {
     <details onToggle={(event) => setExpanded(event.currentTarget.open)}>
       <summary className="file-record">
         <code>{file.filename}</code>
-        <span className="green">
-          +{file.additions} −{file.deletions}
+        <span className="change-stats">
+          <span className="green">+{file.additions}</span>
+          <span className="danger">−{file.deletions}</span>
         </span>
       </summary>
-      {expanded && (
-        <pre className="github-patch">
-          {file.patch ?? 'GitHub 未提供此文件的文本差异，请前往 GitHub 查看。'}
-        </pre>
-      )}
+      {expanded &&
+        (file.patch ? (
+          <CodeDiff patch={file.patch} filename={file.filename} />
+        ) : (
+          <p className="resource-status">GitHub 未提供此文件的文本差异，请前往 GitHub 查看。</p>
+        ))}
     </details>
   );
 }
@@ -262,42 +266,34 @@ function ChecksSection({ resource, onReload }: { resource: ResourceProps; onRelo
       ]),
     ).values(),
   ];
+  const { rows, counts } = describeChecks(checks, statuses);
   return (
     <ResourceState {...result} cached={Boolean(result.response)} onReload={onReload}>
       {result.response && (
         <article className="detail-card">
           <h2>检查 {checks.length + statuses.length}</h2>
-          <p>
-            {checks.filter((check) => check.conclusion === 'success').length +
-              statuses.filter((status) => status.state === 'success').length}{' '}
-            个通过
+          <p className="check-summary">
+            <span className="danger">{counts.failed} 失败</span>
+            <span>{counts.pending} 进行中</span>
+            <span className="green">{counts.passed} 通过</span>
+            <span>{counts.other} 跳过或其他</span>
           </p>
           {result.response.payload.checkError && (
             <p role="alert" className="yellow">
               {result.response.payload.checkError} · 未能完整获取检查结果
             </p>
           )}
-          {checks.map((check) => (
-            <div className="file-record" key={check.id}>
-              <span>{check.name}</span>
-              <span className={check.conclusion === 'success' ? 'green' : 'muted'}>
-                {checkResultLabel(check.conclusion, check.status)}
-              </span>
-            </div>
-          ))}
-          {statuses.map((status) => (
-            <div className="file-record" key={status.context}>
-              <span>{status.context}</span>
-              <span>
-                {(
-                  { success: '通过', failure: '失败', error: '出错', pending: '等待中' } as Record<
-                    string,
-                    string
-                  >
-                )[status.state] ?? `未知状态：${status.state}`}
-              </span>
-            </div>
-          ))}
+          <div className="check-list">
+            {rows.map((row) => (
+              <div className={`check-row check-${row.kind}`} key={row.key}>
+                <span className="check-indicator" aria-hidden="true">
+                  {row.kind === 'passed' ? '✓' : row.kind === 'failed' ? '!' : '·'}
+                </span>
+                <span className="check-name">{row.name}</span>
+                <span className="check-result">{row.label}</span>
+              </div>
+            ))}
+          </div>
           {!checks.length && !statuses.length && !result.response.payload.checkError && (
             <p>当前 HEAD 没有检查记录。</p>
           )}
@@ -352,14 +348,11 @@ export function PullDetailPage({
   }
   return (
     <>
-      <header className="location">
+      <header className="location detail-location">
         <button className="chip" onClick={onBack}>
           ← 返回列表
         </button>
-        <span className="location-repository" title={repo}>
-          {repo}
-        </span>
-        <span className="separator">/</span>
+
         <span className="muted">PR #{pull.number}</span>
       </header>
       <section className="pr-summary">
@@ -387,8 +380,13 @@ export function PullDetailPage({
               <span className="dim">
                 {detail.head.ref} → {detail.base.ref}
               </span>
-              <span className="green">
-                +{detail.additions} −{detail.deletions} · {detail.changed_files} 个文件
+              <span className="change-stats">
+                <span className="green">+{detail.additions}</span>
+                <span className="danger">−{detail.deletions}</span>
+                <span>{detail.changed_files} 个文件</span>
+              </span>
+              <span className="dim" title="当前提交">
+                HEAD {detail.head.sha.slice(0, 7)}
               </span>
             </>
           )}
@@ -411,9 +409,6 @@ export function PullDetailPage({
       </section>
       {openError && <p role="alert">{openError}</p>}
       <ResourceState {...result} cached={Boolean(detail)} onReload={refresh} />
-      <p className="detail-freshness-note">
-        列表为上次同步快照，详情会独立重新读取。GitHub 可能稍后才算出合并条件；“待确认”不表示受阻。
-      </p>
       <div className="detail-tabs" role="tablist" aria-label="PR 详情">
         {[
           ['discussion', '讨论'],
@@ -453,17 +448,6 @@ export function PullDetailPage({
               <ChecksSection resource={resource} onReload={refresh} />
             )}
           </section>
-          <aside className="detail-aside">
-            <section className="detail-card">
-              <h2>当前版本</h2>
-              <small>HEAD {detail.head.sha.slice(0, 7)}</small>
-              <p>{detail.changed_files} 个文件</p>
-              <p className="green">
-                +{detail.additions} −{detail.deletions}
-              </p>
-              <p className="footnote">讨论、文件和检查按需读取；切换标签可查看对应内容。</p>
-            </section>
-          </aside>
         </div>
       )}
       {result.response && (

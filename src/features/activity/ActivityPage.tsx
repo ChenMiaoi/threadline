@@ -1,14 +1,15 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { PullLifecycleIcon } from '../../components/PullLifecycleIcon';
 import { PullStatusBadges } from '../../components/PullStatusBadges';
 import { chronological } from '../../core/inbox';
+import { PageHeader } from '../../components/PageHeader';
+import { IssueIcon } from '../../components/IssueIcon';
 import { Icon } from '../../components/Icon';
 import { filterActivities, groupActivities, type Activity, type ActivityView } from './model';
 
 const config = {
   inbox: {
     title: '收件箱',
-    description: 'PR 与 Issue 的更新，按最新动态排序',
     tabs: [
       ['unread', '未读'],
       ['all', '全部'],
@@ -20,7 +21,6 @@ const config = {
   },
   review: {
     title: '我审阅的 PR',
-    description: '分别查看 PR 流程、个人评审结论和下一步行动',
     tabs: [
       ['all', '全部'],
       ['requested', '待我评审'],
@@ -30,11 +30,10 @@ const config = {
       ['draft', '草稿'],
       ['finished', '已结束'],
     ],
-    note: '个人评审与汇总评审分别展示；评审后有新提交时，请确认是否需要重新评审。',
+    note: '',
   },
   issues: {
     title: 'Issues',
-    description: '关注你发起和参与的讨论',
     tabs: [
       ['all', '全部'],
       ['open', '开放'],
@@ -67,14 +66,12 @@ export function ActivityRecord({
     <div className={`activity-record ${selected ? 'selected' : ''} ${isRead ? 'is-read' : ''}`}>
       <button className="record-main" onClick={() => onOpen(record)}>
         {record.pullStatus && <PullLifecycleIcon status={record.pullStatus} />}
-        {!record.pullStatus && (
-          <span
-            className={`record-dot ${isRead ? 'dim' : record.tone}`}
-            aria-label={isRead ? '已读' : '未读'}
-          >
-            ●
-          </span>
-        )}
+        {!record.pullStatus &&
+          (record.kind === 'pull' ? (
+            <Icon name="pr" />
+          ) : (
+            <IssueIcon closed={record.state === 'closed'} />
+          ))}
         <span className="record-body">
           <span className="record-title" title={record.title}>
             {showKind
@@ -87,14 +84,22 @@ export function ActivityRecord({
             #{record.number}&nbsp; {record.title}
           </span>
           {record.pullStatus && !showKind && (
-            <PullStatusBadges status={record.pullStatus} personal={record.personalReview} />
+            <PullStatusBadges status={record.pullStatus} personal={record.personalReview} compact />
           )}
           <span className="record-summary">
-            {record.pullStatus && !showKind ? `下一步：${record.summary}` : record.summary}
+            {record.pullStatus && !showKind
+              ? ['discussion', 'finished', 'draft'].includes(record.category)
+                ? record.detail
+                : `下一步：${record.summary}`
+              : record.summary}
           </span>
-          <span className="record-detail" title={record.detail}>
-            {record.detail}
-          </span>
+          {(!record.pullStatus ||
+            showKind ||
+            !['discussion', 'finished', 'draft'].includes(record.category)) && (
+            <span className="record-detail" title={record.detail}>
+              {record.detail}
+            </span>
+          )}
         </span>
         <span className="record-status">
           {(!record.pullStatus || onRead) && (
@@ -164,7 +169,6 @@ export function ActivityPage({
     setAttention(false);
     setLabel('');
   }
-  const input = useRef<HTMLInputElement>(null);
   const unread = items.filter(
     (item) => !read.includes(item.id) && !snoozed.includes(item.id),
   ).length;
@@ -186,54 +190,43 @@ export function ActivityPage({
   }, [items, filter, query, read, snoozed, attention, label, view]);
   return (
     <>
-      <header className="location">
-        <span>{repo}</span>
-        <span className="separator">/</span>
-        <span className="muted">{settings.title}</span>
-        <span className="connection-badge small-badge">GitHub</span>
-      </header>
-      <div className="activity-controls">
-        <div className="activity-title">
-          <h1>{settings.title}</h1>
-          <p>{settings.description}</p>
-          <div className="activity-tools">
-            <button
-              className="chip"
-              aria-label="仅显示需要处理的记录"
-              aria-pressed={attention}
-              onClick={() => setAttention(!attention)}
-            >
-              需处理
-            </button>
-            <button
-              className="chip"
-              onClick={() => {
-                requestAnimationFrame(() => input.current?.focus());
-              }}
-            >
-              搜索
-            </button>
-          </div>
-        </div>
-        <div
-          className="inline-group activity-filters"
-          role="tablist"
-          aria-label={`${settings.title}筛选`}
+      <PageHeader title={settings.title} description={repo}>
+        <button
+          className="chip"
+          aria-label="仅显示需要处理的记录"
+          aria-pressed={attention}
+          onClick={() => setAttention(!attention)}
         >
-          {settings.tabs.map(([id, label]) => (
-            <button
-              className={`chip ${filter === id ? 'active' : ''}`}
-              role="tab"
-              aria-selected={filter === id}
-              key={id}
-              onClick={() => setFilter(id)}
-            >
-              {label}
-              {id === 'all'
-                ? ''
-                : ` ${id === 'unread' ? unread : filterActivities(items, id, '', read, snoozed).length}`}
-            </button>
-          ))}
+          需处理
+        </button>
+        <label className="search-field activity-search">
+          <Icon name="search" />
+          <input
+            aria-label="搜索协作记录"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="搜索标题、编号或内容"
+          />
+        </label>
+      </PageHeader>
+      <div className="activity-controls">
+        <div className="inline-group activity-filters">
+          <div className="filter-tabs" role="tablist" aria-label={`${settings.title}筛选`}>
+            {settings.tabs.map(([id, label]) => (
+              <button
+                className={`chip ${filter === id ? 'active' : ''}`}
+                role="tab"
+                aria-selected={filter === id}
+                key={id}
+                onClick={() => setFilter(id)}
+              >
+                {label}
+                {id === 'all'
+                  ? ''
+                  : ` ${id === 'unread' ? unread : filterActivities(items, id, '', read, snoozed).length}`}
+              </button>
+            ))}
+          </div>
           {view === 'issues' && (
             <select
               className="chip"
@@ -249,18 +242,6 @@ export function ActivityPage({
               ))}
             </select>
           )}
-          {
-            <label className="search-field activity-search">
-              <Icon name="search" />
-              <input
-                ref={input}
-                aria-label="搜索协作记录"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜索标题、编号或内容"
-              />
-            </label>
-          }
         </div>
       </div>
       <div className="activity-list">
@@ -304,14 +285,10 @@ export function ActivityPage({
                 清除筛选
               </button>
             </div>
-            <div className="context-card">
-              <h2>当前仓库的协作记录</h2>
-              <p>你可以查看全部记录，或调整筛选条件。同步失败时会单独显示错误。</p>
-            </div>
           </section>
         )}
       </div>
-      <footer className="page-note">{settings.note}</footer>
+      {settings.note && <footer className="page-note">{settings.note}</footer>}
     </>
   );
 }

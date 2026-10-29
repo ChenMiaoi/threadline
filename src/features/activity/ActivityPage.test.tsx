@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { ActivityPage } from './ActivityPage';
+import { ActivityPage, ActivityRecord } from './ActivityPage';
 import { issueFromGitHub } from '../../core/github';
 import { record, repo, user } from '../../test/github.fixture';
 afterEach(cleanup);
@@ -29,11 +29,9 @@ describe('activity empty-state recovery', () => {
     fireEvent.change(screen.getByRole('combobox', { name: '标签' }), {
       target: { value: 'crash' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '搜索' }));
     fireEvent.change(screen.getByRole('textbox', { name: '搜索协作记录' }), {
       target: { value: 'missing' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '搜索' }));
     expect((screen.getByRole('textbox', { name: '搜索协作记录' }) as HTMLInputElement).value).toBe(
       'missing',
     );
@@ -45,4 +43,15 @@ describe('activity empty-state recovery', () => {
     expect(screen.getByRole('tab', { name: '全部' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByRole('button', { name: /#1042/ })).toBeTruthy();
   });
+});
+
+it('does not identify a restored PR without status metadata as an Issue', () => {
+  const legacy = {
+    ...issueFromGitHub(record, user.id, repo, user.login),
+    kind: 'pull' as const,
+    state: undefined,
+  };
+  render(<ActivityRecord record={legacy} showKind onOpen={vi.fn()} />);
+  expect(screen.getByRole('button', { name: /PR #1042/ })).toBeTruthy();
+  expect(screen.queryByRole('img', { name: /Issue/ })).toBeNull();
 });

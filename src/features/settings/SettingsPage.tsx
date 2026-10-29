@@ -4,6 +4,7 @@ import type { AppState } from '../../lib/desktop';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
 import type { PerformanceSample } from '../../lib/useGitHubResource';
 import { enableDesktopNotifications, notifyDesktop } from '../../lib/notifications';
+import { PageHeader } from '../../components/PageHeader';
 import { GitHubLoginButton } from '../states/GitHubLogin';
 
 const sections = [
@@ -45,13 +46,16 @@ function Toggle({
 }) {
   return (
     <button
-      className={`setting-value ${checked ? 'accent' : 'muted'}`}
+      className={`toggle-switch ${checked ? 'is-on' : ''}`}
       role="switch"
       aria-label={label}
       aria-checked={checked}
       onClick={onChange}
     >
-      {checked ? '开启 ●' : '关闭 ○'}
+      <span className="toggle-track" aria-hidden="true">
+        <span />
+      </span>
+      <span className="toggle-label">{checked ? '开启' : '关闭'}</span>
     </button>
   );
 }
@@ -89,14 +93,7 @@ export function SettingsPage({
   };
   return (
     <>
-      <header className="location">
-        <span>ThreadLine</span>
-        <span className="separator">/</span>
-        <span className="muted">设置 / {title}</span>
-        <span className="connection-badge">
-          {github.session ? `@${github.session.user.login}` : '未连接 GitHub'}
-        </span>
-      </header>
+      <PageHeader title={title} description={descriptions[section]} />
       <div className="settings-layout">
         <nav className="settings-nav" aria-label="设置分类">
           {sections.map(([id, label]) => (
@@ -111,8 +108,6 @@ export function SettingsPage({
           ))}
         </nav>
         <section className="settings-content">
-          <h1>{title}</h1>
-          <p className="settings-description">{descriptions[section]}</p>
           {section === 'account' ? (
             <>
               <h2 className="settings-section-heading">GitHub 连接</h2>
@@ -148,7 +143,7 @@ export function SettingsPage({
               </SettingRow>
               <p className="settings-note">
                 登录凭据加密保存在本机，不会写入 SQLite 或发送到界面。退出登录会清除本机凭据；
-                授权失效后需要重新登录。GitHub 通知接口暂不支持这种只读授权。
+                授权失效后需要重新登录。收件箱会聚合与你有关的 PR 和 Issue 动态。
               </p>
               <details className="storage-details">
                 <summary>本地数据存储</summary>

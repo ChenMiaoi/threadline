@@ -5,10 +5,12 @@ export function Modal({
   title,
   children,
   onClose,
+  className = '',
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -18,7 +20,7 @@ export function Modal({
   }, []);
   return (
     <dialog
-      className="modal"
+      className={`modal ${className}`}
       ref={ref}
       onCancel={(event) => {
         event.preventDefault();

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  activityFromGitHub,
   issueFromGitHub,
+  previewText,
   notificationFromGitHub,
   pullFromGitHub,
   recordId,
@@ -181,4 +183,41 @@ it('shows only active review requests instead of substituting the most recent re
   };
   expect(pullFromGitHub(requested, user.id, repo).reviewer).toBe('requested-reviewer');
   expect(pullFromGitHub({ ...requested, state: 'MERGED' }, user.id, repo).reviewer).toBe('');
+});
+
+describe('list summaries', () => {
+  it('cleans Markdown without corrupting code identifiers or mutating source content', () => {
+    const body =
+      '> **Fix** `__builtin_addressof` with [coverage](https://example.test)\n\n```c\nint x;\n```';
+    expect(previewText(body)).toBe('Fix __builtin_addressof with coverage [代码片段]');
+    expect(previewText('__builtin_x and __builtin_y')).toBe('__builtin_x and __builtin_y');
+    expect(body).toContain('```c');
+  });
+});
+
+it('shows readable review activity without presenting historical review requirements on merged PRs', () => {
+  const activity = activityFromGitHub(
+    {
+      ...record,
+      state: 'MERGED',
+      reviewDecision: 'CHANGES_REQUESTED',
+      reviews: {
+        totalCount: 1,
+        nodes: [
+          {
+            state: 'COMMENTED',
+            body: '',
+            submittedAt: '2026-10-30T12:00:00Z',
+            author: { login: 'reviewer' },
+            commit: null,
+          },
+        ],
+      },
+    },
+    user.id,
+    repo,
+    user.login,
+  );
+  expect(activity.summary).toBe('reviewer · 评审评论');
+  expect(activity.detail).toBe('PR · 已合并');
 });

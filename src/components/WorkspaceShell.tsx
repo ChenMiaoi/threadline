@@ -5,6 +5,7 @@ import { WindowControls } from './WindowControls';
 
 const navigation: { id: View; label: string; icon: string; count?: number }[] = [
   { id: 'inbox', label: '收件箱', icon: 'inbox' },
+  { id: 'snoozed', label: '稍后处理', icon: 'snoozed' },
   { id: 'authored', label: '我发起的', icon: 'user' },
   { id: 'review', label: '我审阅的', icon: 'review' },
   { id: 'issues', label: 'Issues', icon: 'issues' },
@@ -96,6 +97,8 @@ export function WorkspaceShell({
             {navigation.map((item) => (
               <button
                 key={item.id}
+                title={item.label}
+                aria-label={item.id === 'snoozed' ? '查看稍后处理' : undefined}
                 disabled={loading}
                 className={`nav-item ${view === item.id ? 'selected' : ''}`}
                 aria-current={view === item.id ? 'page' : undefined}
@@ -103,7 +106,7 @@ export function WorkspaceShell({
               >
                 <Icon name={item.icon} />
                 <span className="nav-label">{item.label}</span>
-                {item.id !== 'authored' && (
+                {['inbox', 'review', 'issues'].includes(item.id) && (
                   <span
                     className={`nav-count ${item.id === 'inbox' && unread > 0 ? 'unread-bubble' : ''}`}
                   >
@@ -132,6 +135,7 @@ export function WorkspaceShell({
           </div>
           <button
             disabled={loading}
+            title="设置"
             className={`nav-item settings-link ${view === 'settings' ? 'selected' : ''}`}
             aria-current={view === 'settings' ? 'page' : undefined}
             onClick={() => onNavigate('settings')}

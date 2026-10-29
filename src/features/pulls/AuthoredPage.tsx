@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { PageHeader } from '../../components/PageHeader';
 import { PullLifecycleIcon } from '../../components/PullLifecycleIcon';
 import { PullStatusBadges } from '../../components/PullStatusBadges';
 import { Icon, IconButton } from '../../components/Icon';
@@ -46,13 +47,7 @@ export function AuthoredPage({
 
   return (
     <div className="authored-page">
-      <header className="location pull-location">
-        <Icon name="repo-heading" />
-        <span className="location-repository" title={repo}>
-          {repo}
-        </span>
-        <span className="separator">/</span>
-        <span className="muted">我发起的 PR</span>
+      <PageHeader title="我发起的 PR" description={repo}>
         <div className="location-tools">
           <IconButton
             name="filter"
@@ -83,7 +78,7 @@ export function AuthoredPage({
             />
           </label>
         </div>
-      </header>
+      </PageHeader>
       <div className="pull-tabs" role="tablist" aria-label="PR 状态">
         {(
           [
@@ -145,7 +140,7 @@ export function AuthoredPage({
                     </span>
                     {pull.presentation ? (
                       <>
-                        <PullStatusBadges status={pull.presentation} />
+                        <PullStatusBadges status={pull.presentation} compact />
                         <span className="pull-next-action">
                           下一步：{pull.presentation.nextAction}
                           {pull.reviewer && (
@@ -218,7 +213,6 @@ export function AuthoredPage({
                 打开完整详情
                 <Icon name="arrow" />
               </button>
-              <span className="separator">│</span>
               <button
                 className="text-button"
                 onClick={() => onRead(selected.id ?? '')}

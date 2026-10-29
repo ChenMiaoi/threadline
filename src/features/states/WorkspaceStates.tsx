@@ -2,17 +2,11 @@ import { useState } from 'react';
 import { ActivityRecord } from '../activity/ActivityPage';
 import type { Activity } from '../activity/model';
 import { nextMorning, type WorkspaceData } from '../../core/workspace';
+import { PageHeader } from '../../components/PageHeader';
 import { Modal } from '../../components/Modal';
 
 function StateLocation({ title }: { title: string }) {
-  return (
-    <header className="location">
-      <span>ThreadLine</span>
-      <span className="separator">/</span>
-      <span className="muted">{title}</span>
-      <span className="connection-badge">GitHub · 本地稍后处理</span>
-    </header>
-  );
+  return <PageHeader title={title} description="到时间后，动态会重新出现在收件箱" />;
 }
 
 function formatDeadline(until: number) {
@@ -63,8 +57,6 @@ export function SnoozedPage({
     <>
       <StateLocation title="稍后处理" />
       <section className="snoozed-page">
-        <h1>稍后处理</h1>
-        <p className="muted">暂时移出关注范围，到时间后重新出现在工具收件箱。</p>
         <div className="inline-group">
           <button
             className={`chip ${!recent ? 'active' : ''}`}
@@ -120,7 +112,7 @@ export function SnoozedPage({
             <p className="list-empty">{recent ? '暂无最近恢复的条目。' : '没有稍后处理的条目。'}</p>
           )}
         </div>
-        {!recent && (
+        {!recent && rows.length > 0 && (
           <div className="inline-group">
             <button
               className="chip accent"

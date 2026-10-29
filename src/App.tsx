@@ -301,7 +301,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
             </div>
           </div>
         )}
-        {github.session && github.repo && (
+        {github.session && github.repo && view !== 'settings' && (
           <div className="sync-status" role="status">
             <span>
               {github.syncing

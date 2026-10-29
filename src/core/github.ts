@@ -146,6 +146,14 @@ export function shortTime(time: string) {
 export function previewText(value: string) {
   const text = value
     .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/```[\s\S]*?```/g, ' [代码片段] ')
+    .replace(/!?\[([^\]]*)\]\([^)]+\)/g, '$1')
+    .replace(/^\s*(?:>\s*)+/gm, '')
+    .replace(/^\s{0,3}(?:#{1,6}\s+|[-*+]\s+)/gm, '')
+    .replace(/:(?:white_check_mark|penguin|window|wave):/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*\n]+)\*/g, '$1')
     .replace(/<[^>]*>/g, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -499,10 +507,10 @@ export function activityFromGitHub(
     summary: recentComment
       ? `${comment.author?.login ?? '已删除用户'}：${previewText(comment.body)}`
       : recentReview
-        ? `${review.author?.login ?? '已删除用户'} · 评审更新：${previewText(review.body) || review.state}`
+        ? `${review.author?.login ?? '已删除用户'} · ${{ APPROVED: '批准评审', CHANGES_REQUESTED: '要求变更', COMMENTED: '评审评论', DISMISSED: '评审已撤销' }[review.state] ?? '评审更新'}${review.body ? `：${previewText(review.body)}` : ''}`
         : '内容或状态有更新',
     detail: activity.pullStatus
-      ? `PR · ${activity.pullStatus.lifecycle.label} · ${activity.pullStatus.review.label}`
+      ? `PR · ${activity.pullStatus.lifecycle.label}${activity.pullStatus.state === 'open' && !activity.pullStatus.draft && activity.pullStatus.review.tone !== 'neutral' ? ` · ${activity.pullStatus.review.label}` : ''}`
       : `Issue · ${activity.status}`,
     category: recentComment || recentReview ? 'comment' : 'notification',
     group: '最新动态',

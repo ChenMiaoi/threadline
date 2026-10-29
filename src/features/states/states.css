@@ -1,5 +1,6 @@
 .onboarding-page {
-  padding: 64px 130px 40px;
+  padding: 32px;
+  max-width: 960px;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -12,7 +13,10 @@
 }
 .repository-picker input:not([type='radio']) {
   width: 100%;
-  padding: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  min-height: 38px;
   background: var(--raised);
   color: var(--text);
   border: 1px solid var(--border);
@@ -26,13 +30,56 @@
   overflow-wrap: anywhere;
 }
 .github-patch {
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   max-height: 60vh;
-  white-space: pre;
   font-size: 12px;
-  line-height: 1.6;
-  padding: 16px;
+  line-height: 22px;
+  padding: 0;
+  margin-block: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  tab-size: 4;
 }
+.github-patch code {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+}
+.diff-line {
+  display: grid;
+  grid-template-columns: 42px 42px max-content;
+  min-height: 22px;
+}
+.diff-number {
+  padding-inline: 8px;
+  text-align: right;
+  color: var(--dim);
+  border-right: 1px solid var(--border);
+  user-select: none;
+}
+.diff-source {
+  white-space: pre;
+  padding-inline: 12px;
+}
+.diff-added {
+  background: var(--diff-added);
+}
+.diff-removed {
+  background: var(--diff-removed);
+}
+.diff-hunk {
+  background: var(--raised);
+  color: var(--blue);
+}
+.diff-meta {
+  color: var(--dim);
+}
+
 .sync-status {
   display: flex;
   align-items: center;
@@ -73,7 +120,7 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  min-height: 324px;
+  min-height: 0;
 }
 .github-device-login {
   min-width: 0;
@@ -430,4 +477,30 @@
 .snooze-form input[type='datetime-local'] {
   min-width: 0;
   max-width: 100%;
+}
+
+.github-patch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.diff-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  color: var(--dim);
+  font-size: 11px;
+}
+.diff-wrap code {
+  width: 100%;
+  min-width: 0;
+}
+.diff-wrap .diff-line {
+  grid-template-columns: 42px 42px minmax(0, 1fr);
+}
+.diff-wrap .diff-source {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
