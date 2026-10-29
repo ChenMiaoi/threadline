@@ -115,3 +115,20 @@ describe('authored selection and filtering', () => {
     expect(onOpen).toHaveBeenLastCalledWith(pulls[0]);
   });
 });
+
+it('switches status with keyboard tabs and clears the previous preview', () => {
+  mount();
+  fireEvent.click(screen.getByRole('button', { name: /#1031/ }));
+  const open = screen.getByRole('tab', { name: /未结束/ });
+  fireEvent.keyDown(open, { key: 'ArrowRight' });
+  const merged = screen.getByRole('tab', { name: /已合并/ });
+  expect(document.activeElement).toBe(merged);
+  expect(merged.getAttribute('aria-selected')).toBe('true');
+  expect(screen.queryByRole('complementary', { name: 'PR 预览' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /#1031/ })).toBeNull();
+  expect(screen.getByRole('button', { name: /#1000/ })).toBeTruthy();
+  const panel = screen.getByRole('tabpanel', { name: /已合并/ });
+  expect(panel.id).toBe(merged.getAttribute('aria-controls'));
+  fireEvent.keyDown(merged, { key: 'Home' });
+  expect(screen.getByRole('button', { name: /#1031/ })).toBeTruthy();
+});

@@ -78,3 +78,44 @@ it('limits initial discussion rendering while preserving access to earlier entri
   fireEvent.click(screen.getByRole('button', { name: '显示更早的讨论（还有 10 条）' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: 'author-0' })).toBeTruthy());
 });
+
+it('browses detail tabs with arrows without loading a section until activation', async () => {
+  const gateway = createGateway();
+  render(
+    <PullDetailPage
+      pull={pullFromGitHub(record, user.id, repo)}
+      onBack={vi.fn()}
+      repo={repo}
+      accountId={user.id}
+      gateway={gateway}
+      cache={createResourceCache()}
+    />,
+  );
+  const discussion = screen.getByRole('tab', { name: '讨论' });
+  const panelId = screen.getByRole('tabpanel').id;
+  expect(discussion.getAttribute('aria-controls')).toBe(panelId);
+  await screen.findByRole('heading', { name: '讨论 1' });
+  fireEvent.keyDown(discussion, { key: 'ArrowRight' });
+  const files = screen.getByRole('tab', { name: '文件变更 1' });
+  expect(document.activeElement).toBe(files);
+  expect(files.tabIndex).toBe(0);
+  expect(discussion.getAttribute('aria-selected')).toBe('true');
+  fireEvent.keyDown(files, { key: 'End' });
+  const checks = screen.getByRole('tab', { name: '检查' });
+  expect(document.activeElement).toBe(checks);
+  expect(vi.mocked(gateway.request).mock.calls.map(([operation]) => operation)).toEqual([
+    'pull',
+    'discussion',
+  ]);
+  fireEvent.click(checks);
+  await screen.findByText('当前 HEAD 没有检查记录。');
+  expect(screen.getByRole('tabpanel', { name: '检查' }).id).toBe(panelId);
+  expect(vi.mocked(gateway.request).mock.calls.map(([operation]) => operation)).toEqual([
+    'pull',
+    'discussion',
+    'checks',
+  ]);
+  fireEvent.keyDown(checks, { key: 'ArrowRight' });
+  expect(document.activeElement).toBe(discussion);
+  expect(checks.getAttribute('aria-selected')).toBe('true');
+});

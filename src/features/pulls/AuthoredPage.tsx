@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { TabList, TabPanel } from '../../components/Tabs';
 import { PageHeader } from '../../components/PageHeader';
 import { PullLifecycleIcon } from '../../components/PullLifecycleIcon';
 import { PullStatusBadges } from '../../components/PullStatusBadges';
@@ -25,6 +26,7 @@ export function AuthoredPage({
   repo: string;
 }) {
   const [state, setState] = useState<PullState>('open');
+  const tabsId = useId();
   const [query, setQuery] = useState('');
   const [attentionOnly, setAttentionOnly] = useState(false);
   const [panelVisible, setPanelVisible] = useState(false);
@@ -87,30 +89,36 @@ export function AuthoredPage({
           </label>
         </div>
       </PageHeader>
-      <div className="pull-tabs" role="tablist" aria-label="PR 状态">
-        {(
+      <TabList
+        id={tabsId}
+        label="PR 状态"
+        value={state}
+        className="pull-tabs"
+        onChange={(id) => {
+          setState(id);
+          clearSelection();
+        }}
+        items={(
           [
             ['open', '未结束'],
             ['merged', '已合并'],
             ['closed', '已关闭（未合并）'],
           ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={state === id}
-            className={state === id ? 'active' : ''}
-            onClick={() => {
-              setState(id);
-              clearSelection();
-            }}
-          >
-            {label}
-            <span>{counts[id]}</span>
-          </button>
-        ))}
-      </div>
-      <div className={`authored-workspace${previewVisible ? ' has-preview' : ''}`}>
+        ).map(([id, label]) => ({
+          value: id,
+          label: (
+            <>
+              {label}
+              <span>{counts[id]}</span>
+            </>
+          ),
+        }))}
+      />
+      <TabPanel
+        id={tabsId}
+        value={state}
+        className={`authored-workspace${previewVisible ? ' has-preview' : ''}`}
+      >
         <section className="pull-list" aria-label="我发起的 PR">
           {groups.map(([group, pulls]) => (
             <section key={group}>
@@ -232,7 +240,7 @@ export function AuthoredPage({
             </div>
           </aside>
         )}
-      </div>
+      </TabPanel>
     </div>
   );
 }

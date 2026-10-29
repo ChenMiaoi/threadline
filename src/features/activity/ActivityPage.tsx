@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
+import { TabList, TabPanel } from '../../components/Tabs';
 import { PullLifecycleIcon } from '../../components/PullLifecycleIcon';
 import { PullStatusBadges } from '../../components/PullStatusBadges';
 import { chronological } from '../../core/inbox';
@@ -165,6 +166,7 @@ export function ActivityPage({
   repo: string;
 }) {
   const settings = config[view];
+  const tabsId = useId();
   const [filter, setFilter] = useState(
     initialFilter ?? (view === 'inbox' ? 'unread' : view === 'issues' ? 'open' : 'all'),
   );
@@ -232,20 +234,23 @@ export function ActivityPage({
       </PageHeader>
       <div className="activity-controls">
         <div className="inline-group activity-filters">
-          <div className="filter-tabs" role="tablist" aria-label={`${settings.title}筛选`}>
-            {settings.tabs.map(([id, label]) => (
-              <button
-                className={`chip ${filter === id ? 'active' : ''}`}
-                role="tab"
-                aria-selected={filter === id}
-                key={id}
-                onClick={() => setFilter(id)}
-              >
-                {label}
-                {id === 'all' ? '' : ` ${counts[id]}`}
-              </button>
-            ))}
-          </div>
+          <TabList
+            id={tabsId}
+            label={`${settings.title}筛选`}
+            value={filter}
+            onChange={setFilter}
+            className="filter-tabs"
+            tabClassName="chip"
+            items={settings.tabs.map(([id, label]) => ({
+              value: id,
+              label: (
+                <>
+                  {label}
+                  {id === 'all' ? '' : ` ${counts[id]}`}
+                </>
+              ),
+            }))}
+          />
           {view === 'issues' && (
             <select
               className="chip"
@@ -263,7 +268,7 @@ export function ActivityPage({
           )}
         </div>
       </div>
-      <div className="activity-list">
+      <TabPanel id={tabsId} value={filter} className="activity-list">
         {groups.map(([group, items]) => (
           <section key={group}>
             <h2 className="activity-group">
@@ -306,7 +311,7 @@ export function ActivityPage({
             </div>
           </section>
         )}
-      </div>
+      </TabPanel>
       {settings.note && <footer className="page-note">{settings.note}</footer>}
     </>
   );

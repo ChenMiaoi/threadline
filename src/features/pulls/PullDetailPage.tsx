@@ -1,4 +1,5 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useId, useMemo, useState, type ReactNode } from 'react';
+import { TabList, TabPanel } from '../../components/Tabs';
 import { PullLifecycleIcon } from '../../components/PullLifecycleIcon';
 import { PullStatusBadges } from '../../components/PullStatusBadges';
 import { CodeDiff } from '../../components/CodeDiff';
@@ -319,6 +320,7 @@ export function PullDetailPage({
 }) {
   const result = useGitHubResource<Overview>(gateway, cache, 'pull', repo, accountId, pull.number);
   const [tab, setTab] = useState('discussion');
+  const tabsId = useId();
   const [generation, setGeneration] = useState(0);
   const [openError, setOpenError] = useState('');
   const detail = result.response?.payload.pull;
@@ -409,47 +411,46 @@ export function PullDetailPage({
       </section>
       {openError && <p role="alert">{openError}</p>}
       <ResourceState {...result} cached={Boolean(detail)} onReload={refresh} />
-      <div className="detail-tabs" role="tablist" aria-label="PR 详情">
-        {[
-          ['discussion', '讨论'],
-          ['files', `文件变更${detail ? ` ${detail.changed_files}` : ''}`],
-          ['checks', '检查'],
-        ].map(([id, label]) => (
-          <button
-            key={id}
-            className={`chip ${tab === id ? 'active' : ''}`}
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-          >
-            {label}
-          </button>
-        ))}
+      <TabList
+        id={tabsId}
+        label="PR 详情"
+        value={tab}
+        onChange={setTab}
+        activation="manual"
+        className="detail-tabs"
+        tabClassName="chip"
+        items={[
+          { value: 'discussion', label: '讨论' },
+          { value: 'files', label: `文件变更${detail ? ` ${detail.changed_files}` : ''}` },
+          { value: 'checks', label: '检查' },
+        ]}
+      />
+      <div className="detail-columns">
+        <TabPanel
+          id={tabsId}
+          value={tab}
+          className="detail-timeline"
+          key={`${detail?.head.sha ?? ''}:${generation}:${tab}`}
+        >
+          {detail && (
+            <>
+              {tab === 'discussion' ? (
+                <>
+                  <article className="detail-card">
+                    <h2>说明</h2>
+                    <GitHubMarkdown>{detail.body || '暂无说明'}</GitHubMarkdown>
+                  </article>
+                  <DiscussionSection resource={resource} onReload={refresh} />
+                </>
+              ) : tab === 'files' ? (
+                <FilesSection resource={resource} count={detail.changed_files} onReload={refresh} />
+              ) : (
+                <ChecksSection resource={resource} onReload={refresh} />
+              )}
+            </>
+          )}
+        </TabPanel>
       </div>
-      {detail && (
-        <div className="detail-columns">
-          <section
-            className="detail-timeline"
-            role="tabpanel"
-            aria-label={tab === 'discussion' ? '讨论' : tab === 'files' ? '文件变更' : '检查'}
-            key={`${detail.head.sha}:${generation}:${tab}`}
-          >
-            {tab === 'discussion' ? (
-              <>
-                <article className="detail-card">
-                  <h2>说明</h2>
-                  <GitHubMarkdown>{detail.body || '暂无说明'}</GitHubMarkdown>
-                </article>
-                <DiscussionSection resource={resource} onReload={refresh} />
-              </>
-            ) : tab === 'files' ? (
-              <FilesSection resource={resource} count={detail.changed_files} onReload={refresh} />
-            ) : (
-              <ChecksSection resource={resource} onReload={refresh} />
-            )}
-          </section>
-        </div>
-      )}
       {result.response && (
         <footer className="page-note">
           详情读取 · {shortTime(new Date(result.response.fetchedAt).toISOString())}

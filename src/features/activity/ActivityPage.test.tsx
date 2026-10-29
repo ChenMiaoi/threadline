@@ -83,3 +83,37 @@ it('does not identify a restored PR without status metadata as an Issue', () => 
   expect(screen.getByRole('button', { name: /PR #1042/ })).toBeTruthy();
   expect(screen.queryByRole('img', { name: /Issue/ })).toBeNull();
 });
+
+it('uses keyboard tabs to filter issues and labels the visible panel', () => {
+  const open = issueFromGitHub(record, user.id, repo, user.login);
+  const closed = issueFromGitHub(
+    { ...record, number: 10, title: 'Closed issue', state: 'CLOSED' },
+    user.id,
+    repo,
+    user.login,
+  );
+  render(
+    <ActivityPage
+      view="issues"
+      items={[open, closed]}
+      repo={repo}
+      read={[]}
+      onRead={vi.fn()}
+      onSnooze={vi.fn()}
+      onOpen={vi.fn()}
+    />,
+  );
+  expect(screen.queryByRole('button', { name: /Closed issue/ })).toBeNull();
+  fireEvent.keyDown(screen.getByRole('tab', { name: /开放/ }), { key: 'ArrowRight' });
+  const closedTab = screen.getByRole('tab', { name: /已关闭/ });
+  expect(document.activeElement).toBe(closedTab);
+  expect(closedTab.getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByRole('button', { name: /Closed issue/ })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: /#1042/ })).toBeNull();
+  expect(screen.getByRole('tabpanel', { name: /已关闭/ }).id).toBe(
+    closedTab.getAttribute('aria-controls'),
+  );
+  fireEvent.keyDown(closedTab, { key: 'Home' });
+  expect(screen.getByRole('tab', { name: '全部' }).getAttribute('aria-selected')).toBe('true');
+  expect(screen.getByRole('button', { name: /#1042/ })).toBeTruthy();
+});
