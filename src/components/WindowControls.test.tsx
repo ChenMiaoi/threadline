@@ -10,13 +10,14 @@ const windowApi = vi.hoisted(() => ({
   toggleMaximize: vi.fn(),
   close: vi.fn(),
 }));
-const desktop = vi.hoisted(() => ({ isDesktop: true }));
+const desktop = vi.hoisted(() => ({ isDesktop: true, isMacDesktop: false }));
 vi.mock('../lib/desktop', () => desktop);
 vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => windowApi }));
 afterEach(cleanup);
 beforeEach(() => {
   vi.resetAllMocks();
   desktop.isDesktop = true;
+  desktop.isMacDesktop = false;
   windowApi.isMaximized.mockResolvedValue(false);
   windowApi.onResized.mockResolvedValue(vi.fn());
   windowApi.minimize.mockResolvedValue(undefined);
@@ -67,5 +68,13 @@ describe('desktop window controls', () => {
     render(<WindowControls />);
     expect(screen.queryByRole('button')).toBeNull();
     expect(windowApi.onResized).not.toHaveBeenCalled();
+  });
+
+  it('leaves macOS window actions to the native traffic lights', () => {
+    desktop.isMacDesktop = true;
+    render(<WindowControls />);
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(windowApi.onResized).not.toHaveBeenCalled();
+    expect(windowApi.isMaximized).not.toHaveBeenCalled();
   });
 });

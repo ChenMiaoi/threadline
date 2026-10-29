@@ -93,6 +93,10 @@ button:hover {
 .desktop-app-bar .account {
   padding-inline: 8px;
 }
+.macos-app-bar {
+  padding-right: 28px;
+  app-region: no-drag;
+}
 .window-controls {
   position: relative;
   display: flex;

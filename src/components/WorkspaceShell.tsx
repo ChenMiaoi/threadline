@@ -1,6 +1,6 @@
 import { useRef, type ReactNode } from 'react';
 import { Icon, IconButton } from './Icon';
-import { isDesktop, type View } from '../lib/desktop';
+import { isDesktop, isMacDesktop, type View } from '../lib/desktop';
 import { WindowControls } from './WindowControls';
 
 const navigation: { id: View; label: string; icon: string; count?: number }[] = [
@@ -36,18 +36,22 @@ export function WorkspaceShell({
   onChooseRepository: () => void;
 }) {
   const menu = useRef<HTMLDetailsElement>(null);
+  const dragRegion = isDesktop && !isMacDesktop ? true : undefined;
   function choose(next: View) {
     menu.current?.removeAttribute('open');
     onNavigate(next);
   }
   return (
     <div className={`app ${className}`}>
-      <header className={`app-bar${isDesktop ? ' desktop-app-bar' : ''}`} data-tauri-drag-region>
-        <div className="brand" data-tauri-drag-region>
-          <span data-tauri-drag-region>
+      <header
+        className={`app-bar${isDesktop ? ' desktop-app-bar' : ''}${isMacDesktop ? ' macos-app-bar' : ''}`}
+        data-tauri-drag-region={dragRegion}
+      >
+        <div className="brand" data-tauri-drag-region={dragRegion}>
+          <span data-tauri-drag-region={dragRegion}>
             <Icon name="brand" />
           </span>
-          <strong data-tauri-drag-region>ThreadLine</strong>
+          <strong data-tauri-drag-region={dragRegion}>ThreadLine</strong>
         </div>
         <IconButton name="search" label="搜索工作区" onClick={onSearch} />
         <div className="workspace-switcher">

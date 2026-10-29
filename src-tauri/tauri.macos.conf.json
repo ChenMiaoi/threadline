@@ -1,0 +1,23 @@
+{
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "ThreadLine",
+        "decorations": true,
+        "titleBarStyle": "Visible",
+        "center": true,
+        "width": 1100,
+        "height": 740,
+        "minWidth": 900,
+        "minHeight": 680,
+        "backgroundColor": "#111216"
+      }
+    ]
+  },
+  "bundle": {
+    "targets": ["app", "dmg"],
+    "icon": ["icons/icon.icns"],
+    "macOS": { "minimumSystemVersion": "10.15" }
+  }
+}

@@ -20,6 +20,8 @@ export interface AppState {
 }
 
 export const isDesktop = isTauri();
+export const isMacDesktop =
+  isDesktop && typeof navigator !== 'undefined' && /Macintosh|Mac OS X/.test(navigator.userAgent);
 
 export function loadAppState(): Promise<AppState> {
   return invoke<AppState>('get_app_state');

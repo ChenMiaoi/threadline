@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { isDesktop } from '../lib/desktop';
+import { isDesktop, isMacDesktop } from '../lib/desktop';
 
 export function WindowControls() {
   const [maximized, setMaximized] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
-    if (!isDesktop) return;
+    if (!isDesktop || isMacDesktop) return;
     const appWindow = getCurrentWindow();
     let disposed = false;
     const update = () => {
@@ -29,7 +29,7 @@ export function WindowControls() {
       void listener.then((unlisten) => unlisten());
     };
   }, []);
-  if (!isDesktop) return null;
+  if (!isDesktop || isMacDesktop) return null;
   function run(action: 'minimize' | 'toggleMaximize' | 'close') {
     setError('');
     const appWindow = getCurrentWindow();
