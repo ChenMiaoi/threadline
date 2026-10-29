@@ -360,3 +360,14 @@
     top: -16px;
   }
 }
+
+.record-body .pull-status-badges {
+  margin-block: 3px;
+}
+.activity-record:has(.pull-status-badges) .record-status {
+  width: 44px;
+}
+.activity-record:has(.pull-status-badges) .record-summary {
+  color: var(--text);
+  -webkit-line-clamp: 3;
+}

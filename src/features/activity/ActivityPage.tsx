@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { PullStatusBadges, PullStatusLegend } from '../../components/PullStatusBadges';
 import { Icon } from '../../components/Icon';
 import { filterActivities, groupActivities, type Activity, type ActivityView } from './model';
 
@@ -15,14 +16,17 @@ const config = {
   },
   review: {
     title: '我审阅的 PR',
-    description: '区分评审结论与评审后的代码变化',
+    description: '分别查看 PR 流程、个人评审结论和下一步行动',
     tabs: [
       ['all', '全部'],
-      ['updated', '需要复查'],
-      ['waiting', '等待作者'],
-      ['reviewed', '已评审'],
+      ['requested', '待我评审'],
+      ['updated', '评审后有新提交'],
+      ['waiting', '等待作者修改'],
+      ['reviewed', '我已批准'],
+      ['draft', '草稿'],
+      ['finished', '已结束'],
     ],
-    note: '真实评审版本与当前 HEAD 分别展示；代码更新后需要重新复查。',
+    note: '个人评审与汇总评审分别展示；评审后有新提交时，请确认是否需要重新评审。',
   },
   issues: {
     title: 'Issues',
@@ -58,12 +62,14 @@ export function ActivityRecord({
   return (
     <div className={`activity-record ${selected ? 'selected' : ''} ${isRead ? 'is-read' : ''}`}>
       <button className="record-main" onClick={() => onOpen(record)}>
-        <span
-          className={`record-dot ${isRead ? 'dim' : record.tone}`}
-          aria-label={isRead ? '已读' : '未读'}
-        >
-          ●
-        </span>
+        {!record.pullStatus && (
+          <span
+            className={`record-dot ${isRead ? 'dim' : record.tone}`}
+            aria-label={isRead ? '已读' : '未读'}
+          >
+            ●
+          </span>
+        )}
         <span className="record-body">
           <span className="record-title" title={record.title}>
             {record.kind === 'issue' && (showKind || record.id.includes(':notification:'))
@@ -71,13 +77,22 @@ export function ActivityRecord({
               : ''}
             #{record.number}&nbsp; {record.title}
           </span>
-          <span className="record-summary">{record.summary}</span>
+          {record.pullStatus && (
+            <PullStatusBadges status={record.pullStatus} personal={record.personalReview} />
+          )}
+          <span className="record-summary">
+            {record.pullStatus ? `下一步：${record.summary}` : record.summary}
+          </span>
           <span className="record-detail" title={record.detail}>
             {record.detail}
           </span>
         </span>
         <span className="record-status">
-          <span className={record.tone}>{onRead ? (isRead ? '已读' : '未读') : record.status}</span>
+          {!record.pullStatus && (
+            <span className={record.tone}>
+              {onRead ? (isRead ? '已读' : '未读') : record.status}
+            </span>
+          )}
           <time>{record.updated}</time>
         </span>
       </button>
@@ -141,9 +156,10 @@ export function ActivityPage({
     const records = filterActivities(items, filter, query, read, snoozed).filter(
       (record) =>
         (!attention ||
-          record.category === 'attention' ||
-          record.category === 'updated' ||
-          record.tone === 'blue') &&
+          (record.needsAttention ??
+            (record.category === 'attention' ||
+              record.category === 'updated' ||
+              record.tone === 'blue'))) &&
         (!label || record.labels?.includes(label)),
     );
     return groupActivities(records);
@@ -227,6 +243,7 @@ export function ActivityPage({
           }
         </div>
       </div>
+      {view === 'review' && <PullStatusLegend />}
       <div className="activity-list">
         {groups.map(([group, items]) => (
           <section key={group}>

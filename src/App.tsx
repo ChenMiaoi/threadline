@@ -167,7 +167,9 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
           title: record.title,
           id: record.id,
           url: record.url,
-          state: 'open',
+          state:
+            record.state === 'merged' ? 'merged' : record.state === 'closed' ? 'closed' : 'open',
+          presentation: record.pullStatus,
           group: record.group,
           status: record.status,
           tone: 'muted',
@@ -261,7 +263,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
               {github.syncing
                 ? '正在读取 GitHub 数据…'
                 : currentPage && github.times[currentPage]
-                  ? `上次读取 ${new Date(github.times[currentPage]!).toLocaleTimeString('zh-CN')}`
+                  ? `${openedPull ? '列表同步时间' : '上次读取'} ${new Date(github.times[currentPage]!).toLocaleTimeString('zh-CN')}`
                   : ''}
             </span>
             <button

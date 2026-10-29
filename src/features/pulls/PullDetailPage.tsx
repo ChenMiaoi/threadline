@@ -1,4 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import { PullStatusBadges, PullStatusLegend } from '../../components/PullStatusBadges';
+import { checkResultLabel, describePull } from '../../core/pull-status';
 import { GitHubMarkdown } from '../../components/GitHubMarkdown';
 import type { PullRequest } from './model';
 import { shortTime, type GitHubGateway, type PullDetail } from '../../core/github';
@@ -22,8 +24,8 @@ type ResourceProps = {
   ready: boolean;
 };
 const reviewLabels: Record<string, string> = {
-  APPROVED: '批准',
-  CHANGES_REQUESTED: '请求修改',
+  APPROVED: '已批准',
+  CHANGES_REQUESTED: '要求变更',
   COMMENTED: '评论评审',
   DISMISSED: '已撤销',
   PENDING: '待提交',
@@ -278,14 +280,21 @@ function ChecksSection({ resource, onReload }: { resource: ResourceProps; onRelo
             <div className="file-record" key={check.id}>
               <span>{check.name}</span>
               <span className={check.conclusion === 'success' ? 'green' : 'muted'}>
-                {check.conclusion ?? check.status}
+                {checkResultLabel(check.conclusion, check.status)}
               </span>
             </div>
           ))}
           {statuses.map((status) => (
             <div className="file-record" key={status.context}>
               <span>{status.context}</span>
-              <span>{status.state}</span>
+              <span>
+                {(
+                  { success: '通过', failure: '失败', error: '出错', pending: '等待中' } as Record<
+                    string,
+                    string
+                  >
+                )[status.state] ?? `未知状态：${status.state}`}
+              </span>
             </div>
           ))}
           {!checks.length && !statuses.length && !result.response.payload.checkError && (
@@ -316,6 +325,16 @@ export function PullDetailPage({
   const [generation, setGeneration] = useState(0);
   const [openError, setOpenError] = useState('');
   const detail = result.response?.payload.pull;
+  const presentation = detail
+    ? describePull({
+        state: detail.merged ? 'merged' : detail.state,
+        isDraft: detail.draft,
+        reviewDecision: detail.reviewDecision,
+        mergeStateStatus: detail.mergeStateStatus,
+        mergeable: detail.mergeable,
+        checkState: detail.checkState,
+      })
+    : pull.presentation;
   const resource = {
     gateway,
     cache,
@@ -346,23 +365,18 @@ export function PullDetailPage({
         <h1>{detail?.title ?? pull.title}</h1>
         <div className="inline-group">
           <span className="chip accent">#{pull.number}</span>
-          <span className="chip green">
-            {detail
-              ? detail.merged
-                ? '已合并'
-                : detail.draft
-                  ? '草稿'
-                  : detail.state === 'open'
-                    ? '开放'
-                    : '已关闭'
-              : pull.status}
-          </span>
           {detail && (
             <span className="muted">
               作者：{detail.user?.login ?? '已删除用户'} · {detail.commits} 个提交
             </span>
           )}
         </div>
+        {presentation && (
+          <>
+            <PullStatusBadges status={presentation} />
+            <p className="pull-next-action">下一步：{presentation.nextAction}</p>
+          </>
+        )}
         <div className="inline-group branch-summary">
           {detail && (
             <>
@@ -393,6 +407,10 @@ export function PullDetailPage({
       </section>
       {openError && <p role="alert">{openError}</p>}
       <ResourceState {...result} cached={Boolean(detail)} onReload={refresh} />
+      <p className="detail-freshness-note">
+        列表为上次同步快照，详情会独立重新读取。GitHub 可能稍后才算出合并条件；“待确认”不表示受阻。
+      </p>
+      <PullStatusLegend />
       <div className="detail-tabs" role="tablist" aria-label="PR 详情">
         {[
           ['discussion', '讨论'],
@@ -447,7 +465,7 @@ export function PullDetailPage({
       )}
       {result.response && (
         <footer className="page-note">
-          GitHub 数据 · {shortTime(new Date(result.response.fetchedAt).toISOString())}
+          详情读取 · {shortTime(new Date(result.response.fetchedAt).toISOString())}
           {result.loading
             ? ' · 上次读取，正在验证更新'
             : result.response.stale

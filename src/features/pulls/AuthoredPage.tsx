@@ -1,19 +1,7 @@
 import { useMemo, useState } from 'react';
+import { PullStatusBadges, PullStatusLegend } from '../../components/PullStatusBadges';
 import { Icon, IconButton } from '../../components/Icon';
 import { filterPullRequests, groupPullRequests, type PullRequest, type PullState } from './model';
-
-const checkIcons = {
-  passed: 'check-passed',
-  failed: 'check-failed',
-  none: 'check-none',
-  pending: 'check-pending',
-};
-const checkLabels = {
-  passed: '检查通过',
-  failed: '检查失败',
-  none: '无检查',
-  pending: '检查进行中',
-};
 
 export function AuthoredPage({
   onOpen,
@@ -77,9 +65,9 @@ export function AuthoredPage({
       <div className="pull-tabs" role="tablist" aria-label="PR 状态">
         {(
           [
-            ['open', '进行中'],
+            ['open', '未结束'],
             ['merged', '已合并'],
-            ['closed', '已关闭'],
+            ['closed', '已关闭（未合并）'],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -94,6 +82,7 @@ export function AuthoredPage({
           </button>
         ))}
       </div>
+      <PullStatusLegend />
       <section className="pull-list" aria-label="我发起的 PR">
         {groups.map(([group, pulls]) => (
           <section key={group}>
@@ -119,12 +108,20 @@ export function AuthoredPage({
               >
                 <Icon name="pr" />
                 <span className="pull-number">#{pull.number}</span>
-                <span className="pull-title" title={pull.title}>
-                  {pull.title}
-                </span>
-                <span className={`pull-status ${pull.tone}`}>●&nbsp; {pull.status}</span>
-                <span title={checkLabels[pull.check]}>
-                  <Icon name={checkIcons[pull.check]} />
+                <span className="pull-body">
+                  <span className="pull-title" title={pull.title}>
+                    {pull.title}
+                  </span>
+                  {pull.presentation ? (
+                    <>
+                      <PullStatusBadges status={pull.presentation} />
+                      <span className="pull-next-action">
+                        下一步：{pull.presentation.nextAction}
+                      </span>
+                    </>
+                  ) : (
+                    <span className={`pull-status ${pull.tone}`}>{pull.status}</span>
+                  )}
                 </span>
                 <span className="avatar reviewer-avatar" title={pull.reviewer || '未指定评审人'}>
                   {pull.reviewer.slice(0, 1).toUpperCase() || '—'}

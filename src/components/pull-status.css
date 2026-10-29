@@ -1,0 +1,81 @@
+.pull-status-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 7px;
+  min-width: 0;
+}
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 11px;
+  line-height: 20px;
+  white-space: nowrap;
+}
+.status-dimension {
+  opacity: 0.8;
+}
+.status-neutral {
+  color: var(--muted);
+}
+.status-info {
+  color: var(--blue);
+}
+.status-success {
+  color: var(--green);
+}
+.status-warning {
+  color: var(--yellow);
+}
+.status-danger {
+  color: #ef8181;
+}
+.status-merged {
+  color: #bb9aef;
+}
+.theme-light .status-danger {
+  color: #a62929;
+}
+.theme-light .status-merged {
+  color: #7344a6;
+}
+.status-legend {
+  padding: 8px 32px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.status-legend summary {
+  cursor: pointer;
+}
+.status-legend dl {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 8px 14px;
+  margin-block: 12px;
+  line-height: 22px;
+}
+.status-legend dt {
+  color: var(--text);
+  font-weight: 600;
+}
+.status-legend dd {
+  margin: 0;
+}
+.pull-next-action {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 20px;
+}
+@media (max-width: 760px) {
+  .status-legend {
+    padding-inline: 16px;
+  }
+  .status-legend dl {
+    grid-template-columns: 60px minmax(0, 1fr);
+  }
+}
