@@ -1,0 +1,18 @@
+[package]
+name = "threadline"
+version = "0.1.0"
+description = "ThreadLine desktop workspace"
+license = "GPL-3.0-only"
+edition = "2021"
+
+[lib]
+name = "threadline_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+rusqlite = { version = "0.41", features = ["bundled"] }
