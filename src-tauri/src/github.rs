@@ -53,7 +53,13 @@ impl Client {
         if let Ok(mut timings) = self.timings.lock() {
             timings.push(json!({"stage":stage,"offsetMs":offset,"elapsedMs":started.elapsed().as_secs_f64()*1000.0}));
         }
-        let response = result?;
+        let response = result.map_err(|error| {
+            if error.starts_with("GH_RESPONSE_ERROR") {
+                format!("{error} [{stage}]")
+            } else {
+                error
+            }
+        })?;
         if !(200..300).contains(&response.status) {
             return Err(http_error(response.status, &response.body));
         }
@@ -174,7 +180,11 @@ impl Client {
             );
             let body = self.checked(request)?.body;
             let search = &body["data"]["search"];
-            if search["issueCount"].as_u64().ok_or("GH_RESPONSE_ERROR")? > 1000 {
+            if search["issueCount"]
+                .as_u64()
+                .ok_or("GH_RESPONSE_ERROR: search count")?
+                > 1000
+            {
                 return Err(
                     "GH_SEARCH_LIMIT: 相关记录超过 GitHub 搜索的 1000 条上限，无法完整加载。"
                         .into(),
@@ -182,7 +192,7 @@ impl Client {
             }
             let more = search["pageInfo"]["hasNextPage"]
                 .as_bool()
-                .ok_or("GH_RESPONSE_ERROR")?;
+                .ok_or("GH_RESPONSE_ERROR: search page info")?;
             let end = search["pageInfo"]["endCursor"].as_str().map(str::to_string);
             pages.push(body);
             if !more {
@@ -469,7 +479,9 @@ fn http_error(status: u16, body: &Value) -> String {
         403 if rate_limit => "GH_RATE_LIMIT: GitHub 请求额度已耗尽，请稍后重试。",
         403 => "GH_FORBIDDEN: ThreadLine 未获此仓库所需的只读权限。",
         404 => "GH_NOT_FOUND: 仓库或记录不存在，或 ThreadLine 尚未安装到此仓库。",
-        _ => "GH_REQUEST_FAILED: 无法获取 GitHub 数据，请检查网络后重试。",
+        _ => {
+            return format!("GH_REQUEST_FAILED: 无法获取 GitHub 数据 (HTTP {status})，请稍后重试。")
+        }
     }
     .into()
 }

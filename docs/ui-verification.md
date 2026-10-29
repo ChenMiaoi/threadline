@@ -1,5 +1,28 @@
 # UI Verification
 
+## Startup Synchronization Recovery
+
+The October 29 follow-up fixes a confirmed error-handling gap in the desktop HTTPS transport: a non-JSON HTTP failure (for example, an HTML 502 gateway page or an empty 503 response) previously became `GH_RESPONSE_ERROR` before the client could inspect its HTTP status. It therefore bypassed transient-network cache fallback and required an explicit retry. HTTP failures now preserve their status classification, including authorization and rate-limit failures; final network failures include the status, while malformed successful responses identify the request stage without exposing response contents.
+
+REST GETs and the application's GraphQL queries now allow one retry after 750 ms for transport failures, timeouts, malformed JSON, and HTTP 500/502/503/504. Successful reads incur no delay. OAuth exchanges, GraphQL mutations, authorization failures, rate limits, oversized responses, invalid URLs, and responses with `Retry-After` are not automatically replayed. The original HTTP origin restrictions, credential handling, access validation, session recheck, and cache boundaries remain in place.
+
+Fault-injection regression tests cover HTML/empty gateway failures followed by success, transport failures, malformed successful responses, repeated failure exhaustion, non-JSON authorization errors, OAuth/query replay eligibility, and server-directed waiting. Before the fix, three parallel rounds of four live list operations completed successfully (12/12); the historical intermittent failure was not reproduced, so its original remote status cannot be established retrospectively. This change fixes the confirmed classification/recovery defect without claiming that all possible causes of the historical error are known.
+
+`npm run check` passed with **144 frontend tests and 45 Rust tests**, including lint, formatting, type checks, tests, and configured builds. The final installer build and DMG integrity verification passed; the bundled executable's SHA-256 matched the checked build.
+
+The GPT-6.1 Terra xhigh subagent performed native desktop Computer Use against the final package. It confirmed process termination before each full-path relaunch:
+
+| Run            | Observed result                                                                                                                                       |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cold start 1   | Initial synchronization completed at 21:05:04; all four lists displayed normally, with no `GH_RESPONSE_ERROR` or retry button.                        |
+| Cold start 2   | Initial synchronization completed, including Issues at 21:06:31; all four lists displayed normally, with no error or retry button.                    |
+| Cold start 3   | Initial synchronization completed and all four lists displayed normally, with no error or retry button.                                               |
+| Manual refresh | All four lists refreshed successfully: Issues 21:08:56, Authored and Review 21:08:58, Inbox 21:09:03. Settings' latest synchronization matched Inbox. |
+
+Times are October 29, Asia/Shanghai. The existing account and LLVM repository remained selected. The app was restored to Inbox/unread, empty search, no dialogs, dark theme, comfortable density, 5-minute refresh, and desktop notifications disabled. No read/unread state was changed. Live transient errors did not occur during these runs; automatic retry execution is proven by fault-injection tests, not by the live desktop observations.
+
+Separate observation: the first two launches showed aggregate update toasts (23 and 24 records); the third did not. The pass did not establish whether these corresponded to genuine remote updates or initial data restoration. This remains an unconfirmed notification observation, separate from synchronization request errors.
+
 ## Unified Workspace Layout and Reading Experience
 
 The October 29 UI pass introduced a shared compact page header, coordinated dark/light color tokens, consistent controls and spacing, compact activity summaries, and low-emphasis status metadata with one primary status. Explicit lifecycle, aggregate review, checks, merge conditions, and personal review labels remain distinct. Issue icons distinguish open and closed records; the sidebar exposes Snoozed directly, retains text at the normal 1100-pixel window width, and switches to named icon navigation below 1000 pixels. Settings now use bounded forms, proper switch tracks, and three equal-width theme cards. Empty Snoozed views omit unusable bulk actions.
