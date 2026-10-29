@@ -104,16 +104,18 @@ async fn github_request(
     repo: String,
     number: u64,
     account_id: u64,
+    head: Option<String>,
     app: tauri::AppHandle,
 ) -> Result<serde_json::Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        github_workspace::request(
+        github_workspace::request_at_head(
             &app.state::<Workspace>().database,
             &app.state::<github_auth::AuthManager>(),
             &operation,
             &repo,
             number,
             account_id,
+            head.as_deref().unwrap_or(""),
         )
     })
     .await

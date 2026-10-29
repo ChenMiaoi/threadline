@@ -141,14 +141,27 @@ fn next_link(header: &str) -> Option<String> {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use std::collections::VecDeque;
+    use std::collections::{HashMap, VecDeque};
     use std::sync::Mutex;
     #[derive(Default)]
     pub struct FakeHttp {
         pub responses: Mutex<VecDeque<Result<Response, String>>>,
         pub requests: Mutex<Vec<Request>>,
+        routes: Mutex<HashMap<String, VecDeque<Result<Response, String>>>>,
     }
     impl FakeHttp {
+        pub fn push_for(&self, endpoint: &str, body: Value) {
+            self.routes
+                .lock()
+                .unwrap()
+                .entry(format!("{API}{endpoint}"))
+                .or_default()
+                .push_back(Ok(Response {
+                    status: 200,
+                    body,
+                    next: None,
+                }));
+        }
         pub fn push(&self, body: Value) {
             self.responses.lock().unwrap().push_back(Ok(Response {
                 status: 200,
@@ -159,7 +172,16 @@ pub mod tests {
     }
     impl Transport for FakeHttp {
         fn send(&self, request: Request) -> Result<Response, String> {
+            let response = self
+                .routes
+                .lock()
+                .unwrap()
+                .get_mut(&request.url)
+                .and_then(VecDeque::pop_front);
             self.requests.lock().unwrap().push(request);
+            if let Some(response) = response {
+                return response;
+            }
             self.responses
                 .lock()
                 .unwrap()

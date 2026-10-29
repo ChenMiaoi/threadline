@@ -23,8 +23,15 @@ export const githubGateway: GitHubGateway = {
     repo: string,
     accountId: number,
     number = 0,
+    head = '',
   ): Promise<GitHubResponse<T>> {
-    return command('github_request', { operation, repo, accountId, number });
+    return command('github_request', {
+      operation,
+      repo,
+      accountId,
+      number,
+      ...(head ? { head } : {}),
+    });
   },
   async select(repo, accountId) {
     return command('github_select_repository', { repo, accountId });

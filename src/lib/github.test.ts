@@ -19,6 +19,17 @@ describe('GitHub desktop boundary', () => {
       accountId: 7,
     });
   });
+  it('passes the expected PR revision through the desktop protocol for lazy sections', async () => {
+    vi.mocked(invoke).mockResolvedValue({ payload: [], stale: false });
+    await githubGateway.request('files', 'owner/repository', 7, 42, 'a'.repeat(40));
+    expect(invoke).toHaveBeenCalledWith('github_request', {
+      operation: 'files',
+      repo: 'owner/repository',
+      accountId: 7,
+      number: 42,
+      head: 'a'.repeat(40),
+    });
+  });
   it('propagates login failures instead of replacing them with records', async () => {
     vi.mocked(invoke).mockRejectedValue('GH_AUTH_REQUIRED');
     await expect(githubGateway.session()).rejects.toBe('GH_AUTH_REQUIRED');

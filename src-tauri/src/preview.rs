@@ -39,6 +39,8 @@ struct Args {
     #[serde(default)]
     account_id: u64,
     #[serde(default)]
+    head: String,
+    #[serde(default)]
     url: String,
 }
 #[derive(Deserialize)]
@@ -55,13 +57,14 @@ fn execute(
 ) -> Result<Value, String> {
     match request.command {
         Command::Session => github_workspace::session(database, auth),
-        Command::Request => github_workspace::request(
+        Command::Request => github_workspace::request_at_head(
             database,
             auth,
             &request.args.operation,
             &request.args.repo,
             request.args.number,
             request.args.account_id,
+            &request.args.head,
         ),
         Command::SelectRepository => {
             github_workspace::select(database, auth, &request.args.repo, request.args.account_id)?;
@@ -115,6 +118,39 @@ pub fn run_bridge() {
         }
     }
 }
+/// Read-only diagnostic probe of the desktop services; emits durations, never record contents or secrets.
+pub fn measure(repo: &str, number: u64, full: bool) -> Result<(), String> {
+    let database =
+        Mutex::new(Database::open(std::path::Path::new(":memory:")).map_err(|_| "DATABASE_ERROR")?);
+    let auth = AuthManager::default();
+    let account = auth.client()?.account()?["id"]
+        .as_u64()
+        .ok_or("GH_RESPONSE_ERROR")?;
+    if full {
+        let result = github_workspace::request(&database, &auth, "detail", repo, number, account)?;
+        println!(
+            "{}",
+            json!({"operation":"detail","timing":result["timing"]})
+        );
+    } else {
+        let result = github_workspace::request(&database, &auth, "pull", repo, number, account)?;
+        println!("{}", json!({"operation":"pull","timing":result["timing"]}));
+        let head = result["payload"]["pull"]["head"]["sha"]
+            .as_str()
+            .ok_or("GH_RESPONSE_ERROR")?;
+        for operation in ["discussion", "files", "checks"] {
+            let result = github_workspace::request_at_head(
+                &database, &auth, operation, repo, number, account, head,
+            )?;
+            println!(
+                "{}",
+                json!({"operation":operation,"timing":result["timing"]})
+            );
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

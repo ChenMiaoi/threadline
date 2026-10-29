@@ -1,0 +1,25 @@
+query PullOverview($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      number
+      title
+      body
+      url
+      state
+      merged
+      isDraft
+      author {
+        login
+      }
+      headRefOid
+      headRefName
+      baseRefName
+      additions
+      deletions
+      changedFiles
+      commits {
+        totalCount
+      }
+    }
+  }
+}

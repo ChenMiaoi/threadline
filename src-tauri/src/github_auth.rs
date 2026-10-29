@@ -343,6 +343,14 @@ impl AuthManager {
             user_id,
         })
     }
+    pub fn ensure_account(&self, expected: u64) -> Result<(), String> {
+        let _guard = self.credential_guard()?;
+        let credential = self.store.read()?.ok_or("GH_AUTH_REQUIRED")?;
+        if credential.client_id != self.config.client_id || credential.user_id != expected {
+            return Err("GH_ACCOUNT_CHANGED".into());
+        }
+        Ok(())
+    }
     pub fn client(&self) -> Result<Client, String> {
         self.config.validate()?;
         let _guard = self.credential_guard()?;

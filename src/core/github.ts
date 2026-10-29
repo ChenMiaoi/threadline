@@ -24,6 +24,11 @@ export interface GitHubResponse<T> {
   fetchedAt: number;
   stale: boolean;
   error: string | null;
+  timing?: {
+    totalMs: number;
+    stages: { stage: string; elapsedMs: number }[];
+    requests: { stage: string; elapsedMs: number; offsetMs: number }[];
+  };
 }
 export interface GitHubLoginState {
   status: 'idle' | 'starting' | 'waiting' | 'complete' | 'error' | 'cancelled';
@@ -32,7 +37,18 @@ export interface GitHubLoginState {
   error: string | null;
 }
 export type GitHubOperation =
-  'repositories' | 'repository' | 'authored' | 'review' | 'issues' | 'inbox' | 'detail' | 'issue';
+  | 'repositories'
+  | 'repository'
+  | 'authored'
+  | 'review'
+  | 'issues'
+  | 'inbox'
+  | 'detail'
+  | 'issue'
+  | 'pull'
+  | 'discussion'
+  | 'files'
+  | 'checks';
 export interface GitHubGateway {
   session(): Promise<GitHubSession>;
   request<T>(
@@ -40,6 +56,7 @@ export interface GitHubGateway {
     repo: string,
     accountId: number,
     number?: number,
+    head?: string,
   ): Promise<GitHubResponse<T>>;
   select(repo: string, accountId: number): Promise<void>;
   login(): Promise<GitHubLoginState>;

@@ -19,7 +19,13 @@ const commandFields: Record<string, Record<string, 'string' | 'number'>> = {
   github_logout: {},
   github_open: { url: 'string' },
   github_select_repository: { repo: 'string', accountId: 'number' },
-  github_request: { operation: 'string', repo: 'string', number: 'number', accountId: 'number' },
+  github_request: {
+    operation: 'string',
+    repo: 'string',
+    number: 'number',
+    accountId: 'number',
+    head: 'string',
+  },
 };
 export function allowsCommand(command: string, args: unknown): args is Record<string, unknown> {
   if (

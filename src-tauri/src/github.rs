@@ -3,7 +3,8 @@ use serde_json::{json, Value};
 use std::collections::HashSet;
 #[cfg(not(target_os = "macos"))]
 use std::process::Command;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 const SEARCH_QUERY: &str = include_str!("github-search.graphql");
 pub const READ_PERMISSIONS: &[&str] = &[
@@ -18,13 +19,41 @@ pub const READ_PERMISSIONS: &[&str] = &[
 pub struct Client {
     http: Arc<dyn Transport>,
     token: String,
+    started: Instant,
+    timings: Mutex<Vec<Value>>,
 }
 impl Client {
     pub fn new(http: Arc<dyn Transport>, token: String) -> Self {
-        Self { http, token }
+        Self {
+            http,
+            token,
+            started: Instant::now(),
+            timings: Mutex::new(Vec::new()),
+        }
     }
     fn checked(&self, request: Request) -> Result<crate::github_http::Response, String> {
-        let response = self.http.send(request)?;
+        let stage = if request.json.as_ref().is_some_and(|body| {
+            body["query"]
+                .as_str()
+                .is_some_and(|query| query.contains("query PullHead"))
+        }) {
+            "headRecheck"
+        } else if request.json.as_ref().is_some_and(|body| {
+            body["query"]
+                .as_str()
+                .is_some_and(|query| query.contains("query PullOverview"))
+        }) {
+            "overview"
+        } else {
+            request_stage(&request.url)
+        };
+        let started = Instant::now();
+        let offset = self.started.elapsed().as_secs_f64() * 1000.0;
+        let result = self.http.send(request);
+        if let Ok(mut timings) = self.timings.lock() {
+            timings.push(json!({"stage":stage,"offsetMs":offset,"elapsedMs":started.elapsed().as_secs_f64()*1000.0}));
+        }
+        let response = result?;
         if !(200..300).contains(&response.status) {
             return Err(http_error(response.status, &response.body));
         }
@@ -32,6 +61,12 @@ impl Client {
             return Err("GH_API_ERROR: GitHub 查询未完整成功，请检查授权和额度。".into());
         }
         Ok(response)
+    }
+    pub fn timings(&self) -> Vec<Value> {
+        self.timings
+            .lock()
+            .map(|entries| entries.clone())
+            .unwrap_or_default()
     }
     pub fn account(&self) -> Result<Value, String> {
         self.api("/user", false)
@@ -160,6 +195,91 @@ impl Client {
             cursor = Some(end);
         }
     }
+    pub fn section(
+        &self,
+        operation: &str,
+        repo: &str,
+        number: u64,
+        login: &str,
+        head: &str,
+    ) -> Result<Value, String> {
+        if !matches!(operation, "pull" | "discussion" | "files" | "checks") {
+            return self.request(operation, repo, number, login);
+        }
+        if !valid_repo(repo) || number == 0 {
+            return Err("INVALID_REPOSITORY".into());
+        }
+        if operation == "pull" {
+            return Ok(json!({"pull":self.pull_overview(repo, number)?}));
+        }
+        if head.len() != 40 || !head.chars().all(|c| c.is_ascii_hexdigit()) {
+            return Err("GH_INVALID_HEAD".into());
+        }
+        let base = format!("/repos/{repo}");
+        let value = match operation {
+            "discussion" => {
+                let [comments, reviews, inline] = std::thread::scope(|scope| {
+                    [
+                        format!("{base}/issues/{number}/comments?per_page=100"),
+                        format!("{base}/pulls/{number}/reviews?per_page=100"),
+                        format!("{base}/pulls/{number}/comments?per_page=100"),
+                    ]
+                    .map(|endpoint| scope.spawn(move || self.api(&endpoint, true)))
+                    .map(|job| job.join().unwrap_or_else(|_| Err("GH_TASK_FAILED".into())))
+                });
+                json!({"comments":comments?,"reviews":reviews?,"reviewComments":inline?})
+            }
+            "files" => {
+                json!({"files":self.api(&format!("{base}/pulls/{number}/files?per_page=100"), true)?})
+            }
+            "checks" => {
+                let [checks, statuses] = std::thread::scope(|scope| {
+                    [
+                        format!("{base}/commits/{head}/check-runs?per_page=100&filter=latest"),
+                        format!("{base}/commits/{head}/status?per_page=100"),
+                    ]
+                    .map(|endpoint| scope.spawn(move || self.api(&endpoint, true)))
+                    .map(|job| job.join().unwrap_or_else(|_| Err("GH_TASK_FAILED".into())))
+                });
+                json!({"checks":checks.as_ref().ok(),"statuses":statuses.as_ref().ok(),"checkError":checks.err().or(statuses.err())})
+            }
+            _ => unreachable!(),
+        };
+        // Files and reviews may change while fetching; never attach another revision to the overview.
+        if self.pull_head(repo, number)? != head {
+            return Err("GH_HEAD_CHANGED: PR 版本已更新，请刷新详情。".into());
+        }
+        Ok(value)
+    }
+    fn graphql_pull(&self, repo: &str, number: u64, query: &str) -> Result<Value, String> {
+        let (owner, name) = repo.split_once('/').ok_or("INVALID_REPOSITORY")?;
+        let mut request = Request::get(format!("{API}/graphql"), &self.token);
+        request.json =
+            Some(json!({"query":query,"variables":{"owner":owner,"name":name,"number":number}}));
+        let body = self.checked(request)?.body;
+        let pull = &body["data"]["repository"]["pullRequest"];
+        if pull.is_null() {
+            return Err("GH_NOT_FOUND".into());
+        }
+        Ok(pull.clone())
+    }
+    fn pull_head(&self, repo: &str, number: u64) -> Result<String, String> {
+        let pull = self.graphql_pull(repo, number, "query PullHead($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){headRefOid}}}")?;
+        pull["headRefOid"]
+            .as_str()
+            .map(str::to_string)
+            .ok_or("GH_RESPONSE_ERROR".into())
+    }
+    fn pull_overview(&self, repo: &str, number: u64) -> Result<Value, String> {
+        let pull = self.graphql_pull(repo, number, include_str!("github-pull.graphql"))?;
+        let sha = pull["headRefOid"].as_str().ok_or("GH_RESPONSE_ERROR")?;
+        if sha.len() != 40 || !sha.chars().all(|c| c.is_ascii_hexdigit()) {
+            return Err("GH_RESPONSE_ERROR".into());
+        }
+        Ok(
+            json!({"number":pull["number"],"title":pull["title"],"body":pull["body"],"html_url":pull["url"],"state":if pull["state"] == "OPEN" { "open" } else { "closed" },"merged":pull["merged"],"draft":pull["isDraft"],"user":pull["author"],"head":{"sha":sha,"ref":pull["headRefName"]},"base":{"ref":pull["baseRefName"]},"additions":pull["additions"],"deletions":pull["deletions"],"changed_files":pull["changedFiles"],"commits":pull["commits"]["totalCount"]}),
+        )
+    }
     pub fn request(
         &self,
         operation: &str,
@@ -272,6 +392,36 @@ impl Client {
         }
     }
 }
+fn request_stage(url: &str) -> &'static str {
+    if url.ends_with("/user") {
+        "identity"
+    } else if url.contains("/apps/") {
+        "app"
+    } else if url.ends_with("/graphql") {
+        "search"
+    } else if url.contains("/check-runs?") {
+        "checks"
+    } else if url.contains("/status?") {
+        "statuses"
+    } else if url.contains("/files?") {
+        "files"
+    } else if url.contains("/reviews?") {
+        "reviews"
+    } else if url.contains("/comments?") && url.contains("/pulls/") {
+        "inlineComments"
+    } else if url.contains("/comments?") {
+        "comments"
+    } else if url.contains("/pulls/") {
+        "pull"
+    } else if url.contains("/installations") {
+        "installations"
+    } else if url.contains("/issues/") {
+        "issue"
+    } else {
+        "repository"
+    }
+}
+
 pub fn validate_permissions(value: &Value) -> Result<(), String> {
     let permissions = value.as_object().ok_or("GH_RESPONSE_ERROR")?;
     if permissions.get("metadata").and_then(Value::as_str) != Some("read")
@@ -492,6 +642,107 @@ mod tests {
                 assert!(detail["statuses"].is_array());
             }
         }
+    }
+    struct SectionHttp {
+        requests: Mutex<Vec<String>>,
+        changed: bool,
+    }
+    impl Transport for SectionHttp {
+        fn send(&self, request: Request) -> Result<Response, String> {
+            self.requests.lock().unwrap().push(request.url.clone());
+            let body = if request.url.ends_with("/graphql") {
+                let query = request.json.as_ref().unwrap()["query"].as_str().unwrap();
+                if query.contains("query PullHead") {
+                    json!({"data":{"repository":{"pullRequest":{"headRefOid":if self.changed { "b".repeat(40) } else { "a".repeat(40) }}}}})
+                } else {
+                    assert_eq!(
+                        request.json.as_ref().unwrap()["variables"],
+                        json!({"owner":"owner","name":"repo","number":1})
+                    );
+                    json!({"data":{"repository":{"pullRequest":{"headRefOid":"a".repeat(40),"headRefName":"feature","baseRefName":"main","number":1,"title":"overview","body":"description","url":"https://github.com/owner/repo/pull/1","state":"OPEN","merged":false,"isDraft":false,"author":{"login":"tester"},"additions":3,"deletions":1,"changedFiles":2,"commits":{"totalCount":1}}}}})
+                }
+            } else if request.url.contains("check-runs") {
+                json!({"check_runs":[]})
+            } else if request.url.contains("/status?") {
+                json!({"statuses":[]})
+            } else {
+                json!([{"source":request.url}])
+            };
+            Ok(Response {
+                status: 200,
+                body,
+                next: None,
+            })
+        }
+    }
+    #[test]
+    fn overview_is_one_graphql_request_without_waiting_for_discussion_files_or_checks() {
+        let http = Arc::new(SectionHttp {
+            requests: Mutex::new(Vec::new()),
+            changed: false,
+        });
+        let client = Client::new(http.clone(), "ghu_secret-fixture".into());
+        let result = client
+            .section("pull", "owner/repo", 1, "tester", "")
+            .unwrap();
+        assert_eq!(result["pull"]["title"], "overview");
+        assert_eq!(result["pull"]["head"]["sha"], "a".repeat(40));
+        assert_eq!(http.requests.lock().unwrap().len(), 1);
+        let timings = serde_json::to_string(&client.timings()).unwrap();
+        for private in ["owner/repo", "description", "ghu_secret-fixture"] {
+            assert!(!timings.contains(private));
+        }
+        assert!(timings.contains("overview"));
+    }
+    #[test]
+    fn on_demand_sections_read_only_their_endpoints_and_recheck_the_requested_revision() {
+        for operation in ["discussion", "files", "checks"] {
+            for changed in [false, true] {
+                let http = Arc::new(SectionHttp {
+                    requests: Mutex::new(Vec::new()),
+                    changed,
+                });
+                let client = Client::new(http.clone(), "ghu_test".into());
+                let result = client.section(operation, "owner/repo", 1, "tester", &"a".repeat(40));
+                if changed {
+                    assert!(result.unwrap_err().starts_with("GH_HEAD_CHANGED"));
+                } else {
+                    assert!(result.unwrap().is_object());
+                }
+                let requests = http.requests.lock().unwrap();
+                assert_eq!(
+                    requests.len(),
+                    match operation {
+                        "discussion" => 4,
+                        "files" => 2,
+                        _ => 3,
+                    }
+                );
+                assert!(requests.last().unwrap().ends_with("/graphql"));
+                if operation != "files" {
+                    assert!(!requests.iter().any(|url| url.contains("/files?")));
+                }
+                if operation != "checks" {
+                    assert!(!requests.iter().any(|url| url.contains("check-runs")));
+                }
+            }
+        }
+    }
+    #[test]
+    fn sections_reject_invalid_revision_and_paths_without_network() {
+        let (client, http) = client();
+        for head in ["", "bad/path", "not-hex"] {
+            assert_eq!(
+                client
+                    .section("files", "owner/repo", 1, "tester", head)
+                    .unwrap_err(),
+                "GH_INVALID_HEAD"
+            );
+        }
+        assert!(client
+            .section("pull", "owner/repo?token=x", 1, "tester", "")
+            .is_err());
+        assert!(http.requests.lock().unwrap().is_empty());
     }
     #[test]
     fn rejects_unsafe_paths_and_unknown_operations_without_network_requests() {
