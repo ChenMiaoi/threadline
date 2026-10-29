@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Icon, IconButton } from './Icon';
 import { isDesktop, isMacDesktop, type View } from '../lib/desktop';
 import { GitHubAvatar } from './GitHubAvatar';
@@ -43,6 +43,67 @@ export function WorkspaceShell({
   notificationsAvailable: boolean;
 }) {
   const menu = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    let consumeClick = false;
+    let release: ReturnType<typeof setTimeout> | undefined;
+    function close() {
+      const details = menu.current;
+      if (!details) return;
+      const restoreFocus = details.contains(document.activeElement);
+      details.removeAttribute('open');
+      if (restoreFocus) details.querySelector('summary')?.focus({ preventScroll: true });
+    }
+    function stop(event: Event) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+    function outside(event: Event) {
+      return (
+        menu.current?.open && event.target instanceof Node && !menu.current.contains(event.target)
+      );
+    }
+    function pointerDown(event: PointerEvent) {
+      if (!outside(event)) return;
+      consumeClick = true;
+      close();
+      stop(event);
+    }
+    function pointerUp() {
+      if (!consumeClick) return;
+      release = setTimeout(() => {
+        consumeClick = false;
+      }, 0);
+    }
+    function pointerCancel() {
+      clearTimeout(release);
+      consumeClick = false;
+    }
+    function click(event: MouseEvent) {
+      if (!consumeClick && !outside(event)) return;
+      consumeClick = false;
+      close();
+      stop(event);
+    }
+    function escape(event: KeyboardEvent) {
+      if (event.key !== 'Escape' || !menu.current?.open) return;
+      close();
+      menu.current.querySelector('summary')?.focus({ preventScroll: true });
+      stop(event);
+    }
+    document.addEventListener('pointerdown', pointerDown, true);
+    document.addEventListener('pointerup', pointerUp, true);
+    document.addEventListener('pointercancel', pointerCancel, true);
+    document.addEventListener('click', click, true);
+    document.addEventListener('keydown', escape, true);
+    return () => {
+      clearTimeout(release);
+      document.removeEventListener('pointerdown', pointerDown, true);
+      document.removeEventListener('pointerup', pointerUp, true);
+      document.removeEventListener('pointercancel', pointerCancel, true);
+      document.removeEventListener('click', click, true);
+      document.removeEventListener('keydown', escape, true);
+    };
+  }, []);
   const dragRegion = isDesktop && !isMacDesktop ? true : undefined;
   function choose(next: View) {
     menu.current?.removeAttribute('open');
@@ -60,7 +121,7 @@ export function WorkspaceShell({
           </span>
           <strong data-tauri-drag-region={dragRegion}>ThreadLine</strong>
         </div>
-        <IconButton name="search" label="搜索工作区" onClick={onSearch} />
+        <IconButton name="search" label="搜索我发起的 PR" onClick={onSearch} />
         <div className="workspace-switcher">
           <details className="workspace-menu" ref={menu}>
             <summary>工作台</summary>
