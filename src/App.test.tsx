@@ -352,3 +352,49 @@ describe('workspace interactions', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 });
+
+it('requires a selected repository before requesting profile statistics', async () => {
+  const gateway = createGateway();
+  gateway.session = vi.fn().mockResolvedValue({
+    user: { ...user, avatar_url: 'https://avatars.githubusercontent.com/u/7' },
+    selected: null,
+  });
+  gateway.request = vi.fn().mockRejectedValue(new Error('GH_TIMEOUT'));
+  render(<App gateway={gateway} />);
+  await screen.findByRole('button', { name: '个人主页' });
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: '账号与连接设置' }).textContent).toContain(
+      user.login,
+    ),
+  );
+  expect(gateway.request).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '个人主页' }));
+  expect(screen.queryByRole('heading', { name: '个人主页' })).toBeNull();
+  expect(gateway.request).not.toHaveBeenCalled();
+});
+it('requests profile lazily using the selected repository', async () => {
+  const gateway = createGateway();
+  const request = gateway.request;
+  gateway.request = vi
+    .fn()
+    .mockImplementation((operation, repository, accountId, number, head) =>
+      operation === 'profile'
+        ? Promise.reject(new Error('GH_TIMEOUT'))
+        : request(operation, repository, accountId, number, head),
+    );
+  render(<App gateway={gateway} />);
+  await screen.findByRole('textbox', { name: '搜索 PR' });
+  expect(vi.mocked(gateway.request).mock.calls.some((call) => call[0] === 'profile')).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: '个人主页' }));
+  await screen.findByRole('heading', { name: '个人主页' });
+  await waitFor(() =>
+    expect(gateway.request).toHaveBeenCalledWith(
+      'profile',
+      repo,
+      7,
+      new Date().getUTCFullYear(),
+      '',
+    ),
+  );
+  expect(screen.getByText(`当前仓库 · ${repo}`)).toBeTruthy();
+});

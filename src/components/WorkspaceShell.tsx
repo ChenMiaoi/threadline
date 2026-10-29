@@ -1,6 +1,7 @@
 import { useRef, type ReactNode } from 'react';
 import { Icon, IconButton } from './Icon';
 import { isDesktop, isMacDesktop, type View } from '../lib/desktop';
+import { GitHubAvatar } from './GitHubAvatar';
 import { WindowControls } from './WindowControls';
 
 const navigation: { id: View; label: string; icon: string; count?: number }[] = [
@@ -9,6 +10,7 @@ const navigation: { id: View; label: string; icon: string; count?: number }[] = 
   { id: 'authored', label: '我发起的', icon: 'user' },
   { id: 'review', label: '我审阅的', icon: 'review' },
   { id: 'issues', label: 'Issues', icon: 'issues' },
+  { id: 'profile', label: '个人主页', icon: 'user' },
 ];
 
 export function WorkspaceShell({
@@ -21,6 +23,7 @@ export function WorkspaceShell({
   children,
   repo,
   login,
+  avatarUrl,
   counts,
   onChooseRepository,
   notificationsAvailable,
@@ -34,6 +37,7 @@ export function WorkspaceShell({
   children: ReactNode;
   repo: string;
   login?: string;
+  avatarUrl?: string | null;
   counts: { review: number; issues: number };
   onChooseRepository: () => void;
   notificationsAvailable: boolean;
@@ -82,7 +86,7 @@ export function WorkspaceShell({
           onClick={() => onNavigate('settings')}
           aria-label="账号与连接设置"
         >
-          <span className="avatar">{login?.slice(0, 1).toUpperCase() ?? '?'}</span>
+          <GitHubAvatar login={login} url={avatarUrl} />
           <span className="account-name" title={login}>
             {login ?? '未连接'}
           </span>

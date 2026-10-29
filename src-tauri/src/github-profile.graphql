@@ -1,0 +1,98 @@
+query Profile(
+  $from: DateTime!
+  $to: DateTime!
+  $commits: String
+  $issues: String
+  $pulls: String
+  $reviews: String
+  $readCommits: Boolean!
+  $readIssues: Boolean!
+  $readPulls: Boolean!
+  $readReviews: Boolean!
+) {
+  viewer {
+    login
+    name
+    avatarUrl(size: 160)
+    url
+    bio
+    createdAt
+    contributionsCollection(from: $from, to: $to) {
+      contributionYears
+      totalRepositoriesWithContributedCommits
+      totalRepositoriesWithContributedIssues
+      totalRepositoriesWithContributedPullRequests
+      totalRepositoriesWithContributedPullRequestReviews
+      commits: commitContributionsByRepository(maxRepositories: 100) @include(if: $readCommits) {
+        repository {
+          nameWithOwner
+        }
+        contributions(first: 100, after: $commits) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            occurredAt
+            commitCount
+          }
+        }
+      }
+      issues: issueContributionsByRepository(
+        maxRepositories: 100
+        excludeFirst: false
+        excludePopular: false
+      ) @include(if: $readIssues) {
+        repository {
+          nameWithOwner
+        }
+        contributions(first: 100, after: $issues) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            occurredAt
+          }
+        }
+      }
+      pulls: pullRequestContributionsByRepository(
+        maxRepositories: 100
+        excludeFirst: false
+        excludePopular: false
+      ) @include(if: $readPulls) {
+        repository {
+          nameWithOwner
+        }
+        contributions(first: 100, after: $pulls) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            occurredAt
+          }
+        }
+      }
+      reviews: pullRequestReviewContributionsByRepository(maxRepositories: 100)
+        @include(if: $readReviews) {
+        repository {
+          nameWithOwner
+        }
+        contributions(first: 100, after: $reviews) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            occurredAt
+          }
+        }
+      }
+    }
+  }
+}

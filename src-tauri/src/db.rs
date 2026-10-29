@@ -3,12 +3,13 @@ use std::path::Path;
 use std::time::Duration;
 
 pub const SCHEMA_VERSION: i64 = 1;
-pub const VIEWS: [&str; 9] = [
+pub const VIEWS: [&str; 10] = [
     "inbox",
     "authored",
     "review",
     "issues",
     "settings",
+    "profile",
     "onboarding",
     "snoozed",
     "empty",
@@ -110,6 +111,12 @@ impl Database {
 mod tests {
     use super::*;
 
+    #[test]
+    fn profile_view_can_be_saved_and_restored() {
+        let database = Database::open(std::path::Path::new(":memory:")).unwrap();
+        database.save_last_view("profile").unwrap();
+        assert_eq!(database.last_view().unwrap(), "profile");
+    }
     #[test]
     fn preferences_survive_reopening_and_invalid_views_are_rejected() {
         let path = std::env::temp_dir().join(format!(

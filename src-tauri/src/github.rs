@@ -297,6 +297,22 @@ impl Client {
         number: u64,
         login: &str,
     ) -> Result<Value, String> {
+        if operation == "profile" {
+            if !(2008..=9999).contains(&number) {
+                return Err("GH_INVALID_YEAR".into());
+            }
+            if !valid_repo(repo) {
+                return Err("INVALID_REPOSITORY".into());
+            }
+            return crate::github_profile::read(repo, number, login, |variables| {
+                let mut request = Request::get(format!("{API}/graphql"), &self.token);
+                request.json = Some(
+                    json!({"query":include_str!("github-profile.graphql"),"variables":variables}),
+                );
+                let body = self.checked(request)?.body;
+                Ok(body["data"]["viewer"].clone())
+            });
+        }
         if operation == "repositories" {
             if login.is_empty() || !login.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
                 return Err("GH_RESPONSE_ERROR".into());

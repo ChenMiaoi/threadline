@@ -6,6 +6,7 @@ export const views = [
   'review',
   'issues',
   'settings',
+  'profile',
   'onboarding',
   'snoozed',
   'empty',

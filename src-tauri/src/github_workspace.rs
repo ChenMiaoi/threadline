@@ -16,7 +16,7 @@ pub fn session(database: &Mutex<Database>, auth: &AuthManager) -> Result<Value, 
             user["id"]
         ))?;
     client.installations()?;
-    let public_user = json!({"id":user["id"],"login":user["login"],"name":user["name"]});
+    let public_user = json!({"id":user["id"],"login":user["login"],"name":user["name"],"avatar_url":user["avatar_url"]});
     Ok(
         json!({"user":public_user,"selected":selected,"notificationsAvailable":false,"installationUrl":auth.config.installation_url(),"authProvider":"github-app"}),
     )

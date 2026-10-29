@@ -8,6 +8,7 @@ export interface GitHubUser {
   id: number;
   login: string;
   name: string | null;
+  avatar_url?: string | null;
 }
 export interface GitHubRepository {
   id: number;
@@ -40,6 +41,7 @@ export interface GitHubLoginState {
   error: string | null;
 }
 export type GitHubOperation =
+  | 'profile'
   | 'repositories'
   | 'repository'
   | 'authored'

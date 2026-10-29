@@ -17,6 +17,7 @@ import { GitHubLoginDialog } from './features/states/GitHubLogin';
 import { IssuePreview } from './features/activity/IssuePreview';
 import { ActivityPage } from './features/activity/ActivityPage';
 import type { Activity } from './features/activity/model';
+import { ProfilePage } from './features/profile/ProfilePage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import { SnoozeDialog, SnoozedPage } from './features/states/WorkspaceStates';
 import './features/pulls/pulls.css';
@@ -45,6 +46,10 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   const { data, update } = workspace;
   const github = useGitHub(data.preferences.refreshMinutes, gateway);
   const resourceCache = useMemo(() => createResourceCache(github.key), [github.key]);
+  const profileCache = useMemo(
+    () => createResourceCache(`profile-v2:${github.session?.user.id}:${github.repo}`),
+    [github.session?.user.id, github.repo],
+  );
   const [repositoryPicker, setRepositoryPicker] = useState(false);
   const listScroll = useRef(0);
   useLayoutEffect(() => {
@@ -261,6 +266,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
       <WorkspaceShell
         repo={github.repo}
         login={github.session?.user.login}
+        avatarUrl={github.session?.user.avatar_url}
         counts={{ review: github.review.length, issues: github.issues.length }}
         onChooseRepository={chooseRepository}
         view={view}
@@ -311,7 +317,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
             </div>
           </div>
         )}
-        {github.session && github.repo && view !== 'settings' && (
+        {github.session && github.repo && view !== 'settings' && view !== 'profile' && (
           <div className="sync-status" role="status">
             <span>
               {github.syncing
@@ -336,7 +342,16 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
         ) : (
           <>
             <div className="page-view" hidden={Boolean(openedPull)}>
-              {view !== 'settings' && (!github.session || !github.repo || view === 'onboarding') ? (
+              {view === 'profile' && github.session && github.repo ? (
+                <ProfilePage
+                  key={github.session.user.id}
+                  user={github.session.user}
+                  repo={github.repo}
+                  gateway={github.gateway}
+                  cache={profileCache}
+                />
+              ) : view !== 'settings' &&
+                (!github.session || !github.repo || view === 'onboarding') ? (
                 <GitHubConnection github={github} onChoose={chooseRepository} />
               ) : currentPage && !github.times[currentPage] ? (
                 <div className="list-empty" role="status">
@@ -386,7 +401,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
               ) : (
                 <ActivityPage
                   key={`${github.key}:${view}-${inboxFilter}`}
-                  view={view === 'empty' || view === 'sync-error' ? 'inbox' : view}
+                  view={view === 'review' || view === 'issues' ? view : 'inbox'}
                   repo={github.repo}
                   items={
                     view === 'review' ? github.review : view === 'issues' ? github.issues : inbox
