@@ -80,7 +80,9 @@ describe('snoozed activity lookup and selection', () => {
       onOpen: vi.fn(),
     };
     const { rerender } = render(<SnoozedPage {...props} />);
-    expect(screen.getByRole('button', { name: '已稍后处理 2' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: '稍后处理视图' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '已稍后处理 2', pressed: true })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '最近恢复', pressed: false })).toBeTruthy();
     expect(screen.queryByText('Duplicate must not win', { exact: false })).toBeNull();
     expect(screen.queryByText('Outdated saved revision', { exact: false })).toBeNull();
     expect(
@@ -99,6 +101,8 @@ describe('snoozed activity lookup and selection', () => {
       (screen.getByRole('button', { name: '恢复选中条目' }) as HTMLButtonElement).disabled,
     ).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: '最近恢复' }));
+    expect(screen.getByRole('button', { name: '最近恢复', pressed: true })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: '最近恢复的条目' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /#3/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: '恢复选中条目' })).toBeNull();
     fireEvent.click(screen.getByRole('checkbox', { name: '选择 #3' }));

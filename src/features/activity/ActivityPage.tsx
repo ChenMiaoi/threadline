@@ -300,13 +300,10 @@ export function ActivityPage({
                   ? '当前筛选下没有 Issue'
                   : '当前筛选下没有 PR'}
             </h1>
-            <p>当前筛选没有匹配记录。你可以查看全部记录，或清除筛选。</p>
+            <p>当前筛选没有匹配记录。清除筛选后可查看全部记录。</p>
             <div className="inline-group">
               <button className="chip accent" onClick={showAll}>
-                查看全部记录
-              </button>
-              <button className="chip" onClick={showAll}>
-                清除筛选
+                清除筛选并查看全部
               </button>
             </div>
           </section>

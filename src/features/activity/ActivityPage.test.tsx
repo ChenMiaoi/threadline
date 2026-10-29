@@ -63,7 +63,9 @@ describe('activity empty-state recovery', () => {
     expect((screen.getByRole('textbox', { name: '搜索协作记录' }) as HTMLInputElement).value).toBe(
       'missing',
     );
-    fireEvent.click(screen.getByRole('button', { name: '查看全部记录' }));
+    expect(screen.queryByRole('button', { name: '查看全部记录' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '清除筛选' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '清除筛选并查看全部' }));
     expect((screen.getByRole('textbox', { name: '搜索协作记录' }) as HTMLInputElement).value).toBe(
       '',
     );

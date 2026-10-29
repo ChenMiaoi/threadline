@@ -78,8 +78,9 @@ export function SnoozedPage({
     <>
       <StateLocation title="稍后处理" />
       <section className="snoozed-page">
-        <div className="inline-group">
+        <div className="inline-group" role="group" aria-label="稍后处理视图">
           <button
+            aria-pressed={!recent}
             className={`chip ${!recent ? 'active' : ''}`}
             onClick={() => {
               setRecent(false);
@@ -90,6 +91,7 @@ export function SnoozedPage({
           </button>
           <button
             className={`chip ${recent ? 'active' : ''}`}
+            aria-pressed={recent}
             onClick={() => {
               setRecent(true);
               setSelected([]);
