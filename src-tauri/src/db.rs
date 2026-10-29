@@ -20,6 +20,22 @@ pub struct Database {
 }
 
 impl Database {
+    pub fn setting(&self, key: &str) -> Result<Option<String>, String> {
+        self.connection
+            .query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
+                row.get(0)
+            })
+            .optional()
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn set_setting(&self, key: &str, value: &str) -> Result<(), String> {
+        if value.len() > 16 * 1024 * 1024 {
+            return Err("Cached data exceeds size limit".into());
+        }
+        self.connection.execute("INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value", params![key,value]).map_err(|error| error.to_string())?;
+        Ok(())
+    }
     pub fn open(path: &Path) -> rusqlite::Result<Self> {
         let mut connection = Connection::open(path)?;
         connection.busy_timeout(Duration::from_secs(5))?;
@@ -77,7 +93,7 @@ impl Database {
     }
 
     pub fn save_workspace_data(&self, data: &str) -> Result<(), String> {
-        if data.len() > 65536 {
+        if data.len() > 2 * 1024 * 1024 {
             return Err("Workspace data exceeds size limit".into());
         }
         let value: serde_json::Value =
@@ -114,7 +130,9 @@ mod tests {
                 .unwrap();
             assert!(database.save_workspace_data("[]").is_err());
             assert!(database.save_workspace_data("invalid json").is_err());
-            assert!(database.save_workspace_data(&"x".repeat(65537)).is_err());
+            assert!(database
+                .save_workspace_data(&"x".repeat(2 * 1024 * 1024 + 1))
+                .is_err());
             assert!(database.save_last_view("invalid").is_err());
         }
         {

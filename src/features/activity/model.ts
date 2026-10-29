@@ -1,5 +1,8 @@
 export type ActivityView = 'inbox' | 'review' | 'issues';
 export interface Activity {
+  url?: string;
+  state?: 'open' | 'closed';
+  serverRead?: boolean;
   id: string;
   kind: 'pull' | 'issue';
   number: number;
@@ -26,7 +29,7 @@ export function filterActivities(
     (record) =>
       !snoozed.includes(record.id) &&
       (filter === 'all' ||
-        filter === 'open' ||
+        ((filter === 'open' || filter === 'closed') && record.state === filter) ||
         (filter === 'unread'
           ? !read.includes(record.id)
           : filter === 'mentions'

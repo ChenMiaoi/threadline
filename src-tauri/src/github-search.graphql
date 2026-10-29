@@ -1,0 +1,101 @@
+query ($search: String!, $endCursor: String) {
+  search(query: $search, type: ISSUE, first: 50, after: $endCursor) {
+    issueCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      ... on PullRequest {
+        number
+        title
+        body
+        url
+        state
+        isDraft
+        updatedAt
+        headRefOid
+        reviewDecision
+        author {
+          login
+        }
+        comments(last: 1) {
+          totalCount
+          nodes {
+            body
+            author {
+              login
+            }
+            createdAt
+          }
+        }
+        reviews(last: 100) {
+          totalCount
+          nodes {
+            state
+            body
+            submittedAt
+            author {
+              login
+            }
+            commit {
+              oid
+            }
+          }
+        }
+        reviewRequests(first: 100) {
+          nodes {
+            requestedReviewer {
+              ... on User {
+                login
+              }
+              ... on Team {
+                name
+              }
+            }
+          }
+        }
+        commits(last: 1) {
+          nodes {
+            commit {
+              statusCheckRollup {
+                state
+              }
+            }
+          }
+        }
+      }
+      ... on Issue {
+        number
+        title
+        body
+        url
+        state
+        updatedAt
+        author {
+          login
+        }
+        labels(first: 100) {
+          nodes {
+            name
+          }
+        }
+        participants(first: 100) {
+          nodes {
+            login
+          }
+        }
+        comments(last: 1) {
+          totalCount
+          nodes {
+            body
+            author {
+              login
+            }
+            createdAt
+          }
+        }
+      }
+    }
+  }
+}

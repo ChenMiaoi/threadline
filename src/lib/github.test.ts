@@ -1,0 +1,26 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { invoke } from '@tauri-apps/api/core';
+import { githubGateway } from './github';
+vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: () => true }));
+describe('GitHub desktop boundary', () => {
+  beforeEach(() => vi.resetAllMocks());
+  it('uses typed commands without sending credentials or shell arguments', async () => {
+    vi.mocked(invoke).mockResolvedValue({ payload: [], stale: false });
+    await githubGateway.request('authored', 'owner/repository', 7);
+    expect(invoke).toHaveBeenCalledWith('github_request', {
+      operation: 'authored',
+      repo: 'owner/repository',
+      accountId: 7,
+      number: 0,
+    });
+    await githubGateway.select('owner/repository', 7);
+    expect(invoke).toHaveBeenCalledWith('github_select_repository', {
+      repo: 'owner/repository',
+      accountId: 7,
+    });
+  });
+  it('propagates login failures instead of replacing them with records', async () => {
+    vi.mocked(invoke).mockRejectedValue('GH_AUTH_REQUIRED');
+    await expect(githubGateway.session()).rejects.toBe('GH_AUTH_REQUIRED');
+  });
+});

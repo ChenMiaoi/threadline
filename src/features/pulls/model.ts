@@ -1,6 +1,10 @@
 export type PullState = 'open' | 'merged' | 'closed';
 export type CheckState = 'passed' | 'failed' | 'none' | 'pending';
 export interface PullRequest {
+  id?: string;
+  url?: string;
+  summary?: string;
+  author?: string;
   number: number;
   title: string;
   state: PullState;
