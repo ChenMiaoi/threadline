@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { PullStatusBadges, PullStatusLegend } from '../../components/PullStatusBadges';
+import { PullStatusBadges } from '../../components/PullStatusBadges';
 import { Icon } from '../../components/Icon';
 import { filterActivities, groupActivities, type Activity, type ActivityView } from './model';
 
@@ -243,7 +243,6 @@ export function ActivityPage({
           }
         </div>
       </div>
-      {view === 'review' && <PullStatusLegend />}
       <div className="activity-list">
         {groups.map(([group, items]) => (
           <section key={group}>

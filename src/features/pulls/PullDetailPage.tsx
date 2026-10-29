@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { PullStatusBadges, PullStatusLegend } from '../../components/PullStatusBadges';
+import { PullStatusBadges } from '../../components/PullStatusBadges';
 import { checkResultLabel, describePull } from '../../core/pull-status';
 import { GitHubMarkdown } from '../../components/GitHubMarkdown';
 import type { PullRequest } from './model';
@@ -410,7 +410,6 @@ export function PullDetailPage({
       <p className="detail-freshness-note">
         列表为上次同步快照，详情会独立重新读取。GitHub 可能稍后才算出合并条件；“待确认”不表示受阻。
       </p>
-      <PullStatusLegend />
       <div className="detail-tabs" role="tablist" aria-label="PR 详情">
         {[
           ['discussion', '讨论'],

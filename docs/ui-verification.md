@@ -1,5 +1,9 @@
 # UI Verification
 
+## Remove the Status Explanation Panel
+
+The visible **状态说明** section was removed from the authored list, review list, and PR detail page at the user's request. Labeled status badges, badge hover descriptions, next-action text, and status classification are retained. The unused legend component and styles were deleted. Historical verification below describes the earlier interface. `npm run check` passed (123 frontend tests, 39 Rust tests, lint/format/types and configured builds). A Terra xhigh native check of the rebuilt app confirmed the control was absent on all three pages, with readable badges/actions and no obvious leftover gaps or overlap. The app was returned to the authored LLVM list with preview closed.
+
 ## On-demand PR Preview
 
 The authored list no longer automatically selects its first item or permanently displays a bottom "latest activity" area. A row click explicitly opens **PR 预览**, labeled as the last synchronized description/comment summary. Search, state, and attention-filter changes clear that selection. Closing or Escape restores row focus, and the panel toggle can reopen the selected record. Full details remain available by double-click, Enter, and the preview's explicit detail button.

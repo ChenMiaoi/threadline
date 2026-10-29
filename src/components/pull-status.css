@@ -42,40 +42,8 @@
 .theme-light .status-merged {
   color: #7344a6;
 }
-.status-legend {
-  padding: 8px 32px;
-  border-bottom: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 13px;
-  flex-shrink: 0;
-}
-.status-legend summary {
-  cursor: pointer;
-}
-.status-legend dl {
-  display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
-  gap: 8px 14px;
-  margin-block: 12px;
-  line-height: 22px;
-}
-.status-legend dt {
-  color: var(--text);
-  font-weight: 600;
-}
-.status-legend dd {
-  margin: 0;
-}
 .pull-next-action {
   color: var(--muted);
   font-size: 12px;
   line-height: 20px;
-}
-@media (max-width: 760px) {
-  .status-legend {
-    padding-inline: 16px;
-  }
-  .status-legend dl {
-    grid-template-columns: 60px minmax(0, 1fr);
-  }
 }

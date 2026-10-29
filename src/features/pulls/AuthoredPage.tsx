@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { PullStatusBadges, PullStatusLegend } from '../../components/PullStatusBadges';
+import { PullStatusBadges } from '../../components/PullStatusBadges';
 import { Icon, IconButton } from '../../components/Icon';
 import { filterPullRequests, groupPullRequests, type PullRequest, type PullState } from './model';
 
@@ -106,7 +106,6 @@ export function AuthoredPage({
           </button>
         ))}
       </div>
-      <PullStatusLegend />
       <div className={`authored-workspace${previewVisible ? ' has-preview' : ''}`}>
         <section className="pull-list" aria-label="我发起的 PR">
           {groups.map(([group, pulls]) => (
