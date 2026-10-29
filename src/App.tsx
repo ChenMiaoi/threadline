@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { isDesktop, loadAppState, saveLastView, type AppState, type View } from './lib/desktop';
+import { Icon, IconButton } from './components/Icon';
+import { AuthoredPage } from './features/pulls/AuthoredPage';
+import { PullDetailPage } from './features/pulls/PullDetailPage';
+import type { PullRequest } from './features/pulls/model';
+import './features/pulls/pulls.css';
 
 const navigation: { id: View; label: string; icon: string }[] = [
   { id: 'inbox', label: '收件箱', icon: 'inbox' },
@@ -8,12 +13,9 @@ const navigation: { id: View; label: string; icon: string }[] = [
   { id: 'issues', label: 'Issues', icon: 'issues' },
 ];
 
-function Icon({ name }: { name: string }) {
-  return <img className={`icon icon-${name}`} src={`/assets/figma/${name}.svg`} alt="" />;
-}
-
 export default function App() {
-  const [view, setView] = useState<View>('inbox');
+  const [view, setView] = useState<View>('authored');
+  const [openedPull, setOpenedPull] = useState<PullRequest | null>(null);
   const [appState, setAppState] = useState<AppState | null>(null);
   const [loading, setLoading] = useState(isDesktop);
   const [error, setError] = useState('');
@@ -41,6 +43,7 @@ export default function App() {
   }, []);
 
   function navigate(next: View) {
+    setOpenedPull(null);
     setView(next);
     if (isDesktop && appState) {
       writeQueue.current = writeQueue.current
@@ -58,13 +61,24 @@ export default function App() {
           <Icon name="brand" />
           <strong>ThreadLine</strong>
         </div>
+        <IconButton
+          name="search"
+          label="搜索工作区"
+          onClick={() => {
+            navigate('authored');
+            requestAnimationFrame(() =>
+              document.querySelector<HTMLInputElement>('[aria-label="搜索 PR"]')?.focus(),
+            );
+          }}
+        />
         <div className="workspace-switcher">
           <span>工作台</span>
-          <span className="workspace-current">本地工作区</span>
+          <span className="workspace-current">llvm-project</span>
         </div>
         <div className="account">
-          <span className="avatar">T</span>
-          <span>未连接 GitHub</span>
+          <span className="avatar">C</span>
+          <span>示例数据</span>
+          <Icon name="chev" />
         </div>
       </header>
       <div className="workspace">
@@ -81,6 +95,11 @@ export default function App() {
               >
                 <Icon name={item.icon} />
                 {item.label}
+                {item.id !== 'authored' && (
+                  <span className="nav-count">
+                    {item.id === 'inbox' ? 4 : item.id === 'review' ? 15 : 8}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
@@ -88,7 +107,7 @@ export default function App() {
             <div className="section-label">仓库</div>
             <div className="repository-empty">
               <Icon name="repo" />
-              <span>尚未添加仓库</span>
+              <span>llvm-project</span>
             </div>
           </div>
           <button
@@ -102,12 +121,14 @@ export default function App() {
           </button>
         </aside>
         <main className="content">
-          <header className="location">
-            <span>ThreadLine</span>
-            <span className="separator">/</span>
-            <span className="muted">{title}</span>
-            <span className="connection-badge">未连接 GitHub</span>
-          </header>
+          {view !== 'authored' && !openedPull && (
+            <header className="location">
+              <span>ThreadLine</span>
+              <span className="separator">/</span>
+              <span className="muted">{title}</span>
+              <span className="connection-badge">未连接 GitHub</span>
+            </header>
+          )}
           {error && (
             <div role="alert" className="error">
               本地数据访问失败：{error}
@@ -117,6 +138,14 @@ export default function App() {
             <div className="empty-state" role="status">
               正在打开本地工作区…
             </div>
+          ) : openedPull ? (
+            <PullDetailPage
+              key={openedPull.number}
+              pull={openedPull}
+              onBack={() => setOpenedPull(null)}
+            />
+          ) : view === 'authored' ? (
+            <AuthoredPage onOpen={setOpenedPull} />
           ) : view === 'settings' ? (
             <section className="settings-page">
               <h1>设置</h1>
@@ -158,11 +187,9 @@ export default function App() {
                 在这里关注
                 {view === 'inbox'
                   ? '需要你处理的更新'
-                  : view === 'authored'
-                    ? '你发起的 Pull Request'
-                    : view === 'review'
-                      ? '等待你审阅的 Pull Request'
-                      : '仓库中的 Issues'}
+                  : view === 'review'
+                    ? '等待你审阅的 Pull Request'
+                    : '仓库中的 Issues'}
                 。
               </p>
               <button className="primary-button" onClick={() => navigate('settings')}>

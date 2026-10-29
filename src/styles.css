@@ -1,5 +1,5 @@
 :root {
-  font-family: Inter, 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  font-family: 'Inter Variable', 'Noto Sans SC Variable', 'Microsoft YaHei', sans-serif;
   color: #ececf4;
   background: #111216;
   font-synthesis: none;
@@ -54,13 +54,13 @@ button:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 18px;
 }
 .brand {
   display: flex;
   align-items: center;
   gap: 18px;
-  min-width: 242px;
+  min-width: 232px;
 }
 .brand strong {
   font-size: 21px;
@@ -315,4 +315,18 @@ dd {
   .empty-state {
     padding-top: 56px;
   }
+}
+.nav-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 15px;
+}
+.app-bar > .workspace-switcher {
+  margin-inline: auto;
+}
+.account {
+  white-space: nowrap;
+}
+.repository-empty {
+  color: #ececf4;
 }
