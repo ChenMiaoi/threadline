@@ -1,9 +1,12 @@
+import { useI18n } from '../../i18n/I18n';
 import { githubErrorMessage } from '../../lib/github-errors';
 import { useEffect, useRef, useState } from 'react';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
 import { Modal } from '../../components/Modal';
 
 export function GitHubLoginButton({ github }: { github: GitHubWorkspace }) {
+  const { t } = useI18n();
+
   return (
     <>
       <button
@@ -11,7 +14,7 @@ export function GitHubLoginButton({ github }: { github: GitHubWorkspace }) {
         disabled={github.connecting || github.auth.busy}
         onClick={() => void github.auth.start()}
       >
-        {github.session ? '重新授权 GitHub' : '登录 GitHub'}
+        {github.session ? t('重新授权 GitHub') : t('登录 GitHub')}
       </button>
       {github.auth.state.status === 'cancelled' && github.auth.state.error && (
         <p role="alert" className="yellow">
@@ -23,6 +26,8 @@ export function GitHubLoginButton({ github }: { github: GitHubWorkspace }) {
 }
 
 export function GitHubLoginDialog({ github }: { github: GitHubWorkspace }) {
+  const { t } = useI18n();
+
   const [copyMessage, setCopyMessage] = useState('');
   const [openError, setOpenError] = useState('');
   const openedCode = useRef<string | null>(null);
@@ -47,23 +52,24 @@ export function GitHubLoginDialog({ github }: { github: GitHubWorkspace }) {
     }
   }
   return (
-    <Modal title="登录 GitHub" onClose={() => void cancel()}>
-      <section className="github-device-login" aria-label="GitHub 授权">
+    <Modal title={t('登录 GitHub')} onClose={() => void cancel()}>
+      <section className="github-device-login" aria-label={t('GitHub 授权')}>
         <p className="dim">
-          使用 ThreadLine 独立 GitHub App 授权，可读取公开仓库和已单独授权的私有仓库。 权限包括
-          PR、Issue、代码、检查和提交状态；不授予写入、删除仓库或管理公钥的权限。
+          {t(
+            '使用 ThreadLine 独立 GitHub App 授权，可读取公开仓库和已单独授权的私有仓库。 权限包括 PR、Issue、代码、检查和提交状态；不授予写入、删除仓库或管理公钥的权限。',
+          )}
         </p>
         {busy ? (
           <>
             {state.code ? (
               <>
-                <p>已为你打开 GitHub 授权页。请在该页面输入验证码并确认授权。</p>
-                <div className="device-code" aria-label="GitHub 验证码">
+                <p>{t('已为你打开 GitHub 授权页。请在该页面输入验证码并确认授权。')}</p>
+                <div className="device-code" aria-label={t('GitHub 验证码')}>
                   {state.code}
                 </div>
                 <div className="inline-group">
                   <button className="chip accent" onClick={() => void copyCode()}>
-                    复制验证码
+                    {t('复制验证码')}
                   </button>
                   <button
                     className="chip"
@@ -76,15 +82,15 @@ export function GitHubLoginDialog({ github }: { github: GitHubWorkspace }) {
                         );
                     }}
                   >
-                    重新打开授权页 ↗
+                    {t('重新打开授权页 ↗')}
                   </button>
                 </div>
               </>
             ) : (
-              <p>正在准备 GitHub 授权页面…</p>
+              <p>{t('正在准备 GitHub 授权页面…')}</p>
             )}
             <p className="muted" role="status">
-              {state.code ? '等待授权完成，完成后会自动连接。' : '正在获取验证码…'}
+              {state.code ? t('等待授权完成，完成后会自动连接。') : t('正在获取验证码…')}
             </p>
           </>
         ) : (
@@ -96,7 +102,7 @@ export function GitHubLoginDialog({ github }: { github: GitHubWorkspace }) {
               void start();
             }}
           >
-            重试登录
+            {t('重试登录')}
           </button>
         )}
         {state.error && (
@@ -106,13 +112,13 @@ export function GitHubLoginDialog({ github }: { github: GitHubWorkspace }) {
         )}
         {openError && (
           <p role="alert" className="yellow">
-            {openError}
+            {t(openError)}
           </p>
         )}
         {copyMessage && <p role="status">{copyMessage}</p>}
-        <p className="dim">授权在 GitHub 官方页面确认。你可以返回此窗口查看状态。</p>
+        <p className="dim">{t('授权在 GitHub 官方页面确认。你可以返回此窗口查看状态。')}</p>
         <button className="chip" onClick={() => void cancel()}>
-          取消登录
+          {t('取消登录')}
         </button>
       </section>
     </Modal>

@@ -4,6 +4,21 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { useUpdates } from '../../lib/useUpdates';
 import { UpdatesPanel } from './UpdatesPanel';
 afterEach(cleanup);
+it('shows version information without an update action in unsupported builds', async () => {
+  const gateway = {
+    info: async () => ({ version: '0.1.0', channel: '浏览器预览', enabled: false }),
+    check: vi.fn().mockResolvedValue(null),
+    restart: vi.fn().mockResolvedValue(undefined),
+  };
+  function Harness() {
+    return <UpdatesPanel updates={useUpdates(false, gateway)} flush={vi.fn()} />;
+  }
+  render(<Harness />);
+  await screen.findByText('此构建未启用自动更新。');
+  expect(screen.getByText('ThreadLine 0.1.0')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: '检查更新' })).toBeNull();
+  expect(gateway.check).not.toHaveBeenCalled();
+});
 it('checks, downloads, and requires an explicit install action in the UI', async () => {
   const update = {
     version: '0.2.0',

@@ -1,3 +1,5 @@
+import { useI18n } from '../i18n/I18n';
+import { remarkGitHubReferences } from '../lib/remarkGitHubReferences';
 import { lazy, Suspense } from 'react';
 import Markdown from 'react-markdown';
 import { codeLanguage } from '../lib/syntaxLanguage';
@@ -9,11 +11,13 @@ import './syntax.css';
 
 const SyntaxTokens = lazy(() => import('./SyntaxTokens'));
 
-export default function MarkdownContent({ children }: { children: string }) {
+export default function MarkdownContent({ children, repo }: { children: string; repo?: string }) {
+  const { t } = useI18n();
+
   return (
     <div className="github-markdown">
       <Markdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, [remarkGitHubReferences, { repo }]]}
         rehypePlugins={[rehypeRaw, rehypeSanitize]}
         components={{
           code: ({ className, children }) => {
@@ -39,7 +43,7 @@ export default function MarkdownContent({ children }: { children: string }) {
           img: ({ src, alt }) =>
             typeof src === 'string' ? (
               <a href={src} target="_blank" rel="noopener noreferrer">
-                {alt || '查看图片'}
+                {alt || t('查看图片')}
               </a>
             ) : null,
         }}

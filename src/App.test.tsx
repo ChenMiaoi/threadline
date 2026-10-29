@@ -11,6 +11,7 @@ import { response } from './test/github.fixture';
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: () => false }));
 
 beforeEach(() => {
+  vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['zh-CN']);
   window.localStorage.clear();
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,

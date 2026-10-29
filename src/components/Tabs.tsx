@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n';
 import { useRef, useState, type ReactNode } from 'react';
 
 export function TabList<T extends string>({
@@ -19,11 +20,13 @@ export function TabList<T extends string>({
   tabClassName?: string;
   activation?: 'automatic' | 'manual';
 }) {
+  const { t } = useI18n();
+
   const buttons = useRef(new Map<T, HTMLButtonElement>());
   const [focus, setFocus] = useState({ selected: value, tab: value });
   const focusValue = focus.selected === value ? focus.tab : value;
   return (
-    <div id={id} className={className} role="tablist" aria-label={label}>
+    <div id={id} className={className} role="tablist" aria-label={t(label)}>
       {items.map((item, index) => (
         <button
           key={item.value}
@@ -64,7 +67,7 @@ export function TabList<T extends string>({
             if (activation === 'automatic') onChange(next);
           }}
         >
-          {item.label}
+          {typeof item.label === 'string' ? t(item.label) : item.label}
         </button>
       ))}
     </div>

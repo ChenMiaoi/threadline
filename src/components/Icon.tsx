@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n';
 export function Icon({ name }: { name: string }) {
   return <img className={`icon icon-${name}`} src={`/assets/figma/${name}.svg`} alt="" />;
 }
@@ -15,12 +16,14 @@ export function IconButton({
   pressed?: boolean;
   disabled?: boolean;
 }) {
+  const { t } = useI18n();
+
   return (
     <button
       className="icon-button"
       disabled={disabled}
-      aria-label={label}
-      title={label}
+      aria-label={t(label)}
+      title={t(label)}
       aria-pressed={pressed}
       onClick={onClick}
     >

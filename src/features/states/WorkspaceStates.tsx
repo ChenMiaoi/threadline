@@ -1,3 +1,4 @@
+import { useI18n } from '../../i18n/I18n';
 import { useMemo, useState } from 'react';
 import { snoozeActivityIndex } from './snoozed-model';
 import { ActivityRecord } from '../activity/ActivityPage';
@@ -7,7 +8,9 @@ import { PageHeader } from '../../components/PageHeader';
 import { Modal } from '../../components/Modal';
 
 function StateLocation({ title }: { title: string }) {
-  return <PageHeader title={title} description="到时间后，动态会重新出现在收件箱" />;
+  const { t } = useI18n();
+
+  return <PageHeader title={t(title)} description={t('到时间后，动态会重新出现在收件箱')} />;
 }
 
 function formatDeadline(until: number) {
@@ -40,6 +43,8 @@ export function SnoozedPage({
   onAdjust: (ids: string[]) => void;
   onOpen: (record: Activity) => void;
 }) {
+  const { t } = useI18n();
+
   const [recent, setRecent] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const recordIndex = useMemo(
@@ -76,9 +81,9 @@ export function SnoozedPage({
   );
   return (
     <>
-      <StateLocation title="稍后处理" />
+      <StateLocation title={t('稍后处理')} />
       <section className="snoozed-page">
-        <div className="inline-group" role="group" aria-label="稍后处理视图">
+        <div className="inline-group" role="group" aria-label={t('稍后处理视图')}>
           <button
             aria-pressed={!recent}
             className={`chip ${!recent ? 'active' : ''}`}
@@ -87,7 +92,7 @@ export function SnoozedPage({
               setSelected([]);
             }}
           >
-            已稍后处理 {snoozedCount}
+            {t('已稍后处理')} {snoozedCount}
           </button>
           <button
             className={`chip ${recent ? 'active' : ''}`}
@@ -97,17 +102,17 @@ export function SnoozedPage({
               setSelected([]);
             }}
           >
-            最近恢复
+            {t('最近恢复')}
           </button>
         </div>
-        <h2 className="cached-heading">{recent ? '最近恢复的条目' : '待恢复的条目'}</h2>
+        <h2 className="cached-heading">{recent ? t('最近恢复的条目') : t('待恢复的条目')}</h2>
         <div className="snoozed-records">
           {rows.map((record) => (
             <div key={record.id} className="snooze-selection">
               <label className="snooze-checkbox">
                 <input
                   type="checkbox"
-                  aria-label={`选择 #${record.number}`}
+                  aria-label={t('选择 #{0}', [record.number])}
                   checked={selectionIds.has(record.id)}
                   onChange={() =>
                     setSelected((current) =>
@@ -127,7 +132,9 @@ export function SnoozedPage({
             </div>
           ))}
           {!rows.length && (
-            <p className="list-empty">{recent ? '暂无最近恢复的条目。' : '没有稍后处理的条目。'}</p>
+            <p className="list-empty">
+              {recent ? t('暂无最近恢复的条目。') : t('没有稍后处理的条目。')}
+            </p>
           )}
         </div>
         {!recent && rows.length > 0 && (
@@ -140,21 +147,17 @@ export function SnoozedPage({
                 setSelected([]);
               }}
             >
-              恢复选中条目
+              {t('恢复选中条目')}
             </button>
             <button
               className="chip"
               disabled={!selection.length}
               onClick={() => onAdjust(selection)}
             >
-              调整时间
+              {t('调整时间')}
             </button>
           </div>
         )}
-        <p className="footnote">
-          时间与恢复状态保存在本地。到期条目会在下次打开工作区或检查时间时恢复；不会修改 GitHub
-          状态。
-        </p>
       </section>
     </>
   );
@@ -169,11 +172,13 @@ export function SnoozeDialog({
   onConfirm: (until: number) => void;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
+
   const [choice, setChoice] = useState('tomorrow');
   const [custom, setCustom] = useState('');
   const [error, setError] = useState('');
   return (
-    <Modal title="稍后处理" onClose={onClose}>
+    <Modal title={t('稍后处理')} onClose={onClose}>
       <form
         className="snooze-form"
         onSubmit={(event) => {
@@ -194,7 +199,10 @@ export function SnoozeDialog({
           onConfirm(until);
         }}
       >
-        <p>为 {count} 个条目选择恢复时间。</p>
+        <p>
+          {t('为')}
+          {count} {t('个条目选择恢复时间。')}
+        </p>
         {[
           ['hour', '1 小时后'],
           ['tomorrow', '明天上午 09:00'],
@@ -209,13 +217,13 @@ export function SnoozeDialog({
               checked={choice === value}
               onChange={() => setChoice(value)}
             />
-            {label}
+            {t(label)}
           </label>
         ))}
         {choice === 'custom' && (
           <input
             type="datetime-local"
-            aria-label="恢复时间"
+            aria-label={t('恢复时间')}
             required
             value={custom}
             onChange={(event) => setCustom(event.target.value)}
@@ -223,15 +231,15 @@ export function SnoozeDialog({
         )}
         {error && (
           <p role="alert" className="yellow">
-            {error}
+            {t(error)}
           </p>
         )}
         <div className="inline-group">
           <button type="button" className="chip" onClick={onClose}>
-            取消
+            {t('取消')}
           </button>
           <button type="submit" className="chip accent">
-            保存时间
+            {t('保存时间')}
           </button>
         </div>
       </form>

@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n';
 import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { IconButton } from './Icon';
 
@@ -14,6 +15,8 @@ export function Modal({
   className?: string;
   initialFocusRef?: RefObject<HTMLElement | null>;
 }) {
+  const { t } = useI18n();
+
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = ref.current!;
@@ -39,11 +42,11 @@ export function Modal({
         event.preventDefault();
         onClose();
       }}
-      aria-label={title}
+      aria-label={t(title)}
     >
       <header>
-        <h2>{title}</h2>
-        <IconButton name="close" label="关闭弹窗" onClick={onClose} />
+        <h2>{t(title)}</h2>
+        <IconButton name="close" label={t('关闭弹窗')} onClick={onClose} />
       </header>
       {children}
     </dialog>

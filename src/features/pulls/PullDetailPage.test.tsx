@@ -208,3 +208,62 @@ it('blocks children for a newly known HEAD until live overview validates an even
     expect(gateway.request).toHaveBeenCalledWith('discussion', repo, user.id, record.number, headC),
   );
 });
+
+it('omits empty comment reviews but retains decisions and their code freshness', async () => {
+  const gateway = createGateway();
+  const request = gateway.request;
+  gateway.request = vi.fn().mockImplementation((operation, ...args) =>
+    operation === 'discussion'
+      ? Promise.resolve(
+          response({
+            comments: [],
+            reviewComments: [],
+            reviews: [
+              [
+                {
+                  id: 1,
+                  user: { login: 'empty-reviewer' },
+                  state: 'COMMENTED',
+                  body: ' ',
+                  submitted_at: '2026-10-20T00:00:00Z',
+                  commit_id: 'old',
+                },
+                {
+                  id: 2,
+                  user: { login: 'approver' },
+                  state: 'APPROVED',
+                  body: '',
+                  submitted_at: '2026-10-21T00:00:00Z',
+                  commit_id: detail.pull.head.sha,
+                },
+                {
+                  id: 3,
+                  user: { login: 'requester' },
+                  state: 'CHANGES_REQUESTED',
+                  body: 'Please fix this',
+                  submitted_at: '2026-10-22T00:00:00Z',
+                  commit_id: 'old',
+                },
+              ],
+            ],
+          }),
+        )
+      : request(operation, ...(args as [string, number, number, string])),
+  );
+  render(
+    <PullDetailPage
+      pull={pullFromGitHub(record, user.id, repo)}
+      onBack={vi.fn()}
+      repo={repo}
+      accountId={user.id}
+      gateway={gateway}
+      cache={createResourceCache()}
+    />,
+  );
+  await screen.findByRole('heading', { name: '讨论 2' });
+  expect(screen.queryByText('empty-reviewer')).toBeNull();
+  expect(screen.queryByText('无正文')).toBeNull();
+  expect(screen.getByText('针对当前代码提交的评审')).toBeTruthy();
+  expect(screen.getByText(/评审后代码已有更新，此结论针对旧版本/)).toBeTruthy();
+  expect(screen.getByText(/批准不代表检查已通过或可以合并/)).toBeTruthy();
+});

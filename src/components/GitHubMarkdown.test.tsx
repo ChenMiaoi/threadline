@@ -88,3 +88,24 @@ it('preserves nested sanitized HTML inside code with a language class', async ()
   expect(container.textContent).not.toContain('[object Object]');
   expect(container.querySelector('[onclick], .hljs-keyword')).toBeNull();
 });
+
+it('links repository references in prose while leaving code and existing links untouched', async () => {
+  const { container } = render(
+    <GitHubMarkdown repo="owner/repo">
+      {
+        'Fixes #229300 and other/project#12. `#13`\n\n```txt\n#14\n```\n\n[#15](https://example.com)'
+      }
+    </GitHubMarkdown>,
+  );
+  expect((await screen.findByRole('link', { name: '#229300' })).getAttribute('href')).toBe(
+    'https://github.com/owner/repo/issues/229300',
+  );
+  expect(screen.getByRole('link', { name: 'other/project#12' }).getAttribute('href')).toBe(
+    'https://github.com/other/project/issues/12',
+  );
+  expect(screen.getByRole('link', { name: '#15' }).getAttribute('href')).toBe(
+    'https://example.com',
+  );
+  expect(container.querySelector('code a')).toBeNull();
+  expect(screen.queryByRole('link', { name: '#13' })).toBeNull();
+});

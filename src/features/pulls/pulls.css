@@ -203,10 +203,16 @@
   line-height: 23px;
   font-weight: 500;
 }
-.pull-next-action {
+.pull-next-action,
+.requested-reviewer {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.requested-reviewer {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 20px;
 }
 .pull-status {
   font-size: 12px;

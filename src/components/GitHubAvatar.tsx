@@ -1,6 +1,9 @@
+import { useI18n } from '../i18n/I18n';
 import { useState } from 'react';
 
 export function GitHubAvatar({ login, url }: { login?: string; url?: string | null }) {
+  const { t } = useI18n();
+
   const [failed, setFailed] = useState('');
   let trusted = false;
   try {
@@ -19,7 +22,7 @@ export function GitHubAvatar({ login, url }: { login?: string; url?: string | nu
       {trusted && url && failed !== url ? (
         <img
           src={url}
-          alt={`${login ?? 'GitHub'} 的头像`}
+          alt={t('{0} 的头像', [login ?? 'GitHub'])}
           referrerPolicy="no-referrer"
           onError={() => setFailed(url)}
         />

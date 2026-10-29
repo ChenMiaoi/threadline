@@ -387,3 +387,24 @@ select.setting-value:hover {
   font: inherit;
   line-height: 1.6;
 }
+
+.updates-card {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.updates-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.updates-header h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  line-height: 26px;
+}

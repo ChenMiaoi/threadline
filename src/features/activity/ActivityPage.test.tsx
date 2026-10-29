@@ -119,3 +119,26 @@ it('uses keyboard tabs to filter issues and labels the visible panel', () => {
   expect(screen.getByRole('tab', { name: '全部' }).getAttribute('aria-selected')).toBe('true');
   expect(screen.getByRole('button', { name: /#1042/ })).toBeTruthy();
 });
+
+it('marks all loaded unread inbox entries even while search hides them', () => {
+  const items = demoActivities.inbox;
+  const onReadAll = vi.fn();
+  render(
+    <ActivityPage
+      view="inbox"
+      items={items}
+      repo={repo}
+      read={[items[0].id]}
+      snoozed={[items[1].id]}
+      onRead={vi.fn()}
+      onReadAll={onReadAll}
+      onSnooze={vi.fn()}
+      onOpen={vi.fn()}
+    />,
+  );
+  fireEvent.change(screen.getByRole('textbox', { name: '搜索协作记录' }), {
+    target: { value: 'no matching record' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: '全部标为已读' }));
+  expect(onReadAll).toHaveBeenCalledWith(items.slice(2).map((item) => item.id));
+});

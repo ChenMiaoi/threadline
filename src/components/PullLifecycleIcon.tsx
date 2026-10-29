@@ -1,8 +1,11 @@
+import { useI18n } from '../i18n/I18n';
 import type { PullStatus } from '../core/pull-status';
 import './pull-lifecycle-icon.css';
 
 type Lifecycle = Pick<PullStatus, 'state' | 'draft'>;
 export function PullLifecycleIcon({ status }: { status: Lifecycle }) {
+  const { t } = useI18n();
+
   const kind =
     status.state === 'merged'
       ? 'merged'
@@ -29,9 +32,9 @@ export function PullLifecycleIcon({ status }: { status: Lifecycle }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       role="img"
-      aria-label={label}
+      aria-label={t(label)}
     >
-      <title>{label}</title>
+      <title>{t(label)}</title>
       <circle cx="6" cy="4" r="2" />
       <circle cx="6" cy="20" r="2" />
       <path d="M6 6v12" />

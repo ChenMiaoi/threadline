@@ -14,6 +14,25 @@ function mount() {
   render(<AuthoredPage pulls={pulls} repo={repo} onOpen={vi.fn()} read={[]} onRead={vi.fn()} />);
 }
 describe('authored selection and filtering', () => {
+  it('shows review requests without repeating status as generic advice in list rows', () => {
+    render(
+      <AuthoredPage
+        pulls={[
+          { ...pulls[0], reviewer: 'reviewer-login' },
+          { ...pulls[1], reviewer: '' },
+        ]}
+        repo={repo}
+        onOpen={vi.fn()}
+        read={[]}
+        onRead={vi.fn()}
+      />,
+    );
+    const requested = within(screen.getByRole('button', { name: /#1042/ }));
+    expect(requested.getByText('评审请求：reviewer-login')).toBeTruthy();
+    expect(requested.queryByText(/建议：/)).toBeNull();
+    const unassigned = within(screen.getByRole('button', { name: /#1031/ }));
+    expect(unassigned.queryByText(/评审请求：|建议：/)).toBeNull();
+  });
   it('preserves state totals through search and updates totals and read state when props change', () => {
     const props = { pulls, repo, onOpen: vi.fn(), read: [], onRead: vi.fn() };
     const { rerender } = render(<AuthoredPage {...props} />);

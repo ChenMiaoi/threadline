@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   defaultWorkspace,
+  markRecordsRead,
   inboxReadIds,
   MAX_INBOX_REVISIONS,
   nextMorning,
@@ -121,4 +122,13 @@ it('resets only the revision checkpoint when migrating a version 2 inbox', () =>
   const migrated = normalizeWorkspace(original, now);
   expect(migrated).toEqual({ ...original, inboxVersion: 3, inboxSeen: {} });
   expect(original.inboxSeen[`${user.id}:${repo}`]).toEqual([record.id]);
+});
+
+it('retains bulk read revisions across persistence and clears only targeted overrides', () => {
+  const ids = Array.from({ length: 2100 }, (_, i) => `inbox-${i}`);
+  const data = { ...defaultWorkspace(), read: ['other'], unread: [ids[0], 'untouched'] };
+  const updated = markRecordsRead(data, [...ids, ids[0]]);
+  expect(updated.read).toHaveLength(2101);
+  expect(updated.unread).toEqual(['untouched']);
+  expect(normalizeWorkspace(JSON.parse(JSON.stringify(updated)), now).read).toContain(ids[0]);
 });

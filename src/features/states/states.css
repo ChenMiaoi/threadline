@@ -310,52 +310,6 @@
 .snooze-form > .inline-group {
   justify-content: flex-end;
 }
-.workspace-menu {
-  position: relative;
-}
-.workspace-menu summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 10px 27px;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.workspace-menu summary::-webkit-details-marker {
-  display: none;
-}
-.workspace-menu-items {
-  position: absolute;
-  left: 0;
-  top: 50px;
-  width: 220px;
-  background: var(--surface);
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  z-index: 5;
-  box-shadow: 0 12px 30px #0004;
-}
-.workspace-menu-items button {
-  padding: 10px 12px;
-  text-align: left;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 14px;
-}
-.workspace-menu-items button:hover {
-  background: var(--raised);
-}
-.workspace-menu-items .menu-label {
-  padding: 4px 12px;
-  font-size: 12px;
-  color: var(--dim);
-}
-.workspace-menu-items hr {
-  width: 100%;
-  border: 0;
-  border-top: 1px solid var(--border);
-}
 .workspace-switcher > button {
   padding: 10px 27px;
   background: var(--raised);
@@ -401,8 +355,7 @@
   .connection-steps {
     gap: 12px;
   }
-  .workspace-switcher > button,
-  .workspace-menu summary {
+  .workspace-switcher > button {
     padding-inline: 16px;
   }
 }
@@ -466,10 +419,6 @@
   .sync-status {
     padding-inline: 16px;
   }
-  .workspace-menu-items {
-    width: 190px;
-    top: 42px;
-  }
 }
 
 .snooze-selection .record-main {
@@ -504,4 +453,41 @@
 .diff-wrap .diff-source {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.repository-modal {
+  width: min(640px, calc(100vw - 32px));
+}
+.repository-picker .repository-options {
+  max-height: 30vh;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-block: 1px solid var(--border);
+  padding-block: 8px;
+}
+.repository-picker .repository-choice {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 14px;
+}
+.repository-picker .repository-choice:has(input:checked) {
+  background: var(--raised);
+  color: var(--accent);
+}
+.repository-picker .repository-choice:hover {
+  background: var(--raised);
+}
+.repository-picker-footer {
+  justify-content: flex-end;
+}
+.repository-picker-footer > button:first-child {
+  margin-right: auto;
+}
+.repository-picker > .text-button {
+  align-self: flex-start;
+  font-size: 12px;
+  color: var(--muted);
 }

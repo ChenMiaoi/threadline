@@ -65,6 +65,4 @@ If the helper is unavailable, stop the development server and start it again. Ch
 
 ## Collect useful diagnostics
 
-Open **Settings → Account and connection → Loading diagnostics** (**设置 → 账号与连接 → 加载诊断**) for recent operation timings. Backend time, client waiting time, and UI commit time measure different stages; they are not independent durations to add together. A cached read is not a measurement of live GitHub fetch speed.
-
 When reporting a problem, include your operating system, desktop or browser mode, the affected view, the visible error, steps to reproduce, and whether a manual retry succeeds. Share a public repository or record only when appropriate. Remove private content from screenshots and logs, and never attach credential vaults, key files, tokens, or the local database to a public report.

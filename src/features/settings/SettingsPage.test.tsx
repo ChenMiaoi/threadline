@@ -46,9 +46,7 @@ async function settings() {
     <SettingsPage
       preferences={defaultWorkspace().preferences}
       onChange={vi.fn()}
-      onConnect={vi.fn()}
       onSync={vi.fn()}
-      appState={null}
       github={{ ...result.current, disconnect }}
       onChooseRepository={vi.fn()}
     />,
@@ -91,25 +89,31 @@ describe('sign-out confirmation', () => {
   });
 });
 
-it('disables connection checks while a connection request is pending', async () => {
+it('keeps reauthorization disabled while connecting and omits diagnostic controls', async () => {
   const { result } = renderHook(() => useGitHub(0, createGateway()));
   await waitFor(() => expect(result.current.session).not.toBeNull());
-  const onConnect = vi.fn();
+  const start = vi.fn();
   render(
     <SettingsPage
       preferences={defaultWorkspace().preferences}
       onChange={vi.fn()}
-      onConnect={onConnect}
       onSync={vi.fn()}
-      appState={null}
-      github={{ ...result.current, connecting: true }}
+      github={{ ...result.current, connecting: true, auth: { ...result.current.auth, start } }}
       onChooseRepository={vi.fn()}
     />,
   );
-  const check = screen.getByRole('button', { name: '正在检查…' }) as HTMLButtonElement;
-  expect(check.disabled).toBe(true);
-  fireEvent.click(check);
-  expect(onConnect).not.toHaveBeenCalled();
+  const authorize = screen.getByRole('button', { name: '重新授权 GitHub' }) as HTMLButtonElement;
+  expect(authorize.disabled).toBe(true);
+  fireEvent.click(authorize);
+  expect(start).not.toHaveBeenCalled();
+  expect(screen.queryByRole('button', { name: '检查连接' })).toBeNull();
+  expect(screen.queryByText('本地数据存储')).toBeNull();
+  expect(screen.queryByText('加载诊断')).toBeNull();
+  expect(
+    within(screen.getByRole('region', { name: '登录管理' })).getByRole('button', {
+      name: '退出 ThreadLine 登录',
+    }),
+  ).toBeTruthy();
 });
 
 it('disables the notification switch until the permission request completes', async () => {
@@ -126,9 +130,7 @@ it('disables the notification switch until the permission request completes', as
     <SettingsPage
       preferences={{ ...defaultWorkspace().preferences, desktopNotifications: false }}
       onChange={onChange}
-      onConnect={vi.fn()}
       onSync={vi.fn()}
-      appState={null}
       github={result.current}
       onChooseRepository={vi.fn()}
     />,

@@ -1,3 +1,4 @@
+import { useI18n } from '../../i18n/I18n';
 import { useId, useMemo, useState } from 'react';
 import { TabList, TabPanel } from '../../components/Tabs';
 import { PullLifecycleIcon } from '../../components/PullLifecycleIcon';
@@ -26,7 +27,6 @@ const config = {
       ['issue', 'Issue'],
       ['mentions', '提及我的'],
     ],
-    note: '当前仓库中与你有关的 PR / Issue · 每条显示最新动态 · 按同步频率更新，已读状态仅保存在本地。',
   },
   review: {
     title: '我审阅的 PR',
@@ -39,7 +39,6 @@ const config = {
       ['draft', '草稿'],
       ['finished', '已结束'],
     ],
-    note: '',
   },
   issues: {
     title: 'Issues',
@@ -50,7 +49,6 @@ const config = {
       ['authored', '我发起的'],
       ['participated', '我参与的'],
     ],
-    note: '展示与当前账号有关的 Issue；不会自动订阅或修改 Issue。',
   },
 };
 
@@ -71,6 +69,8 @@ export function ActivityRecord({
   isRead?: boolean;
   showKind?: boolean;
 }) {
+  const { t, locale } = useI18n();
+
   return (
     <div className={`activity-record ${selected ? 'selected' : ''} ${isRead ? 'is-read' : ''}`}>
       <button className="record-main" onClick={() => onOpen(record)}>
@@ -99,28 +99,26 @@ export function ActivityRecord({
             {record.pullStatus && !showKind
               ? ['discussion', 'finished', 'draft'].includes(record.category)
                 ? record.detail
-                : `建议：${record.summary}`
+                : t(record.summary)
               : record.summary}
           </span>
           {(!record.pullStatus ||
             showKind ||
             !['discussion', 'finished', 'draft'].includes(record.category)) && (
-            <span className="record-detail" title={record.detail}>
-              {record.detail}
+            <span className="record-detail" title={t(record.detail)}>
+              {t(record.detail)}
             </span>
           )}
         </span>
         <span className="record-status">
           {(!record.pullStatus || onRead) && (
             <span className={record.tone}>
-              {onRead ? (isRead ? '已读' : '未读') : record.status}
+              {onRead ? (isRead ? t('已读') : t('未读')) : t(record.status)}
             </span>
           )}
           <time
             dateTime={record.updatedAt}
-            title={
-              record.updatedAt ? new Date(record.updatedAt).toLocaleString('zh-CN') : undefined
-            }
+            title={record.updatedAt ? new Date(record.updatedAt).toLocaleString(locale) : undefined}
           >
             {record.updated}
           </time>
@@ -130,12 +128,12 @@ export function ActivityRecord({
         <div className="record-actions">
           {onRead && (
             <button className="chip" onClick={() => onRead(record.id)}>
-              {isRead ? '标记未读' : '标记已读'}
+              {isRead ? t('标记未读') : t('标记已读')}
             </button>
           )}
           {onSnooze && (
             <button className="chip" onClick={() => onSnooze(record.id)}>
-              稍后处理
+              {t('稍后处理')}
             </button>
           )}
         </div>
@@ -149,6 +147,7 @@ export function ActivityPage({
   read,
   snoozed = emptyIds,
   onRead,
+  onReadAll,
   onSnooze,
   onOpen,
   initialFilter,
@@ -159,12 +158,15 @@ export function ActivityPage({
   read: string[];
   snoozed?: string[];
   onRead: (id: string) => void;
+  onReadAll?: (ids: string[]) => void;
   onSnooze: (id: string) => void;
   onOpen: (record: Activity) => void;
   initialFilter?: string;
   items: Activity[];
   repo: string;
 }) {
+  const { t } = useI18n();
+
   const settings = config[view];
   const tabsId = useId();
   const [filter, setFilter] = useState(
@@ -213,22 +215,22 @@ export function ActivityPage({
   }, [items, filter, query, readIds, snoozedIds, attention, label, view]);
   return (
     <>
-      <PageHeader title={settings.title} description={repo}>
+      <PageHeader title={t(settings.title)} description={repo}>
         <button
           className="chip"
-          aria-label="仅显示需要处理的记录"
+          aria-label={t('仅显示需要处理的记录')}
           aria-pressed={attention}
           onClick={() => setAttention(!attention)}
         >
-          需处理
+          {t('需处理')}
         </button>
         <label className="search-field activity-search">
           <Icon name="search" />
           <input
-            aria-label="搜索协作记录"
+            aria-label={t('搜索协作记录')}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索标题、编号或内容"
+            placeholder={t('搜索标题、编号或内容')}
           />
         </label>
       </PageHeader>
@@ -236,7 +238,7 @@ export function ActivityPage({
         <div className="inline-group activity-filters">
           <TabList
             id={tabsId}
-            label={`${settings.title}筛选`}
+            label={t('{0}筛选', [t(settings.title)])}
             value={filter}
             onChange={setFilter}
             className="filter-tabs"
@@ -245,20 +247,36 @@ export function ActivityPage({
               value: id,
               label: (
                 <>
-                  {label}
+                  {t(label)}
                   {id === 'all' ? '' : ` ${counts[id]}`}
                 </>
               ),
             }))}
           />
+          {view === 'inbox' && onReadAll && (
+            <button
+              className="chip mark-all-read"
+              disabled={!counts.unread}
+              title={t('将当前仓库已加载的收件箱记录全部标为已读，不包含稍后处理')}
+              onClick={() =>
+                onReadAll(
+                  items
+                    .filter((item) => !readIds.has(item.id) && !snoozedIds.has(item.id))
+                    .map((item) => item.id),
+                )
+              }
+            >
+              {t('全部标为已读')}
+            </button>
+          )}
           {view === 'issues' && (
             <select
               className="chip"
-              aria-label="标签"
+              aria-label={t('标签')}
               value={label}
               onChange={(event) => setLabel(event.target.value)}
             >
-              <option value="">全部标签</option>
+              <option value="">{t('全部标签')}</option>
               {labels.map((name) => (
                 <option key={name} value={name}>
                   {name}
@@ -272,7 +290,7 @@ export function ActivityPage({
         {groups.map(([group, items]) => (
           <section key={group}>
             <h2 className="activity-group">
-              {group}
+              {t(group)}
               <span>{items.length}</span>
             </h2>
             {items.map((record) => (
@@ -294,22 +312,20 @@ export function ActivityPage({
             <h1>
               {view === 'inbox'
                 ? filter === 'unread'
-                  ? '当前筛选下没有未读更新'
-                  : '当前筛选下没有更新'
+                  ? t('当前筛选下没有未读更新')
+                  : t('当前筛选下没有更新')
                 : view === 'issues'
-                  ? '当前筛选下没有 Issue'
-                  : '当前筛选下没有 PR'}
+                  ? t('当前筛选下没有 Issue')
+                  : t('当前筛选下没有 PR')}
             </h1>
-            <p>当前筛选没有匹配记录。清除筛选后可查看全部记录。</p>
             <div className="inline-group">
               <button className="chip accent" onClick={showAll}>
-                清除筛选并查看全部
+                {t('清除筛选并查看全部')}
               </button>
             </div>
           </section>
         )}
       </TabPanel>
-      {settings.note && <footer className="page-note">{settings.note}</footer>}
     </>
   );
 }

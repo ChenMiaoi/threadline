@@ -1,3 +1,4 @@
+import { useI18n } from '../../i18n/I18n';
 import { useState } from 'react';
 import type { GitHubGateway, GitHubUser } from '../../core/github';
 import { GitHubAvatar } from '../../components/GitHubAvatar';
@@ -17,6 +18,8 @@ export function ProfilePage({
   gateway: GitHubGateway;
   cache: ResourceCache;
 }) {
+  const { t, locale } = useI18n();
+
   const [selectedDay, setSelectedDay] = useState(0);
   const currentYear = new Date().getUTCFullYear();
   const [year, setYear] = useState(currentYear);
@@ -34,11 +37,11 @@ export function ProfilePage({
       <header className="profile-heading">
         <div>
           <p className="profile-eyebrow">GITHUB PROFILE</p>
-          <h1 id="profile-heading">个人主页</h1>
-          <p>你在当前仓库的 GitHub 年度贡献</p>
+          <h1 id="profile-heading">{t('个人主页')}</h1>
+          <p>{t('你在当前仓库的 GitHub 年度贡献')}</p>
         </div>
         <button className="chip" disabled={resource.loading} onClick={resource.retry}>
-          刷新个人主页
+          {t('刷新个人主页')}
         </button>
       </header>
       <div className="profile-identity">
@@ -52,18 +55,20 @@ export function ProfilePage({
           className="chip"
           onClick={() => void gateway.open(`https://github.com/${encodeURIComponent(user.login)}`)}
         >
-          在 GitHub 查看
+          {t('在 GitHub 查看')}
         </button>
       </div>
       <div className="profile-period">
         <div>
-          <h2>贡献活动</h2>
-          <p>当前仓库 · {repo}</p>
+          <h2>{t('贡献活动')}</h2>
+          <p>
+            {t('当前仓库 ·')} {repo}
+          </p>
         </div>
         <label>
-          年份{' '}
+          {t('年份')}{' '}
           <select
-            aria-label="贡献年份"
+            aria-label={t('贡献年份')}
             value={year}
             onChange={(event) => setYear(Number(event.target.value))}
           >
@@ -73,13 +78,21 @@ export function ProfilePage({
           </select>
         </label>
       </div>
-      {resource.loading && <p role="status">正在读取 {year} 年 GitHub 贡献…</p>}
+      {resource.loading && (
+        <p role="status">
+          {t('正在读取')}
+          {year} {t('年 GitHub 贡献…')}
+        </p>
+      )}
       {resource.error && (
         <div className="profile-error" role="alert">
-          <p>暂时无法更新个人主页：{resource.error}</p>
-          {profile && <p>当前显示上次读取的数据，可能不是最新。</p>}
+          <p>
+            {t('暂时无法更新个人主页：')}
+            {resource.error}
+          </p>
+          {profile && <p>{t('当前显示上次读取的数据，可能不是最新。')}</p>}
           <button className="chip" onClick={resource.retry}>
-            重试个人主页
+            {t('重试个人主页')}
           </button>
         </div>
       )}
@@ -87,12 +100,12 @@ export function ProfilePage({
         <>
           <div className="contribution-card">
             <h3>
-              {year} 年共 {calendar.totalContributions.toLocaleString('zh-CN')} 次贡献
+              {year} {t('年共')} {calendar.totalContributions.toLocaleString(locale)} {t('次贡献')}
             </h3>
             <div
               className="contribution-scroll"
               tabIndex={0}
-              aria-label={`${year} 年每日贡献日历，使用方向键选择日期`}
+              aria-label={t('{0} 年每日贡献日历，使用方向键选择日期', [year])}
               aria-describedby="contribution-selected-day"
               onKeyDown={(event) => {
                 const offset = { ArrowRight: 7, ArrowLeft: -7, ArrowDown: 1, ArrowUp: -1 }[
@@ -110,17 +123,17 @@ export function ProfilePage({
                 }
               }}
             >
-              <div className="contribution-calendar" role="list" aria-label="每日 GitHub 贡献">
+              <div className="contribution-calendar" role="list" aria-label={t('每日 GitHub 贡献')}>
                 <div className="contribution-week contribution-weekdays" aria-hidden="true">
-                  <span style={{ gridRow: 3 }}>一</span>
-                  <span style={{ gridRow: 5 }}>三</span>
-                  <span style={{ gridRow: 7 }}>五</span>
+                  <span style={{ gridRow: 3 }}>{t('一')}</span>
+                  <span style={{ gridRow: 5 }}>{t('三')}</span>
+                  <span style={{ gridRow: 7 }}>{t('五')}</span>
                 </div>
                 {calendar.weeks.map((week, index) => (
                   <div className="contribution-week" key={index}>
                     <span className="contribution-month" aria-hidden="true">
                       {index === 0 || week.contributionDays.some((day) => day.date.endsWith('-01'))
-                        ? `${Number(week.contributionDays.at(-1)?.date.slice(5, 7))}月`
+                        ? t('{0}月', [Number(week.contributionDays.at(-1)?.date.slice(5, 7))])
                         : ''}
                     </span>
                     {week.contributionDays.map((day) => (
@@ -131,9 +144,9 @@ export function ProfilePage({
                         style={{ gridRow: day.weekday + 2 }}
                         onMouseEnter={() => setSelectedDay(days.indexOf(day))}
                         data-selected={activeDay?.date === day.date}
-                        aria-label={`${day.date}：${day.contributionCount} 次贡献`}
-                        data-tooltip={`${day.date} · ${day.contributionCount} 次贡献`}
-                        title={`${day.date}：${day.contributionCount} 次贡献`}
+                        aria-label={t('{0}：{1} 次贡献', [day.date, day.contributionCount])}
+                        data-tooltip={t('{0} · {1} 次贡献', [day.date, day.contributionCount])}
+                        title={t('{0}：{1} 次贡献', [day.date, day.contributionCount])}
                       />
                     ))}
                   </div>
@@ -142,17 +155,16 @@ export function ProfilePage({
             </div>
             <p id="contribution-selected-day" aria-live="polite">
               {activeDay
-                ? `${activeDay.date}：${activeDay.contributionCount} 次贡献`
-                : '该年度没有可显示的贡献日期'}
+                ? t('{0}：{1} 次贡献', [activeDay.date, activeDay.contributionCount])
+                : t('该年度没有可显示的贡献日期')}
             </p>
             <div className="contribution-footer">
-              <span>按当前仓库的 GitHub 贡献记录汇总</span>
-              <div className="contribution-legend" aria-label="颜色由浅到深表示贡献由少到多">
-                少{' '}
+              <div className="contribution-legend" aria-label={t('颜色由浅到深表示贡献由少到多')}>
+                {t('少')}{' '}
                 {levels.map((level, index) => (
                   <span key={level} className={`contribution-day contribution-level-${index}`} />
                 ))}{' '}
-                多
+                {t('多')}
               </div>
             </div>
           </div>
@@ -164,20 +176,18 @@ export function ProfilePage({
               ['代码评审', collection.totalPullRequestReviewContributions],
             ].map(([label, value]) => (
               <div className="profile-stat" key={label}>
-                <span>{label}</span>
-                <strong>{Number(value).toLocaleString('zh-CN')}</strong>
-                <small>{year} 年贡献</small>
+                <span>{t(String(label))}</span>
+                <strong>{Number(value).toLocaleString(locale)}</strong>
+                <small>
+                  {year} {t('年贡献')}
+                </small>
               </div>
             ))}
           </div>
-          <p className="profile-scope">
-            仅统计当前账号在 {repo} 的提交、发起的 Issues、Pull requests 与代码评审贡献，日期使用
-            UTC。代码评审遵循 GitHub 贡献规则，每个已评审 PR
-            仅计最近一次评审。日历总数等于四项之和；无法归属当前仓库的受限贡献不计入。
-          </p>
           {resource.response && (
             <p className="profile-fetched">
-              上次读取 {new Date(resource.response.fetchedAt).toLocaleString('zh-CN')}
+              {t('上次读取')}
+              {new Date(resource.response.fetchedAt).toLocaleString(locale)}
             </p>
           )}
         </>

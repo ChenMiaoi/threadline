@@ -268,13 +268,6 @@
   padding-top: 16px;
   border-top: 1px solid var(--border);
 }
-.nav-count.unread-bubble {
-  background: var(--accent);
-  color: var(--app);
-  font-weight: 600;
-  min-width: 22px;
-  border-radius: 12px;
-}
 .inbox-toast {
   position: fixed;
   z-index: 100;
@@ -352,4 +345,8 @@
     font-size: 19px;
     line-height: 27px;
   }
+}
+
+.mark-all-read {
+  margin-left: auto;
 }

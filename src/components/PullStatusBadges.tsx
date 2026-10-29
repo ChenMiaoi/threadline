@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n/I18n';
 import type { PullStatus, StatusBadge } from '../core/pull-status';
 import './pull-status.css';
 
@@ -10,13 +11,14 @@ function Badge({
   value: StatusBadge;
   primary?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <span
       className={`status-badge status-${value.tone}${primary ? ' status-primary' : ''}`}
-      title={value.description}
+      title={t(value.description)}
     >
       <span className="status-dimension">{name}：</span>
-      {value.label}
+      {t(value.label)}
     </span>
   );
 }
@@ -29,6 +31,8 @@ export function PullStatusBadges({
   personal?: StatusBadge;
   compact?: boolean;
 }) {
+  const { t } = useI18n();
+
   const primary =
     personal ??
     (status.state !== 'open' || status.draft
@@ -42,11 +46,11 @@ export function PullStatusBadges({
             : status.lifecycle);
   return (
     <span className={`pull-status-badges${compact ? ' status-compact' : ''}`}>
-      <Badge name="流程" value={status.lifecycle} primary={primary === status.lifecycle} />
-      <Badge name="评审" value={status.review} primary={primary === status.review} />
-      <Badge name="检查" value={status.checks} primary={primary === status.checks} />
-      <Badge name="合并" value={status.merge} primary={primary === status.merge} />
-      {personal && <Badge name="我的评审" value={personal} primary />}
+      <Badge name={t('流程')} value={status.lifecycle} primary={primary === status.lifecycle} />
+      <Badge name={t('评审')} value={status.review} primary={primary === status.review} />
+      <Badge name={t('检查')} value={status.checks} primary={primary === status.checks} />
+      <Badge name={t('合并')} value={status.merge} primary={primary === status.merge} />
+      {personal && <Badge name={t('我的评审')} value={personal} primary />}
     </span>
   );
 }

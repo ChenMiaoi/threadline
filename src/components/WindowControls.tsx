@@ -1,8 +1,11 @@
+import { useI18n } from '../i18n/I18n';
 import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { isDesktop, isMacDesktop } from '../lib/desktop';
 
 export function WindowControls() {
+  const { t } = useI18n();
+
   const [maximized, setMaximized] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -36,15 +39,15 @@ export function WindowControls() {
     void appWindow[action]().catch(() => setError('窗口操作未成功，请重试。'));
   }
   return (
-    <div className="window-controls" aria-label="窗口控制">
-      <button aria-label="最小化窗口" title="最小化" onClick={() => run('minimize')}>
+    <div className="window-controls" aria-label={t('窗口控制')}>
+      <button aria-label={t('最小化窗口')} title={t('最小化')} onClick={() => run('minimize')}>
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
           <path d="M1 6h10" fill="none" stroke="currentColor" />
         </svg>
       </button>
       <button
-        aria-label={maximized ? '还原窗口' : '最大化窗口'}
-        title={maximized ? '还原' : '最大化'}
+        aria-label={maximized ? t('还原窗口') : t('最大化窗口')}
+        title={maximized ? t('还原') : t('最大化')}
         onClick={() => run('toggleMaximize')}
       >
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
@@ -57,8 +60,8 @@ export function WindowControls() {
       </button>
       <button
         className="window-close"
-        aria-label="关闭窗口"
-        title="关闭"
+        aria-label={t('关闭窗口')}
+        title={t('关闭')}
         onClick={() => run('close')}
       >
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">

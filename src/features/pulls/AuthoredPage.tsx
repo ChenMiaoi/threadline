@@ -1,3 +1,4 @@
+import { useI18n } from '../../i18n/I18n';
 import { useEffect, useLayoutEffect, useId, useMemo, useRef, useState } from 'react';
 import { TabList, TabPanel } from '../../components/Tabs';
 import { PageHeader } from '../../components/PageHeader';
@@ -25,6 +26,8 @@ export function AuthoredPage({
   pulls: PullRequest[];
   repo: string;
 }) {
+  const { t } = useI18n();
+
   const [state, setState] = useState<PullState>('open');
   const tabsId = useId();
   const [query, setQuery] = useState('');
@@ -91,11 +94,11 @@ export function AuthoredPage({
 
   return (
     <div className="authored-page">
-      <PageHeader title="我发起的 PR" description={repo}>
+      <PageHeader title={t('我发起的 PR')} description={repo}>
         <div className="location-tools">
           <IconButton
             name="filter"
-            label="仅显示需要处理的 PR"
+            label={t('仅显示需要处理的 PR')}
             pressed={attentionOnly}
             onClick={() => {
               setAttentionOnly(!attentionOnly);
@@ -104,7 +107,7 @@ export function AuthoredPage({
           />
           <IconButton
             name="panel"
-            label="显示 PR 预览"
+            label={t('显示 PR 预览')}
             disabled={!selected}
             pressed={previewVisible}
             onClick={() => setPanelVisible(!panelVisible)}
@@ -112,8 +115,9 @@ export function AuthoredPage({
           <label className="search-field">
             <Icon name="search" />
             <input
-              aria-label="搜索 PR"
-              placeholder="搜索 PR..."
+              data-search-pulls
+              aria-label={t('搜索 PR')}
+              placeholder={t('搜索 PR...')}
               value={query}
               onChange={(event) => {
                 setQuery(event.target.value);
@@ -125,7 +129,7 @@ export function AuthoredPage({
       </PageHeader>
       <TabList
         id={tabsId}
-        label="PR 状态"
+        label={t('PR 状态')}
         value={state}
         className="pull-tabs"
         onChange={(id) => {
@@ -142,7 +146,7 @@ export function AuthoredPage({
           value: id,
           label: (
             <>
-              {label}
+              {t(label)}
               <span>{counts[id]}</span>
             </>
           ),
@@ -153,11 +157,11 @@ export function AuthoredPage({
         value={state}
         className={`authored-workspace${previewVisible ? ' has-preview' : ''}`}
       >
-        <section className="pull-list" aria-label="我发起的 PR">
+        <section className="pull-list" aria-label={t('我发起的 PR')}>
           {groups.map(([group, pulls]) => (
             <section key={group}>
               <h2 className="pull-group-heading">
-                {group}
+                {t(group)}
                 <span>{pulls.length}</span>
               </h2>
               {pulls.map((pull) => (
@@ -191,28 +195,28 @@ export function AuthoredPage({
                       {pull.presentation ? (
                         <>
                           <PullStatusBadges status={pull.presentation} compact />
-                          <span className="pull-next-action" title={pull.presentation.nextAction}>
-                            建议：{pull.presentation.nextAction}
-                            {pull.reviewer && (
-                              <span className="requested-reviewer">
-                                {' '}
-                                · 评审请求：{pull.reviewer}
-                              </span>
-                            )}
-                          </span>
+                          {pull.reviewer && (
+                            <span
+                              className="requested-reviewer"
+                              title={t('评审请求：{0}', [pull.reviewer])}
+                            >
+                              {t('评审请求：')}
+                              {pull.reviewer}
+                            </span>
+                          )}
                         </>
                       ) : (
-                        <span className={`pull-status ${pull.tone}`}>{pull.status}</span>
+                        <span className={`pull-status ${pull.tone}`}>{t(pull.status)}</span>
                       )}
                     </span>
                     <span className="row-time">{pull.updated}</span>
                   </button>
                   <button
                     className="text-button pull-open-detail"
-                    aria-label={`打开 PR ${pull.number} 详情`}
+                    aria-label={t('打开 PR {0} 详情', [pull.number])}
                     onClick={() => onOpen(pull)}
                   >
-                    详情
+                    {t('详情')}
                     <Icon name="arrow" />
                   </button>
                 </div>
@@ -221,8 +225,8 @@ export function AuthoredPage({
           ))}
           {!rows.length && (
             <div className="list-empty">
-              <h2>当前筛选下没有 PR</h2>
-              <p>试试其他状态，或清除搜索与筛选。</p>
+              <h2>{t('当前筛选下没有 PR')}</h2>
+              <p>{t('试试其他状态，或清除搜索与筛选。')}</p>
               <button
                 className="chip"
                 onClick={() => {
@@ -232,7 +236,7 @@ export function AuthoredPage({
                   clearSelection();
                 }}
               >
-                清除筛选
+                {t('清除筛选')}
               </button>
             </div>
           )}
@@ -240,7 +244,7 @@ export function AuthoredPage({
         {previewVisible && selected && (
           <aside
             className="pr-preview"
-            aria-label="PR 预览"
+            aria-label={t('PR 预览')}
             ref={preview}
             tabIndex={-1}
             onKeyDown={(event) => {
@@ -252,12 +256,12 @@ export function AuthoredPage({
           >
             <div className="pr-preview-heading">
               <Icon name="comment" />
-              <h2>PR 预览</h2>
+              <h2>{t('PR 预览')}</h2>
               <span className="accent">·&nbsp; #{selected.number}</span>
-              <IconButton name="close" label="关闭 PR 预览" onClick={closePreview} />
+              <IconButton name="close" label={t('关闭 PR 预览')} onClick={closePreview} />
             </div>
             <h3 className="pr-preview-title">{selected.title}</h3>
-            <p className="pr-preview-source">来自上次同步的描述或评论摘要。</p>
+            <p className="pr-preview-source">{t('来自上次同步的描述或评论摘要。')}</p>
             <div className="reviewer-message">
               <span className="avatar" title={selected.previewAuthor ?? selected.author}>
                 {(selected.previewAuthor ?? selected.author)?.slice(0, 1).toUpperCase() ?? '—'}
@@ -272,7 +276,7 @@ export function AuthoredPage({
             </div>
             <div className="pr-preview-actions">
               <button className="outline-button" onClick={() => onOpen(selected)}>
-                打开完整详情
+                {t('打开完整详情')}
                 <Icon name="arrow" />
               </button>
               <button
@@ -281,7 +285,7 @@ export function AuthoredPage({
                 disabled={readIds.has(selected.id ?? '')}
               >
                 <Icon name="mark-read" />
-                {readIds.has(selected.id ?? '') ? '已读' : '标记已读'}
+                {readIds.has(selected.id ?? '') ? t('已读') : t('标记已读')}
               </button>
             </div>
           </aside>

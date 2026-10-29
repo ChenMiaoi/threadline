@@ -1,4 +1,5 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useI18n } from '../i18n/I18n';
+import type { ReactNode } from 'react';
 import { Icon, IconButton } from './Icon';
 import { isDesktop, isMacDesktop, type View } from '../lib/desktop';
 import { GitHubAvatar } from './GitHubAvatar';
@@ -42,73 +43,9 @@ export function WorkspaceShell({
   onChooseRepository: () => void;
   notificationsAvailable: boolean;
 }) {
-  const menu = useRef<HTMLDetailsElement>(null);
-  useEffect(() => {
-    let consumeClick = false;
-    let release: ReturnType<typeof setTimeout> | undefined;
-    function close() {
-      const details = menu.current;
-      if (!details) return;
-      const restoreFocus = details.contains(document.activeElement);
-      details.removeAttribute('open');
-      if (restoreFocus) details.querySelector('summary')?.focus({ preventScroll: true });
-    }
-    function stop(event: Event) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-    }
-    function outside(event: Event) {
-      return (
-        menu.current?.open && event.target instanceof Node && !menu.current.contains(event.target)
-      );
-    }
-    function pointerDown(event: PointerEvent) {
-      if (!outside(event)) return;
-      consumeClick = true;
-      close();
-      stop(event);
-    }
-    function pointerUp() {
-      if (!consumeClick) return;
-      release = setTimeout(() => {
-        consumeClick = false;
-      }, 0);
-    }
-    function pointerCancel() {
-      clearTimeout(release);
-      consumeClick = false;
-    }
-    function click(event: MouseEvent) {
-      if (!consumeClick && !outside(event)) return;
-      consumeClick = false;
-      close();
-      stop(event);
-    }
-    function escape(event: KeyboardEvent) {
-      if (event.key !== 'Escape' || !menu.current?.open) return;
-      close();
-      menu.current.querySelector('summary')?.focus({ preventScroll: true });
-      stop(event);
-    }
-    document.addEventListener('pointerdown', pointerDown, true);
-    document.addEventListener('pointerup', pointerUp, true);
-    document.addEventListener('pointercancel', pointerCancel, true);
-    document.addEventListener('click', click, true);
-    document.addEventListener('keydown', escape, true);
-    return () => {
-      clearTimeout(release);
-      document.removeEventListener('pointerdown', pointerDown, true);
-      document.removeEventListener('pointerup', pointerUp, true);
-      document.removeEventListener('pointercancel', pointerCancel, true);
-      document.removeEventListener('click', click, true);
-      document.removeEventListener('keydown', escape, true);
-    };
-  }, []);
+  const { t } = useI18n();
+
   const dragRegion = isDesktop && !isMacDesktop ? true : undefined;
-  function choose(next: View) {
-    menu.current?.removeAttribute('open');
-    onNavigate(next);
-  }
   return (
     <div className={`app ${className}`}>
       <header
@@ -121,19 +58,8 @@ export function WorkspaceShell({
           </span>
           <strong data-tauri-drag-region={dragRegion}>ThreadLine</strong>
         </div>
-        <IconButton name="search" label="搜索我发起的 PR" onClick={onSearch} />
+        <IconButton name="search" label={t('搜索我发起的 PR')} onClick={onSearch} />
         <div className="workspace-switcher">
-          <details className="workspace-menu" ref={menu}>
-            <summary>工作台</summary>
-            <nav aria-label="工作台页面" className="workspace-menu-items">
-              <button aria-label="工具收件箱" onClick={() => choose('inbox')}>
-                工具收件箱
-              </button>
-              <button aria-label="稍后处理" onClick={() => choose('snoozed')}>
-                稍后处理
-              </button>
-            </nav>
-          </details>
           <button
             className="workspace-current"
             title={repo || '选择仓库'}
@@ -145,7 +71,7 @@ export function WorkspaceShell({
         <button
           className="account"
           onClick={() => onNavigate('settings')}
-          aria-label="账号与连接设置"
+          aria-label={t('账号与连接设置')}
         >
           <GitHubAvatar login={login} url={avatarUrl} />
           <span className="account-name" title={login}>
@@ -157,20 +83,20 @@ export function WorkspaceShell({
       </header>
       <div className="workspace">
         <aside className="sidebar">
-          <div className="section-label">工作区</div>
-          <nav aria-label="工作区">
+          <div className="section-label">{t('工作区')}</div>
+          <nav aria-label={t('工作区')}>
             {navigation.map((item) => (
               <button
                 key={item.id}
-                title={item.label}
-                aria-label={item.id === 'snoozed' ? '查看稍后处理' : undefined}
+                title={t(item.label)}
+                aria-label={item.id === 'snoozed' ? t('查看稍后处理') : undefined}
                 disabled={loading}
                 className={`nav-item ${view === item.id ? 'selected' : ''}`}
                 aria-current={view === item.id ? 'page' : undefined}
                 onClick={() => onNavigate(item.id)}
               >
                 <Icon name={item.icon} />
-                <span className="nav-label">{item.label}</span>
+                <span className="nav-label">{t(item.label)}</span>
                 {['inbox', 'review', 'issues'].includes(item.id) && (
                   <span
                     className={`nav-count ${item.id === 'inbox' && unread > 0 ? 'unread-bubble' : ''}`}
@@ -188,7 +114,7 @@ export function WorkspaceShell({
             ))}
           </nav>
           <div className="repository-section">
-            <div className="section-label">仓库</div>
+            <div className="section-label">{t('仓库')}</div>
             <button
               className="repository-empty"
               title={repo || '选择仓库'}
@@ -200,13 +126,13 @@ export function WorkspaceShell({
           </div>
           <button
             disabled={loading}
-            title="设置"
+            title={t('设置')}
             className={`nav-item settings-link ${view === 'settings' ? 'selected' : ''}`}
             aria-current={view === 'settings' ? 'page' : undefined}
             onClick={() => onNavigate('settings')}
           >
             <Icon name="settings" />
-            <span className="nav-label">设置</span>
+            <span className="nav-label">{t('设置')}</span>
           </button>
         </aside>
         <main className="content">{children}</main>

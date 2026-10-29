@@ -1,3 +1,4 @@
+import type { LanguagePreference } from '../i18n/locale';
 import type { Activity } from '../features/activity/model';
 
 // Six GitHub searches (including three review queries) return at most 1,000 records each;
@@ -5,6 +6,7 @@ import type { Activity } from '../features/activity/model';
 export const MAX_INBOX_REVISIONS = 6200;
 
 export interface Preferences {
+  language: LanguagePreference;
   theme: 'dark' | 'light' | 'system';
   density: 'comfortable' | 'compact';
   reducedMotion: boolean;
@@ -47,6 +49,7 @@ export function defaultWorkspace(): WorkspaceData {
   return {
     version: 1,
     preferences: {
+      language: 'system',
       theme: 'dark',
       density: 'comfortable',
       reducedMotion: true,
@@ -127,6 +130,8 @@ export function normalizeWorkspace(value: unknown, now: number): WorkspaceData {
     throw new Error('Unsupported workspace data version');
   const prefs = object(value.preferences) ? value.preferences : {};
   const settings = { ...defaults.preferences };
+  if (['system', 'zh-CN', 'zh-TW', 'zh-HK', 'ja', 'en'].includes(String(prefs.language)))
+    settings.language = prefs.language as LanguagePreference;
   if (['dark', 'light', 'system'].includes(String(prefs.theme)))
     settings.theme = prefs.theme as Preferences['theme'];
   if (['comfortable', 'compact'].includes(String(prefs.density)))
@@ -164,7 +169,7 @@ export function normalizeWorkspace(value: unknown, now: number): WorkspaceData {
     {
       version: 1,
       preferences: settings,
-      read: ids(value.read),
+      read: ids(value.read, MAX_INBOX_REVISIONS),
       snoozed: 'snoozed' in value ? snoozed : defaults.snoozed,
       restored: ids(value.restored),
       unread: ids(value.unread),
@@ -224,5 +229,15 @@ export function restoreSnoozes(data: WorkspaceData, selected: readonly string[])
     read: data.read.filter((id) => !unread.includes(id)),
     unread: [...new Set([...data.unread, ...due])].slice(-2000),
     restored: [...new Set([...due, ...data.restored])].slice(0, 200),
+  };
+}
+
+/** Mark only the supplied loaded revisions; preserve other repositories and explicit unread overrides. */
+export function markRecordsRead(data: WorkspaceData, records: readonly string[]): WorkspaceData {
+  const targets = new Set(records);
+  return {
+    ...data,
+    read: [...new Set([...data.read, ...records])].slice(-MAX_INBOX_REVISIONS),
+    unread: data.unread.filter((id) => !targets.has(id)),
   };
 }
