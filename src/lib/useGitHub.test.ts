@@ -5,6 +5,65 @@ import { useGitHub } from './useGitHub';
 import { createGateway, record, repo, response, user } from '../test/github.fixture';
 afterEach(cleanup);
 describe('GitHub synchronization', () => {
+  it('publishes completed pages while a slow page is pending and coalesces refreshes', async () => {
+    const gateway = createGateway();
+    const request = gateway.request;
+    let finish!: (value: unknown) => void;
+    gateway.request = vi.fn().mockImplementation((operation, repository, accountId, number) =>
+      operation === 'review'
+        ? new Promise((resolve) => {
+            finish = resolve;
+          })
+        : request(operation, repository, accountId, number),
+    );
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+    expect(result.current.syncing).toBe(true);
+    expect(result.current.times.authored).toBeDefined();
+    expect(result.current.times.review).toBeUndefined();
+    const calls = vi.mocked(gateway.request).mock.calls.length;
+    let pending!: Promise<void>;
+    act(() => {
+      pending = result.current.refresh();
+      void result.current.refresh();
+    });
+    expect(gateway.request).toHaveBeenCalledTimes(calls);
+    await act(async () => {
+      finish(response([{ data: { search: { issueCount: 0, nodes: [] } } }]));
+      await pending;
+    });
+    expect(result.current.syncing).toBe(false);
+    expect(result.current.times.review).toBeDefined();
+  });
+  it('clears early page results and ignores pending pages after authentication is lost', async () => {
+    const gateway = createGateway();
+    const request = gateway.request;
+    let fail!: (reason: string) => void;
+    let finish!: (value: unknown) => void;
+    gateway.request = vi.fn().mockImplementation((operation, repository, accountId, number) =>
+      operation === 'review'
+        ? new Promise((_resolve, reject) => {
+            fail = reject;
+          })
+        : operation === 'issues'
+          ? new Promise((resolve) => {
+              finish = resolve;
+            })
+          : request(operation, repository, accountId, number),
+    );
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+    await act(async () => {
+      fail('GH_ACCOUNT_CHANGED');
+    });
+    expect(result.current.session).toBeNull();
+    expect(result.current.pulls).toEqual([]);
+    await act(async () => {
+      finish(response([]));
+    });
+    expect(result.current.issues).toEqual([]);
+    expect(result.current.times.issues).toBeUndefined();
+  });
   it('restores a remembered session on remount and stays signed out after logout', async () => {
     const gateway = createGateway();
     let signedIn = true;

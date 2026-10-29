@@ -1,5 +1,6 @@
 use serde_json::Value;
 use std::io::Read;
+use std::sync::OnceLock;
 use std::time::Duration;
 
 pub const API: &str = "https://api.github.com";
@@ -43,7 +44,25 @@ pub struct Response {
 pub trait Transport: Send + Sync {
     fn send(&self, request: Request) -> Result<Response, String>;
 }
-pub struct Https;
+#[derive(Default)]
+pub struct Https {
+    client: OnceLock<Result<reqwest::blocking::Client, String>>,
+}
+impl Https {
+    fn client(&self) -> Result<&reqwest::blocking::Client, String> {
+        self.client
+            .get_or_init(|| {
+                reqwest::blocking::Client::builder()
+                    .user_agent(concat!("ThreadLine/", env!("CARGO_PKG_VERSION")))
+                    .timeout(Duration::from_secs(30))
+                    .redirect(reqwest::redirect::Policy::none())
+                    .build()
+                    .map_err(|_| "GH_REQUEST_FAILED".to_string())
+            })
+            .as_ref()
+            .map_err(Clone::clone)
+    }
+}
 impl Transport for Https {
     fn send(&self, request: Request) -> Result<Response, String> {
         let url = reqwest::Url::parse(&request.url).map_err(|_| "GH_INVALID_URL")?;
@@ -58,12 +77,7 @@ impl Transport for Https {
         {
             return Err("GH_INVALID_URL".into());
         }
-        let client = reqwest::blocking::Client::builder()
-            .user_agent(concat!("ThreadLine/", env!("CARGO_PKG_VERSION")))
-            .timeout(Duration::from_secs(30))
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .map_err(|_| "GH_REQUEST_FAILED")?;
+        let client = self.client()?;
         let mut builder = if request.json.is_some() || !request.form.is_empty() {
             client.post(url)
         } else {

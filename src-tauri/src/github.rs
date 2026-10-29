@@ -211,10 +211,15 @@ impl Client {
             "authored" | "review" | "issues" => {
                 if operation == "review" {
                     let mut pages = Vec::new();
-                    for qualifier in ["reviewed-by", "review-requested", "commenter"] {
-                        let value = self.search(&format!(
-                        "repo:{repo} is:pr {qualifier}:{login} -author:{login} sort:updated-desc"
-                    ))?;
+                    let results = std::thread::scope(|scope| {
+                        ["reviewed-by", "review-requested", "commenter"].map(|qualifier| {
+                            scope.spawn(move || self.search(&format!(
+                                "repo:{repo} is:pr {qualifier}:{login} -author:{login} sort:updated-desc"
+                            )))
+                        }).map(|job| job.join().unwrap_or_else(|_| Err("GH_TASK_FAILED".into())))
+                    });
+                    for result in results {
+                        let value = result?;
                         pages.extend(value.as_array().ok_or("GH_RESPONSE_ERROR")?.iter().cloned());
                     }
                     return Ok(pages.into());
@@ -229,26 +234,26 @@ impl Client {
             }
             "detail" if number > 0 => {
                 let pull = self.api(&format!("{base}/pulls/{number}"), false)?;
-                let comments = self.api(
-                    &format!("{base}/issues/{number}/comments?per_page=100"),
-                    true,
-                )?;
-                let reviews =
-                    self.api(&format!("{base}/pulls/{number}/reviews?per_page=100"), true)?;
-                let review_comments = self.api(
-                    &format!("{base}/pulls/{number}/comments?per_page=100"),
-                    true,
-                )?;
-                let files = self.api(&format!("{base}/pulls/{number}/files?per_page=100"), true)?;
                 let sha = pull["head"]["sha"].as_str().ok_or("GH_RESPONSE_ERROR")?;
-                if !sha.chars().all(|c| c.is_ascii_hexdigit()) {
+                if sha.is_empty() || !sha.chars().all(|c| c.is_ascii_hexdigit()) {
                     return Err("GH_RESPONSE_ERROR".into());
                 }
-                let checks = self.api(
-                    &format!("{base}/commits/{sha}/check-runs?per_page=100&filter=latest"),
-                    true,
-                );
-                let statuses = self.api(&format!("{base}/commits/{sha}/status?per_page=100"), true);
+                // Only independent reads run together; HEAD is revalidated after all finish.
+                let [comments, reviews, review_comments, files, checks, statuses] =
+                    std::thread::scope(|scope| {
+                        [
+                            format!("{base}/issues/{number}/comments?per_page=100"),
+                            format!("{base}/pulls/{number}/reviews?per_page=100"),
+                            format!("{base}/pulls/{number}/comments?per_page=100"),
+                            format!("{base}/pulls/{number}/files?per_page=100"),
+                            format!("{base}/commits/{sha}/check-runs?per_page=100&filter=latest"),
+                            format!("{base}/commits/{sha}/status?per_page=100"),
+                        ]
+                        .map(|endpoint| scope.spawn(move || self.api(&endpoint, true)))
+                        .map(|job| job.join().unwrap_or_else(|_| Err("GH_TASK_FAILED".into())))
+                    });
+                let (comments, reviews, review_comments, files) =
+                    (comments?, reviews?, review_comments?, files?);
                 if self.api(&format!("{base}/pulls/{number}"), false)?["head"]["sha"]
                     != pull["head"]["sha"]
                 {
@@ -358,6 +363,135 @@ mod tests {
     fn client() -> (Client, Arc<FakeHttp>) {
         let http = Arc::new(FakeHttp::default());
         (Client::new(http.clone(), "ghu_fake-test".into()), http)
+    }
+    struct ParallelHttp {
+        arrivals: (std::sync::Mutex<usize>, std::sync::Condvar),
+        head_reads: std::sync::atomic::AtomicUsize,
+        changed: bool,
+        fail_checks: bool,
+        fail_files: bool,
+    }
+    impl ParallelHttp {
+        fn new(changed: bool, fail_checks: bool, fail_files: bool) -> Self {
+            Self {
+                arrivals: (std::sync::Mutex::new(0), std::sync::Condvar::new()),
+                head_reads: std::sync::atomic::AtomicUsize::new(0),
+                changed,
+                fail_checks,
+                fail_files,
+            }
+        }
+        fn rendezvous(&self, expected: usize) -> Result<(), String> {
+            let (lock, ready) = &self.arrivals;
+            let mut arrivals = lock.lock().unwrap();
+            *arrivals += 1;
+            ready.notify_all();
+            let (arrivals, timeout) = ready
+                .wait_timeout_while(arrivals, std::time::Duration::from_secs(2), |count| {
+                    *count < expected
+                })
+                .unwrap();
+            if timeout.timed_out() && *arrivals < expected {
+                return Err("EXPECTED_CONCURRENT_READS".into());
+            }
+            Ok(())
+        }
+    }
+    impl Transport for ParallelHttp {
+        fn send(&self, request: Request) -> Result<Response, String> {
+            let body = if request.url.ends_with("/graphql") {
+                self.rendezvous(3)?;
+                let query = &request.json.as_ref().unwrap()["variables"]["search"];
+                json!({"data":{"search":{"issueCount":1,"nodes":[query],"pageInfo":{"hasNextPage":false}}}})
+            } else if request.url.ends_with("/pulls/1") {
+                let read = self
+                    .head_reads
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                json!({"head":{"sha": if self.changed && read > 0 { "bbbb" } else { "aaaa" }}})
+            } else {
+                self.rendezvous(6)?;
+                if (self.fail_checks && request.url.contains("/check-runs?"))
+                    || (self.fail_files && request.url.contains("/files?"))
+                {
+                    return Err("GH_REQUEST_FAILED".into());
+                }
+                if request.url.contains("/check-runs?") {
+                    json!({"check_runs":[{"id":1}]})
+                } else if request.url.contains("/status?") {
+                    json!({"statuses":[{"context":"ci"}]})
+                } else {
+                    json!([{"source":request.url}])
+                }
+            };
+            Ok(Response {
+                status: 200,
+                body,
+                next: None,
+            })
+        }
+    }
+    #[test]
+    fn review_searches_overlap_and_preserve_qualifier_order() {
+        let http = Arc::new(ParallelHttp::new(false, false, false));
+        let client = Client::new(http, "ghu_test".into());
+        let pages = client.request("review", "owner/repo", 0, "user").unwrap();
+        for (page, qualifier) in
+            pages
+                .as_array()
+                .unwrap()
+                .iter()
+                .zip(["reviewed-by", "review-requested", "commenter"])
+        {
+            assert!(page["data"]["search"]["nodes"][0]
+                .as_str()
+                .unwrap()
+                .contains(&format!("{qualifier}:user")));
+        }
+    }
+    #[test]
+    fn detail_reads_overlap_and_keep_each_endpoint_in_its_own_field() {
+        let http = Arc::new(ParallelHttp::new(false, false, false));
+        let client = Client::new(http.clone(), "ghu_test".into());
+        let detail = client.request("detail", "owner/repo", 1, "user").unwrap();
+        for (field, endpoint) in [
+            ("comments", "/issues/1/comments?"),
+            ("reviews", "/pulls/1/reviews?"),
+            ("reviewComments", "/pulls/1/comments?"),
+            ("files", "/pulls/1/files?"),
+        ] {
+            assert!(detail[field][0][0]["source"]
+                .as_str()
+                .unwrap()
+                .contains(endpoint));
+        }
+        assert_eq!(detail["checks"][0]["check_runs"][0]["id"], 1);
+        assert_eq!(detail["statuses"][0]["statuses"][0]["context"], "ci");
+        assert!(detail["checkError"].is_null());
+        assert_eq!(http.head_reads.load(std::sync::atomic::Ordering::SeqCst), 2);
+    }
+    #[test]
+    fn parallel_details_reject_changed_head_and_required_failures_but_disclose_optional_checks() {
+        for (changed, fail_checks, fail_files) in [
+            (true, false, false),
+            (false, true, false),
+            (false, false, true),
+        ] {
+            let client = Client::new(
+                Arc::new(ParallelHttp::new(changed, fail_checks, fail_files)),
+                "ghu_test".into(),
+            );
+            let result = client.request("detail", "owner/repo", 1, "user");
+            if changed {
+                assert!(result.unwrap_err().starts_with("GH_HEAD_CHANGED"));
+            } else if fail_files {
+                assert_eq!(result.unwrap_err(), "GH_REQUEST_FAILED");
+            } else {
+                let detail = result.unwrap();
+                assert!(detail["checks"].is_null());
+                assert_eq!(detail["checkError"], "GH_REQUEST_FAILED");
+                assert!(detail["statuses"].is_array());
+            }
+        }
     }
     #[test]
     fn rejects_unsafe_paths_and_unknown_operations_without_network_requests() {

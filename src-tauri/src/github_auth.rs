@@ -107,7 +107,12 @@ impl Default for AuthManager {
     fn default() -> Self {
         let config = AppConfig::load();
         let store = Arc::new(VaultStore::new(config.client_id.clone()));
-        Self::new(config, Arc::new(Https), store, Arc::new(SystemClock))
+        Self::new(
+            config,
+            Arc::new(Https::default()),
+            store,
+            Arc::new(SystemClock),
+        )
     }
 }
 fn snapshot(state: &State) -> Value {
