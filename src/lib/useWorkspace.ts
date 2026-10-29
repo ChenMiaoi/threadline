@@ -8,7 +8,7 @@ import {
 } from '../core/workspace';
 
 export function useWorkspace(repository: WorkspaceRepository) {
-  const [data, setData] = useState(() => defaultWorkspace(Date.now()));
+  const [data, setData] = useState(() => defaultWorkspace());
   const [loaded, setLoaded] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState('');

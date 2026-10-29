@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import type { Preferences } from '../../core/workspace';
 import type { AppState } from '../../lib/desktop';
-import { Modal } from '../../components/Modal';
+import type { GitHubWorkspace } from '../../lib/useGitHub';
 
 const sections = [
   ['account', '账号与连接'],
@@ -59,18 +59,22 @@ export function SettingsPage({
   onConnect,
   onSync,
   appState,
+  github,
+  onChooseRepository,
 }: {
   preferences: Preferences;
   onChange: (change: Partial<Preferences>) => void;
   onConnect: () => void;
   onSync: () => void;
   appState: AppState | null;
+  github: GitHubWorkspace;
+  onChooseRepository: () => void;
 }) {
   const [section, setSection] = useState<Section>('account');
-  const [repositoryPicker, setRepositoryPicker] = useState(false);
+
   const title = sections.find(([id]) => id === section)![1];
   const descriptions: Record<Section, string> = {
-    account: '查看连接状态与授权说明。当前尚未连接 GitHub。',
+    account: '通过 GitHub CLI 管理账号与连接状态。',
     repositories: '控制工作区展示的仓库与同步偏好。',
     notifications: '仅管理 ThreadLine 的本地提醒偏好，不改变 GitHub 通知订阅。',
     appearance: '选择主题、信息密度与界面语言。当前主题会立即应用到工作区。',
@@ -81,7 +85,9 @@ export function SettingsPage({
         <span>ThreadLine</span>
         <span className="separator">/</span>
         <span className="muted">设置 / {title}</span>
-        <span className="connection-badge">示例 · 未连接 GitHub</span>
+        <span className="connection-badge">
+          {github.session ? `@${github.session.user.login}` : '未连接 GitHub'}
+        </span>
       </header>
       <div className="settings-layout">
         <nav className="settings-nav" aria-label="设置分类">
@@ -103,27 +109,30 @@ export function SettingsPage({
             <>
               <h2 className="settings-section-heading">GitHub 连接</h2>
               <SettingRow
-                title="尚未连接 GitHub"
-                description="连接后，才可展示你授权范围内的协作信息。"
+                title={github.session ? `@${github.session.user.login}` : '尚未连接 GitHub'}
+                description="复用 gh 的活动账号，切换 gh 账号后请重新检查连接。"
               >
                 <button className="setting-value accent" onClick={onConnect}>
-                  连接 GitHub ↗
+                  {github.session ? '重新检查连接' : '连接 GitHub ↗'}
                 </button>
               </SettingRow>
-              <SettingRow title="权限范围" description="拟读取 PR、Issue、评论及评审元数据。">
-                <span className="muted">待授权时确认</span>
-              </SettingRow>
               <SettingRow
-                title="代码与仓库访问"
-                description="不因打开界面而获得代码访问权；实际范围以授权页为准。"
+                title="权限范围"
+                description="读取 PR、Issue、评论、正式评审和通知元数据。"
               >
-                <span className="muted">未授予访问</span>
+                <span className="muted">由 gh 当前凭据决定</span>
+              </SettingRow>
+              <SettingRow title="代码与仓库访问" description="仅访问 gh 账号有权限读取的仓库。">
+                <span className="muted">{github.repo || '尚未选择仓库'}</span>
               </SettingRow>
               <h2 className="settings-section-heading">本地信息</h2>
-              <SettingRow title="显示身份" description="当前头像、Reviewer 名称和数据均为示例。">
-                <span className="muted">示例用户</span>
+              <SettingRow title="显示身份" description="GitHub API 返回的真实账号身份。">
+                <span className="muted">{github.session?.user.login ?? '未连接'}</span>
               </SettingRow>
-              <p className="settings-note">不存在已建立的连接、令牌、真实账号信息或后台授权。</p>
+              <p className="settings-note">
+                ThreadLine 不读取或保存令牌。登录凭据和退出登录由 gh 管理；退出可在终端运行 gh auth
+                logout。
+              </p>
               <details className="storage-details">
                 <summary>本地数据存储</summary>
                 <p>
@@ -137,13 +146,13 @@ export function SettingsPage({
             <>
               <h2 className="settings-section-heading">仓库</h2>
               <SettingRow
-                title="llvm-project"
-                description="仓库仅作为示例；未执行读取、订阅或同步。"
+                title={github.repo || '尚未选择仓库'}
+                description="当前账号的协作记录按所选仓库读取。"
               >
-                <span className="muted">示例仓库</span>
+                <span className="muted">{github.repo ? '已选择' : '未选择'}</span>
               </SettingRow>
               <SettingRow title="选择仓库" description="连接完成后，仅列出授权范围内可选择的仓库。">
-                <button className="setting-value accent" onClick={() => setRepositoryPicker(true)}>
+                <button className="setting-value accent" onClick={onChooseRepository}>
                   选择仓库
                 </button>
               </SettingRow>
@@ -168,15 +177,19 @@ export function SettingsPage({
                   <option value={15}>每 15 分钟</option>
                 </select>
               </SettingRow>
-              <SettingRow title="最近同步" description="当前没有实际同步记录。">
-                <span className="muted">尚未同步</span>
+              <SettingRow title="最近同步" description="各页面的最后成功读取时间。">
+                <span className="muted">
+                  {Object.values(github.times).length
+                    ? new Date(Math.max(...Object.values(github.times))).toLocaleString('zh-CN')
+                    : '尚未同步'}
+                </span>
               </SettingRow>
               <SettingRow
                 title="手动刷新"
-                description="连接后可请求最新信息；当前仅演示同步失败状态。"
+                description="读取所选仓库的最新信息；失败时保留可用的本地缓存。"
               >
                 <button className="setting-value accent" onClick={onSync}>
-                  立即刷新
+                  {github.syncing ? '正在刷新…' : '立即刷新'}
                 </button>
               </SettingRow>
               <p className="settings-note">
@@ -306,23 +319,6 @@ export function SettingsPage({
           )}
         </section>
       </div>
-      {repositoryPicker && (
-        <Modal title="选择仓库" onClose={() => setRepositoryPicker(false)}>
-          <p>尚未连接 GitHub。当前可查看示例仓库。</p>
-          <label className="repository-choice">
-            <input type="radio" name="repository" defaultChecked /> llvm-project{' '}
-            <span className="dim">示例</span>
-          </label>
-          <div className="inline-group">
-            <button className="chip" onClick={onConnect}>
-              连接 GitHub
-            </button>
-            <button className="chip accent" onClick={() => setRepositoryPicker(false)}>
-              使用示例仓库
-            </button>
-          </div>
-        </Modal>
-      )}
     </>
   );
 }

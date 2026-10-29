@@ -1,6 +1,7 @@
 export type ActivityView = 'inbox' | 'review' | 'issues';
 export interface Activity {
   url?: string;
+  labels?: string[];
   state?: 'open' | 'closed';
   serverRead?: boolean;
   id: string;

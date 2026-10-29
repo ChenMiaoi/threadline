@@ -1,4 +1,4 @@
-import type { Activity, ActivityView } from './model';
+import type { Activity, ActivityView } from '../features/activity/model';
 
 export const demoActivities: Record<ActivityView, Activity[]> = {
   inbox: [

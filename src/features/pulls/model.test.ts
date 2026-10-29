@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { demoPulls } from './demo';
+import { demoPulls } from '../../test/pulls.fixture';
 import { filterPullRequests, groupPullRequests } from './model';
 
 describe('pull request views', () => {

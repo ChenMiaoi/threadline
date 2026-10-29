@@ -5,8 +5,8 @@ import type { View } from '../lib/desktop';
 const navigation: { id: View; label: string; icon: string; count?: number }[] = [
   { id: 'inbox', label: '收件箱', icon: 'inbox' },
   { id: 'authored', label: '我发起的', icon: 'user' },
-  { id: 'review', label: '我审阅的', icon: 'review', count: 15 },
-  { id: 'issues', label: 'Issues', icon: 'issues', count: 8 },
+  { id: 'review', label: '我审阅的', icon: 'review' },
+  { id: 'issues', label: 'Issues', icon: 'issues' },
 ];
 
 export function WorkspaceShell({
@@ -17,6 +17,10 @@ export function WorkspaceShell({
   className,
   loading,
   children,
+  repo,
+  login,
+  counts,
+  onChooseRepository,
 }: {
   view: View;
   unread: number;
@@ -25,6 +29,10 @@ export function WorkspaceShell({
   className: string;
   loading: boolean;
   children: ReactNode;
+  repo: string;
+  login?: string;
+  counts: { review: number; issues: number };
+  onChooseRepository: () => void;
 }) {
   const menu = useRef<HTMLDetailsElement>(null);
   function choose(next: View) {
@@ -45,15 +53,10 @@ export function WorkspaceShell({
             <nav aria-label="工作台页面" className="workspace-menu-items">
               <button onClick={() => choose('inbox')}>工具收件箱</button>
               <button onClick={() => choose('snoozed')}>稍后处理</button>
-              <hr />
-              <span className="menu-label">示例状态</span>
-              <button onClick={() => choose('onboarding')}>首次连接</button>
-              <button onClick={() => choose('empty')}>收件箱空状态</button>
-              <button onClick={() => choose('sync-error')}>同步失败</button>
             </nav>
           </details>
-          <button className="workspace-current" onClick={() => onNavigate('authored')}>
-            llvm-project
+          <button className="workspace-current" onClick={onChooseRepository}>
+            {repo || '选择仓库'}
           </button>
         </div>
         <button
@@ -61,8 +64,8 @@ export function WorkspaceShell({
           onClick={() => onNavigate('settings')}
           aria-label="账号与连接设置"
         >
-          <span className="avatar">C</span>
-          <span>示例数据</span>
+          <span className="avatar">{login?.slice(0, 1).toUpperCase() ?? '?'}</span>
+          <span>{login ?? '未连接'}</span>
           <Icon name="chev" />
         </button>
       </header>
@@ -81,16 +84,22 @@ export function WorkspaceShell({
                 <Icon name={item.icon} />
                 {item.label}
                 {item.id !== 'authored' && (
-                  <span className="nav-count">{item.id === 'inbox' ? unread : item.count}</span>
+                  <span className="nav-count">
+                    {item.id === 'inbox'
+                      ? unread
+                      : item.id === 'review'
+                        ? counts.review
+                        : counts.issues}
+                  </span>
                 )}
               </button>
             ))}
           </nav>
           <div className="repository-section">
             <div className="section-label">仓库</div>
-            <button className="repository-empty" onClick={() => onNavigate('authored')}>
+            <button className="repository-empty" onClick={onChooseRepository}>
               <Icon name="repo" />
-              <span>llvm-project</span>
+              <span>{repo || '选择仓库'}</span>
             </button>
           </div>
           <button

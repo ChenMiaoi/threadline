@@ -224,6 +224,16 @@
   line-height: 24px;
   margin-bottom: 4px;
 }
+.reviewer-message > div {
+  min-width: 0;
+}
+.reviewer-message p:last-child {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
 .discussion-actions {
   display: flex;
   align-items: center;

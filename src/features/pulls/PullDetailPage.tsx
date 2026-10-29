@@ -1,160 +1,318 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { PullRequest } from './model';
+import {
+  shortTime,
+  type GitHubGateway,
+  type PullDetail,
+  type GitHubResponse,
+} from '../../core/github';
 
-export function PullDetailPage({ pull, onBack }: { pull: PullRequest; onBack: () => void }) {
+const reviewLabels: Record<string, string> = {
+  APPROVED: '批准',
+  CHANGES_REQUESTED: '请求修改',
+  COMMENTED: '评论评审',
+  DISMISSED: '已撤销',
+  PENDING: '待提交',
+};
+export function PullDetailPage({
+  pull,
+  onBack,
+  repo,
+  accountId,
+  gateway,
+}: {
+  pull: PullRequest;
+  onBack: () => void;
+  repo: string;
+  accountId: number;
+  gateway: GitHubGateway;
+}) {
   const [tab, setTab] = useState('discussion');
-  const [notice, setNotice] = useState(false);
-  const primary = pull.number === 1042;
+  const [response, setResponse] = useState<GitHubResponse<PullDetail> | null>(null);
+  const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let active = true;
+    gateway
+      .request<PullDetail>('detail', repo, accountId, pull.number)
+      .then((result) => {
+        if (active) {
+          setResponse(result);
+          setError(result.error ?? '');
+        }
+      })
+      .catch((reason) => {
+        if (active) setError(String(reason));
+      });
+    return () => {
+      active = false;
+    };
+  }, [gateway, repo, accountId, pull.number, retry]);
+  const detail = response?.payload;
+  const reviews = detail?.reviews.flat() ?? [];
+  const files = detail?.files.flat() ?? [];
+  const checks = detail?.checks?.flatMap((page) => page.check_runs) ?? [];
+  const statuses = [
+    ...new Map(
+      (detail?.statuses?.flatMap((page) => page.statuses) ?? []).map((s) => [s.context, s]),
+    ).values(),
+  ];
+  const timeline = detail
+    ? [
+        ...detail.comments.flat().map((c) => ({
+          id: `comment-${c.id}`,
+          author: c.user?.login,
+          body: c.body,
+          date: c.created_at,
+          label: '普通评论',
+          version: '',
+        })),
+        ...detail.reviewComments.flat().map((c) => ({
+          id: `inline-${c.id}`,
+          author: c.user?.login,
+          body: c.body,
+          date: c.created_at,
+          label: `代码评论 · ${c.path}`,
+          version: '',
+        })),
+        ...reviews.map((r) => ({
+          id: `review-${r.id}`,
+          author: r.user?.login,
+          body: r.body,
+          date: r.submitted_at ?? '',
+          label: `${reviewLabels[r.state] ?? r.state} · 正式评审`,
+          version: `评审版本 ${r.commit_id.slice(0, 7)} · 当前 HEAD ${detail.pull.head.sha.slice(0, 7)}${r.commit_id !== detail.pull.head.sha ? ' · 代码版本已变化' : ''}`,
+        })),
+      ].sort((a, b) => a.date.localeCompare(b.date))
+    : [];
+  const latestReviews = [
+    ...new Map(
+      reviews
+        .filter((r) => r.state !== 'COMMENTED' && r.state !== 'PENDING')
+        .map((r) => [r.user?.login ?? String(r.id), r]),
+    ).values(),
+  ];
+  function open() {
+    void gateway
+      .open(detail?.pull.html_url ?? pull.url ?? `https://github.com/${repo}/pull/${pull.number}`)
+      .catch((reason) => setError(String(reason)));
+  }
   return (
     <>
       <header className="location">
         <button className="breadcrumb-button" onClick={onBack}>
-          llvm-project
+          {repo}
         </button>
         <span className="separator">/</span>
         <span className="muted">PR #{pull.number}</span>
-        <span className="connection-badge">示例 · 未连接 GitHub</span>
+        <span className="connection-badge">GitHub</span>
       </header>
       <section className="pr-summary">
-        <h1>{pull.title}</h1>
+        <h1>{detail?.pull.title ?? pull.title}</h1>
         <div className="inline-group">
           <span className="chip accent">#{pull.number}</span>
-          <span className="chip green">开放</span>
-          <span className="muted">作者：我 · llvm-project · {primary ? 3 : 1} 个提交</span>
+          <span className="chip green">
+            {detail
+              ? detail.pull.merged
+                ? '已合并'
+                : detail.pull.draft
+                  ? '草稿'
+                  : detail.pull.state === 'open'
+                    ? '开放'
+                    : '已关闭'
+              : pull.status}
+          </span>
+          <span className="muted">
+            {detail &&
+              `作者：${detail.pull.user?.login ?? '已删除用户'} · ${repo} · ${detail.pull.commits} 个提交`}
+          </span>
         </div>
         <div className="inline-group branch-summary">
-          <span className="dim">
-            {primary ? 'fix/leading-space' : `sample/pr-${pull.number}`} → main
-          </span>
-          {primary && <span className="green">+48 −12 · 3 个文件</span>}
-          <button className="chip accent" onClick={() => setNotice(!notice)}>
+          {detail && (
+            <>
+              <span className="dim">
+                {detail.pull.head.ref} → {detail.pull.base.ref}
+              </span>
+              <span className="green">
+                +{detail.pull.additions} −{detail.pull.deletions} · {detail.pull.changed_files}{' '}
+                个文件
+              </span>
+            </>
+          )}
+          <button className="chip accent" onClick={open}>
             在 GitHub 中查看 ↗
           </button>
         </div>
-        {notice && (
-          <p className="inline-notice" role="status">
-            这是示例 PR，未关联真实 GitHub 记录。
-          </p>
-        )}
       </section>
-      <div className="detail-tabs" role="tablist" aria-label="PR 详情">
-        {[
-          ['discussion', '讨论 5'],
-          ['files', '文件变更 3'],
-          ['checks', '检查 6'],
-        ].map(([id, label]) => (
-          <button
-            key={id}
-            className={`chip ${tab === id ? 'active' : ''}`}
-            role="tab"
-            aria-selected={tab === id}
-            onClick={() => setTab(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="detail-columns">
-        <section className="detail-timeline">
-          {tab === 'discussion' ? (
-            <>
-              <article className="detail-card">
-                <h2>说明</h2>
-                <p>
-                  {primary
-                    ? '在保留空白的词法分析模式下，保留 token 的 leading-space 标记。'
-                    : pull.title}
-                </p>
-                <p>
-                  {primary
-                    ? '补充回归测试，避免源码位置信息在边界情况下丢失。'
-                    : '此示例用于展示 PR 详情与状态。'}
-                </p>
-              </article>
-              <article className="detail-card formal-review">
-                <div className="inline-group">
-                  <h2>Reviewer A</h2>
-                  <span className="yellow">请求修改 · 正式评审</span>
-                  <time className="dim">12 分钟前</time>
-                </div>
-                <p>请确认保留空白模式下的行为。这个分支是否会改变 escaped newline 的处理？</p>
-                <small>评审版本 a1b2c3d · 当前 HEAD a1b2c3d</small>
-              </article>
-              <article className="detail-card">
-                <div className="inline-group">
-                  <h2>Reviewer B</h2>
-                  <span className="muted">普通评论</span>
-                  <time className="dim">1 小时前</time>
-                </div>
-                <p>测试覆盖看起来不错，可以再加一个包含宏展开的例子。</p>
-              </article>
-              <p className="footnote">此处仅展示讨论与评审记录。回复、提交评审请前往 GitHub。</p>
-            </>
-          ) : tab === 'files' ? (
-            <article className="detail-card">
-              <h2>文件变更</h2>
-              {[
-                'clang/lib/Lex/Lexer.cpp',
-                'clang/include/clang/Lex/Lexer.h',
-                'clang/test/Lexer/leading-space.c',
-              ].map((file) => (
-                <div className="file-record" key={file}>
-                  <code>{file}</code>
-                  <span className="green">+16 −4</span>
-                </div>
-              ))}
-              <p className="dim">示例数据未包含完整代码差异。</p>
-            </article>
-          ) : (
-            <article className="detail-card">
-              <h2>检查</h2>
-              {['clang-tests', 'build', 'lint', 'windows-build', 'linux-build', 'format'].map(
-                (check) => (
-                  <div className="file-record" key={check}>
-                    <span>{check}</span>
-                    <span className="green">✓ 通过</span>
-                  </div>
-                ),
-              )}
-            </article>
+      {error && (
+        <div className="sync-error-banner" role="alert">
+          <p>{error}</p>
+          {response && (
+            <p>
+              保留上次读取记录 · {shortTime(new Date(response.fetchedAt).toISOString())} ·
+              可能不是最新
+            </p>
           )}
-        </section>
-        <aside className="detail-aside">
-          <section className="detail-card">
-            <h2>评审</h2>
-            <p className="yellow">● 需要修改</p>
-            <p>
-              Reviewer A · 请求修改
-              <br />
-              Reviewer B · 仅评论，未正式评审
-            </p>
-            <small>评审与 HEAD 一致：a1b2c3d</small>
-          </section>
-          <section className="detail-card">
-            <h2>检查</h2>
-            <p className="green">✓ 6 / 6 检查通过</p>
-            <p>
-              clang-tests · build · lint
-              <br />
-              当前 HEAD a1b2c3d
-            </p>
-          </section>
-          <section className="detail-card">
-            <h2>文件变更</h2>
-            <p className="file-list">
-              clang/lib/Lex/Lexer.cpp
-              <br />
-              clang/include/clang/Lex/Lexer.h
-              <br />
-              clang/test/Lexer/leading-space.c
-            </p>
-            <p className="green">+48 −12 · 3 个文件</p>
-          </section>
-        </aside>
-      </div>
-      <footer className="page-note">
-        示例数据 · 界面未连接 GitHub；不提供自动批准、合并或发布操作。
-      </footer>
+          <button
+            className="chip"
+            onClick={() => {
+              setError('');
+              setRetry((n) => n + 1);
+            }}
+          >
+            重试
+          </button>
+        </div>
+      )}
+      {!detail && !error && (
+        <p role="status" className="list-empty">
+          正在读取 PR 详情…
+        </p>
+      )}
+      {detail && (
+        <>
+          <div className="detail-tabs" role="tablist" aria-label="PR 详情">
+            {[
+              ['discussion', `讨论 ${timeline.length}`],
+              ['files', `文件变更 ${detail.pull.changed_files}`],
+              ['checks', `检查 ${checks.length + statuses.length}`],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                className={`chip ${tab === id ? 'active' : ''}`}
+                role="tab"
+                aria-selected={tab === id}
+                onClick={() => setTab(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="detail-columns">
+            <section className="detail-timeline">
+              {tab === 'discussion' ? (
+                <>
+                  <article className="detail-card">
+                    <h2>说明</h2>
+                    <p className="github-body">{detail.pull.body || '暂无说明'}</p>
+                  </article>
+                  {timeline.map((event) => (
+                    <article
+                      className={`detail-card ${event.version ? 'formal-review' : ''}`}
+                      key={event.id}
+                    >
+                      <div className="inline-group">
+                        <h2>{event.author ?? '已删除用户'}</h2>
+                        <span className="muted">{event.label}</span>
+                        <time className="dim">{event.date && shortTime(event.date)}</time>
+                      </div>
+                      <p className="github-body">{event.body || '无正文'}</p>
+                      {event.version && <small>{event.version}</small>}
+                    </article>
+                  ))}
+                  <p className="footnote">回复、提交评审请前往 GitHub。</p>
+                </>
+              ) : tab === 'files' ? (
+                <article className="detail-card">
+                  <h2>文件变更</h2>
+                  {files.map((file) => (
+                    <details key={file.filename}>
+                      <summary className="file-record">
+                        <code>{file.filename}</code>
+                        <span className="green">
+                          +{file.additions} −{file.deletions}
+                        </span>
+                      </summary>
+                      <pre className="github-patch">
+                        {file.patch ?? 'GitHub 未提供此文件的文本差异，请前往 GitHub 查看。'}
+                      </pre>
+                    </details>
+                  ))}
+                  {files.length < detail.pull.changed_files && (
+                    <p className="yellow">
+                      GitHub 文件列表未完整返回，已加载 {files.length} / {detail.pull.changed_files}{' '}
+                      个文件。请在 GitHub 查看完整变更。
+                    </p>
+                  )}
+                </article>
+              ) : (
+                <article className="detail-card">
+                  <h2>检查</h2>
+                  {detail.checkError && (
+                    <p role="alert" className="yellow">
+                      {detail.checkError} · 未能完整获取检查结果
+                    </p>
+                  )}
+                  {checks.map((check) => (
+                    <div className="file-record" key={check.id}>
+                      <span>{check.name}</span>
+                      <span className={check.conclusion === 'success' ? 'green' : 'muted'}>
+                        {check.conclusion ?? check.status}
+                      </span>
+                    </div>
+                  ))}
+                  {statuses.map((status) => (
+                    <div className="file-record" key={status.context}>
+                      <span>{status.context}</span>
+                      <span>{status.state}</span>
+                    </div>
+                  ))}
+                  {!checks.length && !statuses.length && !detail.checkError && (
+                    <p>当前 HEAD 没有检查记录。</p>
+                  )}
+                </article>
+              )}
+            </section>
+            <aside className="detail-aside">
+              <section className="detail-card">
+                <h2>评审</h2>
+                {latestReviews.length ? (
+                  latestReviews.map((review) => (
+                    <p key={review.id}>
+                      {review.user?.login ?? '已删除用户'} ·{' '}
+                      {reviewLabels[review.state] ?? review.state}
+                      <br />
+                      <small>
+                        {review.commit_id === detail.pull.head.sha
+                          ? '评审与 HEAD 一致'
+                          : `评审版本 ${review.commit_id.slice(0, 7)} · 代码已更新`}
+                      </small>
+                    </p>
+                  ))
+                ) : (
+                  <p>暂无正式结论</p>
+                )}
+                <small>当前 HEAD {detail.pull.head.sha.slice(0, 7)}</small>
+              </section>
+              <section className="detail-card">
+                <h2>检查</h2>
+                <p>
+                  {detail.checkError
+                    ? '检查结果不完整'
+                    : `${checks.length + statuses.length} 个检查 / 状态`}
+                </p>
+                <p>
+                  {checks.filter((c) => c.conclusion === 'success').length +
+                    statuses.filter((s) => s.state === 'success').length}{' '}
+                  个通过
+                </p>
+              </section>
+              <section className="detail-card">
+                <h2>文件变更</h2>
+                <p className="file-list">{files.map((f) => f.filename).join('\n')}</p>
+                <p className="green">
+                  +{detail.pull.additions} −{detail.pull.deletions} · {detail.pull.changed_files}{' '}
+                  个文件
+                </p>
+              </section>
+            </aside>
+          </div>
+          <footer className="page-note">
+            GitHub 数据 · {shortTime(new Date(response.fetchedAt).toISOString())}
+            {response.stale ? ' · 缓存，可能不是最新' : ''}
+          </footer>
+        </>
+      )}
     </>
   );
 }

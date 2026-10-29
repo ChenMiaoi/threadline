@@ -1,8 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { defaultWorkspace, nextMorning, normalizeWorkspace, releaseDue } from './workspace';
+import {
+  defaultWorkspace,
+  nextMorning,
+  normalizeWorkspace,
+  releaseDue,
+  workspaceInbox,
+} from './workspace';
+import { notificationFromGitHub } from './github';
+import { notifications, user, repo } from '../test/github.fixture';
 
 const now = new Date(2026, 9, 29, 15).getTime();
 describe('local workspace data', () => {
+  it('starts without synthetic snoozes and persists real account-scoped records', () => {
+    expect(defaultWorkspace().snoozed).toEqual({});
+    const record = notificationFromGitHub(notifications[0], user.id);
+    const original = {
+      ...defaultWorkspace(),
+      snoozed: { [record.id]: now - 1 },
+      snoozeRecords: { [record.id]: record },
+      read: [record.id],
+    };
+    const data = normalizeWorkspace(JSON.parse(JSON.stringify(original)), now);
+    expect(data.read).toEqual([]);
+    expect(workspaceInbox([], data, `github:${user.id}:${repo}:`)).toEqual([record]);
+    expect(workspaceInbox([], data, `github:999:${repo}:`)).toEqual([]);
+    expect(workspaceInbox([record], data, `github:${user.id}:${repo}:`)).toHaveLength(1);
+    expect(data.unread).toContain(record.id);
+  });
   it('validates persisted preferences without accepting unsupported values', () => {
     const data = normalizeWorkspace(
       {
@@ -26,7 +50,7 @@ describe('local workspace data', () => {
   });
   it('restores due snoozes exactly once without modifying the input', () => {
     const data = {
-      ...defaultWorkspace(now),
+      ...defaultWorkspace(),
       read: ['inbox-1042', 'inbox-1031'],
       snoozed: { 'inbox-1042': now - 1, 'inbox-1031': now + 60000 },
     };

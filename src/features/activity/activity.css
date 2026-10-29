@@ -104,6 +104,11 @@
   white-space: nowrap;
 }
 .record-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   color: var(--muted);
   font-size: 14px;
   line-height: 23px;

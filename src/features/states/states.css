@@ -4,6 +4,52 @@
   flex-direction: column;
   gap: 24px;
 }
+
+.repository-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.repository-picker input:not([type='radio']) {
+  width: 100%;
+  padding: 10px;
+  background: var(--raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.repository-options {
+  max-height: 40vh;
+  overflow: auto;
+}
+.repository-choice span {
+  overflow-wrap: anywhere;
+}
+.github-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.github-patch {
+  overflow: auto;
+  max-height: 60vh;
+  white-space: pre;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 16px;
+}
+.sync-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 4px 24px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.file-list {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .onboarding-page h1 {
   font-size: 30px;
   line-height: 42px;

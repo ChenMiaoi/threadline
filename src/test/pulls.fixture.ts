@@ -1,4 +1,4 @@
-import type { PullRequest } from './model';
+import type { PullRequest } from '../features/pulls/model';
 
 export const demoPulls: PullRequest[] = [
   {

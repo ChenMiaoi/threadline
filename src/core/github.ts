@@ -105,6 +105,26 @@ export function shortTime(time: string) {
     minute: '2-digit',
   });
 }
+export function previewText(value: string) {
+  const text = value
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length > 280 ? `${text.slice(0, 280)}…` : text;
+}
+function compactTime(time: string, now = Date.now()) {
+  const age = Math.max(0, now - Date.parse(time));
+  return age < 60000
+    ? '刚刚'
+    : age < 3600000
+      ? `${Math.floor(age / 60000)}m`
+      : age < 86400000
+        ? `${Math.floor(age / 3600000)}h`
+        : age < 604800000
+          ? `${Math.floor(age / 86400000)}d`
+          : new Date(time).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+}
 export function pullFromGitHub(record: SearchRecord, account: number, repo: string): PullRequest {
   const state = record.state.toLowerCase() as PullRequest['state'];
   const decision = record.reviewDecision;
@@ -146,8 +166,8 @@ export function pullFromGitHub(record: SearchRecord, account: number, repo: stri
             ? 'pending'
             : 'none',
     reviewer: reviewer?.login ?? reviewer?.name ?? record.author?.login ?? '已删除用户',
-    updated: shortTime(record.updatedAt),
-    summary: comment?.body || record.body || '暂无说明',
+    updated: compactTime(record.updatedAt),
+    summary: previewText(comment?.body || record.body || '暂无说明'),
     author: comment?.author?.login ?? record.author?.login ?? '已删除用户',
   };
 }
@@ -164,13 +184,14 @@ export function issueFromGitHub(
     number: record.number,
     title: record.title,
     url: record.url,
-    summary: record.comments.nodes[0]?.body || record.body || '暂无说明',
+    summary: previewText(record.comments.nodes[0]?.body || record.body || '暂无说明'),
     detail: `${record.author?.login ?? '已删除用户'} · ${record.labels?.nodes.map((l) => l.name).join(' · ') || '无标签'}`,
+    labels: record.labels?.nodes.map((label) => label.name) ?? [],
     group: authored ? '我发起的' : '我参与的',
     status: record.state === 'OPEN' ? '开放' : '已关闭',
     state: record.state === 'OPEN' ? 'open' : 'closed',
     tone: record.state === 'OPEN' ? 'blue' : 'muted',
-    updated: shortTime(record.updatedAt),
+    updated: compactTime(record.updatedAt),
     category: authored ? 'authored' : 'participated',
   };
 }
@@ -221,11 +242,11 @@ export function reviewFromGitHub(
     summary: status,
     detail: review
       ? `评审版本 ${review.commit?.oid.slice(0, 7) ?? '未知'} · 当前 HEAD ${record.headRefOid?.slice(0, 7) ?? '未知'}${changed ? ' · 代码版本已变化' : ''}`
-      : record.comments.nodes[0]?.body || record.body || '暂无说明',
+      : previewText(record.comments.nodes[0]?.body || record.body || '暂无说明'),
     group: status,
     status,
     tone: category === 'updated' ? 'yellow' : category === 'waiting' ? 'blue' : 'muted',
-    updated: shortTime(record.updatedAt),
+    updated: compactTime(record.updatedAt),
     category,
     state: record.state === 'OPEN' ? 'open' : 'closed',
   };
@@ -246,12 +267,24 @@ export function notificationFromGitHub(record: GitHubNotification, account: numb
     number,
     title: record.subject.title,
     url: `https://github.com/${record.repository.full_name}/${kind === 'pull' ? 'pull' : 'issues'}/${number}`,
-    summary: record.reason,
+    summary:
+      (
+        {
+          mention: '提及我',
+          team_mention: '提及我的团队',
+          review_requested: '请求评审',
+          comment: '评论更新',
+          author: '我发起的讨论',
+          state_change: '状态变化',
+          subscribed: '订阅更新',
+          assign: '指派给我',
+        } as Record<string, string>
+      )[record.reason] ?? record.reason,
     detail: record.repository.full_name,
     group: mentioned ? '提及我的' : '仓库通知',
     status: record.unread ? '未读' : '已读',
     tone: mentioned ? 'yellow' : 'blue',
-    updated: shortTime(record.updated_at),
+    updated: compactTime(record.updated_at),
     category: mentioned ? 'attention' : 'notification',
     mentioned,
     serverRead: !record.unread,

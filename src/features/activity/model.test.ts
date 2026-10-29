@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { demoActivities } from './demo';
+import { demoActivities } from '../../test/activities.fixture';
 import { filterActivities, groupActivities } from './model';
 
 describe('activity filters', () => {

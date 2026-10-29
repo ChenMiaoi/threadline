@@ -1,3 +1,5 @@
+import type { Activity } from '../features/activity/model';
+
 export interface Preferences {
   theme: 'dark' | 'light' | 'system';
   density: 'comfortable' | 'compact';
@@ -17,6 +19,8 @@ export interface WorkspaceData {
   read: string[];
   snoozed: Record<string, number>;
   restored: string[];
+  snoozeRecords: Record<string, Activity>;
+  unread: string[];
 }
 
 export interface WorkspaceRepository {
@@ -32,7 +36,7 @@ export function nextMorning(now: number, nextMonday = false) {
   return date.getTime();
 }
 
-export function defaultWorkspace(now: number): WorkspaceData {
+export function defaultWorkspace(): WorkspaceData {
   return {
     version: 1,
     preferences: {
@@ -48,8 +52,10 @@ export function defaultWorkspace(now: number): WorkspaceData {
       refreshMinutes: 5,
     },
     read: [],
-    snoozed: { 'snoozed-1031': nextMorning(now), 'snoozed-286': nextMorning(now, true) },
+    snoozed: {},
     restored: [],
+    snoozeRecords: {},
+    unread: [],
   };
 }
 
@@ -63,15 +69,33 @@ function ids(value: unknown): string[] {
         ...new Set(
           value.filter(
             (id): id is string =>
-              typeof id === 'string' && /^(inbox|review|issue|pull|snoozed)-\d+$/.test(id),
+              typeof id === 'string' &&
+              /^(?:(inbox|review|issue|pull|snoozed)-\d+|github:\d+:[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+:[a-z]+:[\w-]+:[\dTZ:.-]+)$/.test(
+                id,
+              ),
           ),
         ),
-      ].slice(0, 200)
+      ].slice(-200)
     : [];
 }
 
+export function workspaceInbox(records: Activity[], data: WorkspaceData, scope: string) {
+  const restored = data.restored
+    .map((id) => data.snoozeRecords[id])
+    .filter((record): record is Activity =>
+      Boolean(
+        record &&
+        record.id.startsWith(scope) &&
+        !records.some(
+          (current) => current.kind === record.kind && current.number === record.number,
+        ),
+      ),
+    );
+  return [...records, ...restored];
+}
+
 export function normalizeWorkspace(value: unknown, now: number): WorkspaceData {
-  const defaults = defaultWorkspace(now);
+  const defaults = defaultWorkspace();
   if (value === null) return defaults;
   if (!object(value)) throw new Error('Invalid workspace data');
   if ('version' in value && value.version !== 1)
@@ -117,6 +141,25 @@ export function normalizeWorkspace(value: unknown, now: number): WorkspaceData {
       read: ids(value.read),
       snoozed: 'snoozed' in value ? snoozed : defaults.snoozed,
       restored: ids(value.restored),
+      unread: ids(value.unread),
+      snoozeRecords: object(value.snoozeRecords)
+        ? (Object.fromEntries(
+            Object.entries(value.snoozeRecords)
+              .filter(
+                ([id, record]) =>
+                  ids([id]).length &&
+                  object(record) &&
+                  record.id === id &&
+                  typeof record.title === 'string' &&
+                  typeof record.number === 'number' &&
+                  ['summary', 'detail', 'group', 'status', 'tone', 'updated', 'category'].every(
+                    (key) => typeof record[key] === 'string',
+                  ) &&
+                  (record.kind === 'pull' || record.kind === 'issue'),
+              )
+              .slice(-200),
+          ) as Record<string, Activity>)
+        : {},
     },
     now,
   );
@@ -137,6 +180,7 @@ export function restoreSnoozes(data: WorkspaceData, selected: readonly string[])
     ...data,
     snoozed,
     read: data.read.filter((id) => !unread.includes(id)),
+    unread: [...new Set([...data.unread, ...due])].slice(-200),
     restored: [...new Set([...due, ...data.restored])].slice(0, 200),
   };
 }

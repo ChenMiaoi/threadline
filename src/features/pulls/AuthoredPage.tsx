@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Icon, IconButton } from '../../components/Icon';
-import { demoPulls } from './demo';
 import { filterPullRequests, groupPullRequests, type PullRequest, type PullState } from './model';
 
 const checkIcons = {
@@ -20,23 +19,29 @@ export function AuthoredPage({
   onOpen,
   read,
   onRead,
+  pulls,
+  repo,
 }: {
   onOpen: (pull: PullRequest) => void;
   read: string[];
   onRead: (id: string) => void;
+  pulls: PullRequest[];
+  repo: string;
 }) {
   const [state, setState] = useState<PullState>('open');
   const [query, setQuery] = useState('');
   const [attentionOnly, setAttentionOnly] = useState(false);
   const [panelVisible, setPanelVisible] = useState(true);
-  const [selected, setSelected] = useState(demoPulls[0]);
-  const rows = filterPullRequests(demoPulls, state, query, attentionOnly);
+  const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
+  const rows = filterPullRequests(pulls, state, query, attentionOnly);
+
+  const selected = pulls.find((p) => p.number === selectedNumber) ?? rows[0];
 
   return (
     <>
       <header className="location pull-location">
         <Icon name="repo-heading" />
-        <span>llvm-project</span>
+        <span>{repo}</span>
         <span className="separator">/</span>
         <span className="muted">我发起的 PR</span>
         <div className="location-tools">
@@ -66,11 +71,11 @@ export function AuthoredPage({
       <div className="pull-tabs" role="tablist" aria-label="PR 状态">
         {(
           [
-            ['open', '进行中', 12],
-            ['merged', '已合并', 7],
-            ['closed', '已关闭', 2],
+            ['open', '进行中'],
+            ['merged', '已合并'],
+            ['closed', '已关闭'],
           ] as const
-        ).map(([id, label, count]) => (
+        ).map(([id, label]) => (
           <button
             key={id}
             role="tab"
@@ -79,7 +84,7 @@ export function AuthoredPage({
             onClick={() => setState(id)}
           >
             {label}
-            <span>{count}</span>
+            <span>{pulls.filter((p) => p.state === id).length}</span>
           </button>
         ))}
       </div>
@@ -93,9 +98,9 @@ export function AuthoredPage({
             {pulls.map((pull) => (
               <button
                 key={pull.number}
-                className={`pull-row ${selected.number === pull.number ? 'selected' : ''}`}
+                className={`pull-row ${selected?.number === pull.number ? 'selected' : ''}`}
                 onClick={() => {
-                  setSelected(pull);
+                  setSelectedNumber(pull.number);
                   setPanelVisible(true);
                 }}
                 onDoubleClick={() => onOpen(pull)}
@@ -107,7 +112,7 @@ export function AuthoredPage({
                 <span title={checkLabels[pull.check]}>
                   <Icon name={checkIcons[pull.check]} />
                 </span>
-                <span className="avatar reviewer-avatar">{pull.reviewer}</span>
+                <span className="avatar reviewer-avatar">{pull.reviewer.slice(0, 1)}</span>
                 <span className="row-time">{pull.updated}</span>
               </button>
             ))}
@@ -130,7 +135,7 @@ export function AuthoredPage({
           </div>
         )}
       </section>
-      {panelVisible && (
+      {panelVisible && selected && (
         <section className="discussion-preview" aria-label="最新动态">
           <div className="discussion-heading">
             <Icon name="comment" />
@@ -139,14 +144,12 @@ export function AuthoredPage({
             <IconButton name="close" label="关闭最新动态" onClick={() => setPanelVisible(false)} />
           </div>
           <div className="reviewer-message">
-            <span className="avatar">{selected.reviewer}</span>
+            <span className="avatar">{selected.reviewer.slice(0, 1)}</span>
             <div>
               <p>
-                Reviewer {selected.reviewer}{' '}
-                {selected.number === 1042 ? '请求修改' : selected.status}&nbsp; ·&nbsp;{' '}
-                {selected.updated === '12m' ? '12 分钟前' : selected.updated}
+                {selected.author} · {selected.status} · {selected.updated}
               </p>
-              <p>{selected.number === 1042 ? '请确认保留空白模式下的行为。' : selected.title}</p>
+              <p>{selected.summary}</p>
             </div>
           </div>
           <div className="discussion-actions">
@@ -157,11 +160,11 @@ export function AuthoredPage({
             <span className="separator">│</span>
             <button
               className="text-button"
-              onClick={() => onRead(`inbox-${selected.number}`)}
-              disabled={read.includes(`inbox-${selected.number}`)}
+              onClick={() => onRead(selected.id ?? '')}
+              disabled={read.includes(selected.id ?? '')}
             >
               <Icon name="mark-read" />
-              {read.includes(`inbox-${selected.number}`) ? '已读' : '标记已读'}
+              {read.includes(selected.id ?? '') ? '已读' : '标记已读'}
             </button>
           </div>
         </section>

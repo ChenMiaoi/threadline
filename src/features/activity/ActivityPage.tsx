@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import { Icon } from '../../components/Icon';
-import { demoActivities } from './demo';
 import { filterActivities, groupActivities, type Activity, type ActivityView } from './model';
 
 const config = {
@@ -12,28 +11,29 @@ const config = {
       ['all', '全部'],
       ['mentions', '提及我的'],
     ],
-    note: '示例数据 · 已读状态仅保存在本地；不会向 GitHub 发送评论或评审。',
+    note: 'GitHub 通知 · 已读与稍后处理仅保存在本地，不修改 GitHub 通知状态。',
   },
   review: {
     title: '我审阅的 PR',
     description: '区分评审结论与评审后的代码变化',
     tabs: [
-      ['updated', '需要复查 2'],
-      ['waiting', '等待作者 3'],
-      ['reviewed', '已评审 10'],
+      ['all', '全部'],
+      ['updated', '需要复查'],
+      ['waiting', '等待作者'],
+      ['reviewed', '已评审'],
     ],
-    note: '示例 SHA 仅用于说明版本追踪；评审结论、评论与最新代码版本分别展示。',
+    note: '真实评审版本与当前 HEAD 分别展示；代码更新后需要重新复查。',
   },
   issues: {
     title: 'Issues',
     description: '关注你发起和参与的讨论',
     tabs: [
-      ['open', '开放 8'],
-      ['closed', '已关闭 3'],
+      ['open', '开放'],
+      ['closed', '已关闭'],
       ['authored', '我发起的'],
       ['participated', '我参与的'],
     ],
-    note: '示例数据 · “我参与的”表示曾评论或被提及；不会自动订阅或修改 Issue。',
+    note: '展示与当前账号有关的 Issue；不会自动订阅或修改 Issue。',
   },
 };
 
@@ -102,6 +102,8 @@ export function ActivityPage({
   onSnooze,
   onOpen,
   initialFilter,
+  items,
+  repo,
 }: {
   view: ActivityView;
   read: string[];
@@ -110,6 +112,8 @@ export function ActivityPage({
   onSnooze: (id: string) => void;
   onOpen: (record: Activity) => void;
   initialFilter?: string;
+  items: Activity[];
+  repo: string;
 }) {
   const settings = config[view];
   const [filter, setFilter] = useState(
@@ -118,11 +122,12 @@ export function ActivityPage({
   const [query, setQuery] = useState('');
   const [searchVisible, setSearchVisible] = useState(false);
   const [attention, setAttention] = useState(false);
+  const [label, setLabel] = useState('');
   const input = useRef<HTMLInputElement>(null);
-  const unread = demoActivities.inbox.filter(
+  const unread = items.filter(
     (item) => !read.includes(item.id) && !snoozed.includes(item.id),
   ).length;
-  const records = filterActivities(demoActivities[view], filter, query, read, snoozed).filter(
+  const records = filterActivities(items, filter, query, read, snoozed).filter(
     (record) =>
       !attention ||
       record.category === 'attention' ||
@@ -132,10 +137,10 @@ export function ActivityPage({
   return (
     <>
       <header className="location">
-        <span>llvm-project</span>
+        <span>{repo}</span>
         <span className="separator">/</span>
         <span className="muted">{settings.title}</span>
-        <span className="connection-badge small-badge">示例 · 未连接 GitHub</span>
+        <span className="connection-badge small-badge">GitHub</span>
       </header>
       <div className="activity-controls">
         <div className="activity-title">
@@ -174,20 +179,25 @@ export function ActivityPage({
               onClick={() => setFilter(id)}
             >
               {label}
-              {id === 'unread' ? ` ${unread}` : ''}
+              {id === 'all'
+                ? ''
+                : ` ${id === 'unread' ? unread : filterActivities(items, id, '', read, snoozed).length}`}
             </button>
           ))}
           {view === 'issues' && (
-            <button
+            <select
               className="chip"
-              aria-pressed={query === 'bug'}
-              onClick={() => {
-                setQuery(query === 'bug' ? '' : 'bug');
-                setSearchVisible(true);
-              }}
+              aria-label="标签"
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
             >
-              标签
-            </button>
+              <option value="">全部标签</option>
+              {[...new Set(items.flatMap((item) => item.labels ?? []))].sort().map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
           )}
           {searchVisible && (
             <label className="search-field activity-search">
@@ -204,26 +214,28 @@ export function ActivityPage({
         </div>
       </div>
       <div className="activity-list">
-        {groupActivities(records).map(([group, items]) => (
-          <section key={group}>
-            <h2 className="activity-group">
-              {group}
-              <span>{items.length}</span>
-            </h2>
-            {items.map((record, index) => (
-              <ActivityRecord
-                key={record.id}
-                record={record}
-                selected={records[0]?.id === record.id && index === 0}
-                onOpen={onOpen}
-                onRead={view === 'inbox' ? onRead : undefined}
-                onSnooze={view === 'inbox' ? onSnooze : undefined}
-                isRead={read.includes(record.id)}
-              />
-            ))}
-          </section>
-        ))}
-        {!records.length && (
+        {groupActivities(records.filter((record) => !label || record.labels?.includes(label))).map(
+          ([group, items]) => (
+            <section key={group}>
+              <h2 className="activity-group">
+                {group}
+                <span>{items.length}</span>
+              </h2>
+              {items.map((record, index) => (
+                <ActivityRecord
+                  key={record.id}
+                  record={record}
+                  selected={records[0]?.id === record.id && index === 0}
+                  onOpen={onOpen}
+                  onRead={view === 'inbox' ? onRead : undefined}
+                  onSnooze={view === 'inbox' ? onSnooze : undefined}
+                  isRead={read.includes(record.id)}
+                />
+              ))}
+            </section>
+          ),
+        )}
+        {!records.filter((record) => !label || record.labels?.includes(label)).length && (
           <section className="activity-empty">
             <div className="empty-symbol">✓</div>
             <h1>
@@ -244,14 +256,15 @@ export function ActivityPage({
                   setFilter('all');
                   setQuery('');
                   setAttention(false);
+                  setLabel('');
                 }}
               >
                 清除筛选
               </button>
             </div>
             <div className="context-card">
-              <h2>空列表不代表连接成功</h2>
-              <p>当前展示示例工作区。你可以查看全部记录，或调整筛选条件。</p>
+              <h2>当前仓库的协作记录</h2>
+              <p>你可以查看全部记录，或调整筛选条件。同步失败时会单独显示错误。</p>
             </div>
           </section>
         )}

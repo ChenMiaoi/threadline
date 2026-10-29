@@ -15,7 +15,7 @@ describe('workspace persistence adapters', () => {
       },
     });
     expect(await repository.load()).toBeNull();
-    const data = defaultWorkspace(Date.now());
+    const data = defaultWorkspace();
     await repository.save(data);
     expect(await repository.load()).toEqual(data);
   });
@@ -27,7 +27,7 @@ describe('workspace persistence adapters', () => {
     const repository = desktopWorkspaceRepository();
     vi.mocked(invoke).mockResolvedValueOnce('null');
     expect(await repository.load()).toBeNull();
-    const data = defaultWorkspace(Date.now());
+    const data = defaultWorkspace();
     await repository.save(data);
     expect(invoke).toHaveBeenCalledWith('get_workspace_data');
     expect(invoke).toHaveBeenCalledWith('save_workspace_data', { data: JSON.stringify(data) });
