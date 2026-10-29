@@ -28,6 +28,12 @@ describe('authored selection and filtering', () => {
       within(screen.getByRole('region', { name: '最新动态' })).getByText(/#1031/),
     ).toBeTruthy();
   });
+  it('opens the focused PR with Enter without requiring a double-click', () => {
+    const onOpen = vi.fn();
+    render(<AuthoredPage pulls={pulls} repo={repo} onOpen={onOpen} read={[]} onRead={vi.fn()} />);
+    fireEvent.keyDown(screen.getByRole('button', { name: /#1042/ }), { key: 'Enter' });
+    expect(onOpen).toHaveBeenCalledWith(pulls[0]);
+  });
   it('keeps the preview inside the filtered rows after searching', () => {
     mount();
     fireEvent.click(screen.getByRole('button', { name: /#1031/ }));

@@ -1,11 +1,13 @@
 import { GitHubMarkdown } from '../../components/GitHubMarkdown';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useGitHubResource, type ResourceCache } from '../../lib/useGitHubResource';
 import { Modal } from '../../components/Modal';
 import { shortTime, type GitHubGateway, type IssueDetail } from '../../core/github';
 import type { Activity } from './model';
 
 export function IssuePreview({
   record,
+  cache,
   repo,
   accountId,
   gateway,
@@ -15,6 +17,7 @@ export function IssuePreview({
   onSnooze,
 }: {
   record: Activity;
+  cache: ResourceCache;
   repo: string;
   accountId: number;
   gateway: GitHubGateway;
@@ -23,25 +26,19 @@ export function IssuePreview({
   isRead: boolean;
   onSnooze: () => void;
 }) {
-  const [detail, setDetail] = useState<IssueDetail | null>(null);
-  const [error, setError] = useState('');
-  useEffect(() => {
-    let active = true;
-    gateway
-      .request<IssueDetail>('issue', repo, accountId, record.number)
-      .then((result) => {
-        if (active) {
-          setDetail(result.payload);
-          setError(result.error ?? '');
-        }
-      })
-      .catch((reason) => {
-        if (active) setError(String(reason));
-      });
-    return () => {
-      active = false;
-    };
-  }, [gateway, repo, accountId, record.number]);
+  const result = useGitHubResource<IssueDetail>(
+    gateway,
+    cache,
+    'issue',
+    repo,
+    accountId,
+    record.number,
+  );
+  const detail = result.response?.payload;
+  const [openError, setOpenError] = useState('');
+  const error = result.error || openError;
+  const [limit, setLimit] = useState(30);
+  const comments = detail?.comments.flat() ?? [];
   return (
     <Modal title={`Issue #${record.number}`} onClose={onClose}>
       <h2>{record.title}</h2>
@@ -50,12 +47,30 @@ export function IssuePreview({
           {error}
         </p>
       )}
-      {!detail && !error && <p role="status">正在读取 Issue…</p>}
+      {result.loading && (
+        <p role="status">{detail ? '正在更新，先显示上次读取的内容…' : '正在读取 Issue…'}</p>
+      )}
+      {result.error && (
+        <button className="chip" disabled={result.loading} onClick={result.retry}>
+          重试读取 Issue
+        </button>
+      )}
+      {result.response && (
+        <p className="dim">
+          上次读取 {new Date(result.response.fetchedAt).toLocaleString('zh-CN')}
+          {result.response.stale ? ' · 缓存，可能不是最新' : ''}
+        </p>
+      )}
       {detail && (
         <>
           <p className="dim">{detail.issue.user?.login ?? '已删除用户'}</p>
           <GitHubMarkdown>{detail.issue.body || '暂无说明'}</GitHubMarkdown>
-          {detail.comments.flat().map((comment) => (
+          {comments.length > limit && (
+            <button className="chip" onClick={() => setLimit((n) => n + 30)}>
+              显示更早的评论（还有 {comments.length - limit} 条）
+            </button>
+          )}
+          {comments.slice(-limit).map((comment) => (
             <article key={comment.id} className="detail-card">
               <h3>
                 {comment.user?.login ?? '已删除用户'} · {shortTime(comment.created_at)}
@@ -76,7 +91,7 @@ export function IssuePreview({
           className="chip accent"
           onClick={() => {
             if (record.url)
-              void gateway.open(record.url).catch((reason) => setError(String(reason)));
+              void gateway.open(record.url).catch((reason) => setOpenError(String(reason)));
           }}
         >
           在 GitHub 中查看 ↗

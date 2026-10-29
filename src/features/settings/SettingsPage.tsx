@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import type { Preferences } from '../../core/workspace';
 import type { AppState } from '../../lib/desktop';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
+import type { PerformanceSample } from '../../lib/useGitHubResource';
 import { GitHubLoginButton } from '../states/GitHubLogin';
 
 const sections = [
@@ -56,6 +57,7 @@ function Toggle({
 
 export function SettingsPage({
   preferences,
+  performanceSamples = [],
   onChange,
   onConnect,
   onSync,
@@ -64,6 +66,7 @@ export function SettingsPage({
   onChooseRepository,
 }: {
   preferences: Preferences;
+  performanceSamples?: PerformanceSample[];
   onChange: (change: Partial<Preferences>) => void;
   onConnect: () => void;
   onSync: () => void;
@@ -150,6 +153,44 @@ export function SettingsPage({
                     ? `SQLite v${appState.schemaVersion} · ${appState.databasePath}`
                     : '浏览器预览使用本地存储；桌面应用使用 SQLite。'}
                 </p>
+              </details>
+              <details className="storage-details">
+                <summary>加载诊断</summary>
+                <p>
+                  记录当前工作区最近的加载。客户端等待包含服务端读取与传输；复用进行中的请求时只计剩余等待。界面提交不包含屏幕刷新或电脑操作工具的耗时。
+                </p>
+                {!performanceSamples.length && <p>打开 PR 或 Issue 后会显示分段耗时。</p>}
+                {performanceSamples.slice(-12).map((sample, index) => (
+                  <div className="performance-sample" key={index}>
+                    <p>
+                      {(
+                        {
+                          pull: 'PR 概览',
+                          discussion: '讨论',
+                          files: '文件',
+                          checks: '检查',
+                          issue: 'Issue',
+                        } as Partial<Record<string, string>>
+                      )[sample.operation] ?? sample.operation}{' '}
+                      · {sample.source === 'memory' ? '已加载内容' : '最新读取'}
+                    </p>
+                    <p>
+                      客户端等待 {Math.round(sample.requestMs)} ms · 界面提交{' '}
+                      {Math.round(sample.uiCommitMs)} ms
+                      {sample.timing ? ` · 服务端 ${Math.round(sample.timing.totalMs)} ms` : ''}
+                    </p>
+                    {sample.timing && (
+                      <p>
+                        {sample.timing.stages
+                          .map(
+                            (stage) =>
+                              `${({ credentials: '凭据', access: '访问校验', data: '数据读取', sessionRecheck: '会话复核', cacheWrite: '本地保存' } as Record<string, string>)[stage.stage] ?? stage.stage} ${Math.round(stage.elapsedMs)} ms`,
+                          )
+                          .join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                ))}
               </details>
             </>
           ) : section === 'repositories' ? (

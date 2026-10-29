@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Icon, IconButton } from '../../components/Icon';
 import { filterPullRequests, groupPullRequests, type PullRequest, type PullState } from './model';
 
@@ -33,8 +33,11 @@ export function AuthoredPage({
   const [attentionOnly, setAttentionOnly] = useState(false);
   const [panelVisible, setPanelVisible] = useState(true);
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
-  const rows = filterPullRequests(pulls, state, query, attentionOnly);
-  const groups = groupPullRequests(rows);
+  const rows = useMemo(
+    () => filterPullRequests(pulls, state, query, attentionOnly),
+    [pulls, state, query, attentionOnly],
+  );
+  const groups = useMemo(() => groupPullRequests(rows), [rows]);
 
   const selected = rows.find((p) => p.number === selectedNumber) ?? groups[0]?.[1][0];
 
@@ -107,6 +110,12 @@ export function AuthoredPage({
                   setPanelVisible(true);
                 }}
                 onDoubleClick={() => onOpen(pull)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    onOpen(pull);
+                  }
+                }}
               >
                 <Icon name="pr" />
                 <span className="pull-number">#{pull.number}</span>

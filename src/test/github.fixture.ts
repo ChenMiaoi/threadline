@@ -106,7 +106,14 @@ export function createGateway(): GitHubGateway {
           ],
         ]);
       if (operation === 'inbox') return response([notifications]);
-      if (operation === 'detail') return response(detail);
+      if (
+        operation === 'detail' ||
+        operation === 'pull' ||
+        operation === 'discussion' ||
+        operation === 'files' ||
+        operation === 'checks'
+      )
+        return response(detail);
       if (operation === 'issue')
         return response({
           issue: { body: 'Issue body', user: { login: user.login } },

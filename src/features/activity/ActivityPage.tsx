@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Icon } from '../../components/Icon';
 import { filterActivities, groupActivities, type Activity, type ActivityView } from './model';
 
@@ -125,7 +125,6 @@ export function ActivityPage({
     initialFilter ?? (view === 'inbox' ? 'unread' : view === 'issues' ? 'open' : 'all'),
   );
   const [query, setQuery] = useState('');
-  const [searchVisible, setSearchVisible] = useState(false);
   const [attention, setAttention] = useState(false);
   const [label, setLabel] = useState('');
   function showAll() {
@@ -138,15 +137,17 @@ export function ActivityPage({
   const unread = items.filter(
     (item) => !read.includes(item.id) && !snoozed.includes(item.id),
   ).length;
-  const records = filterActivities(items, filter, query, read, snoozed).filter(
-    (record) =>
-      !attention ||
-      record.category === 'attention' ||
-      record.category === 'updated' ||
-      record.tone === 'blue',
-  );
-  const visibleRecords = records.filter((record) => !label || record.labels?.includes(label));
-  const groups = groupActivities(visibleRecords);
+  const groups = useMemo(() => {
+    const records = filterActivities(items, filter, query, read, snoozed).filter(
+      (record) =>
+        (!attention ||
+          record.category === 'attention' ||
+          record.category === 'updated' ||
+          record.tone === 'blue') &&
+        (!label || record.labels?.includes(label)),
+    );
+    return groupActivities(records);
+  }, [items, filter, query, read, snoozed, attention, label]);
   return (
     <>
       <header className="location">
@@ -162,15 +163,15 @@ export function ActivityPage({
           <div className="activity-tools">
             <button
               className="chip"
+              aria-label="仅显示需要处理的记录"
               aria-pressed={attention}
               onClick={() => setAttention(!attention)}
             >
-              筛选
+              需处理
             </button>
             <button
               className="chip"
               onClick={() => {
-                setSearchVisible(!searchVisible);
                 requestAnimationFrame(() => input.current?.focus());
               }}
             >
@@ -212,7 +213,7 @@ export function ActivityPage({
               ))}
             </select>
           )}
-          {searchVisible && (
+          {
             <label className="search-field activity-search">
               <Icon name="search" />
               <input
@@ -223,7 +224,7 @@ export function ActivityPage({
                 placeholder="搜索标题、编号或内容"
               />
             </label>
-          )}
+          }
         </div>
       </div>
       <div className="activity-list">
@@ -237,7 +238,6 @@ export function ActivityPage({
               <ActivityRecord
                 key={record.id}
                 record={record}
-                selected={groups[0]?.[1][0]?.id === record.id}
                 onOpen={onOpen}
                 onRead={view === 'inbox' ? onRead : undefined}
                 onSnooze={view === 'inbox' ? onSnooze : undefined}
@@ -246,7 +246,7 @@ export function ActivityPage({
             ))}
           </section>
         ))}
-        {!visibleRecords.length && (
+        {!groups.length && (
           <section className="activity-empty">
             <div className="empty-symbol">✓</div>
             <h1>
@@ -258,7 +258,7 @@ export function ActivityPage({
                   ? '当前筛选下没有 Issue'
                   : '当前筛选下没有 PR'}
             </h1>
-            <p>没有条目需要你现在处理。你可以查看全部记录，或清除筛选。</p>
+            <p>当前筛选没有匹配记录。你可以查看全部记录，或清除筛选。</p>
             <div className="inline-group">
               <button className="chip accent" onClick={showAll}>
                 查看全部记录

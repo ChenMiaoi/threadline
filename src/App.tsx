@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { isDesktop, loadAppState, saveLastView, type AppState, type View } from './lib/desktop';
 import { browserWorkspaceRepository, desktopWorkspaceRepository } from './lib/workspace-storage';
 import { useWorkspace } from './lib/useWorkspace';
@@ -8,6 +8,8 @@ import { AuthoredPage } from './features/pulls/AuthoredPage';
 import { PullDetailPage } from './features/pulls/PullDetailPage';
 import type { PullRequest } from './features/pulls/model';
 import { useGitHub } from './lib/useGitHub';
+import { createResourceCache } from './lib/useGitHubResource';
+import { preloadGitHubMarkdown } from './lib/markdown';
 import type { GitHubGateway } from './core/github';
 import { GitHubConnection, RepositoryPicker } from './features/states/GitHubConnection';
 import { GitHubLoginDialog } from './features/states/GitHubLogin';
@@ -41,7 +43,18 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   const workspace = useWorkspace(repository);
   const { data, update } = workspace;
   const github = useGitHub(data.preferences.refreshMinutes, gateway);
+  const resourceCache = useMemo(() => createResourceCache(github.key), [github.key]);
   const [repositoryPicker, setRepositoryPicker] = useState(false);
+  const listScroll = useRef(0);
+  useLayoutEffect(() => {
+    if (!openedPull) return;
+    const content = document.querySelector<HTMLElement>('main.content');
+    if (!content) return;
+    content.scrollTop = 0;
+    return () => {
+      content.scrollTop = listScroll.current;
+    };
+  }, [openedPull]);
   const completedLogin = useRef(false);
   const writeQueue = useRef(Promise.resolve());
   const inbox = workspaceInbox(
@@ -110,6 +123,9 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   }, []);
 
   function navigate(next: View) {
+    listScroll.current = 0;
+    const content = document.querySelector<HTMLElement>('main.content');
+    if (content) content.scrollTop = 0;
     setOpenedPull(null);
     setRecordPreview(null);
     setView(next);
@@ -142,7 +158,9 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
     }));
   }
   function openActivity(record: Activity) {
+    preloadGitHubMarkdown();
     if (record.kind === 'pull') {
+      listScroll.current = document.querySelector<HTMLElement>('main.content')?.scrollTop ?? 0;
       setOpenedPull(
         github.pulls.find((pull) => pull.number === record.number) ?? {
           number: record.number,
@@ -161,6 +179,8 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
     } else setRecordPreview(record);
   }
   function openPull(pull: PullRequest) {
+    listScroll.current = document.querySelector<HTMLElement>('main.content')?.scrollTop ?? 0;
+    preloadGitHubMarkdown();
     setOpenedPull(pull);
   }
 
@@ -288,6 +308,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                 />
               ) : view === 'settings' ? (
                 <SettingsPage
+                  performanceSamples={resourceCache.samples}
                   preferences={data.preferences}
                   onChange={changePreferences}
                   onConnect={() => {
@@ -319,7 +340,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                 />
               ) : (
                 <ActivityPage
-                  key={`${view}-${inboxFilter}`}
+                  key={`${github.key}:${view}-${inboxFilter}`}
                   view={view === 'empty' || view === 'sync-error' ? 'inbox' : view}
                   repo={github.repo}
                   items={
@@ -340,6 +361,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                 repo={github.repo}
                 accountId={github.session.user.id}
                 gateway={github.gateway}
+                cache={resourceCache}
                 pull={openedPull}
                 onBack={() => setOpenedPull(null)}
               />
@@ -350,6 +372,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
       {recordPreview && github.session && (
         <IssuePreview
           key={`${github.key}:${recordPreview.number}`}
+          cache={resourceCache}
           record={recordPreview}
           repo={github.repo}
           accountId={github.session.user.id}

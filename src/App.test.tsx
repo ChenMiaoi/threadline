@@ -201,9 +201,13 @@ describe('workspace interactions', () => {
     const search = await screen.findByRole('textbox', { name: '搜索 PR' });
     fireEvent.change(search, { target: { value: '1042' } });
     expect(screen.queryByRole('button', { name: /Correct source location reporting/ })).toBeNull();
+    const content = screen.getByRole('main');
+    content.scrollTop = 320;
     fireEvent.click(screen.getByRole('button', { name: '查看讨论' }));
-    await screen.findByRole('tab', { name: '讨论 1' });
-    fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: repo }));
+    expect(content.scrollTop).toBe(0);
+    await screen.findByRole('heading', { name: '讨论 1' });
+    fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: '← 返回列表' }));
+    expect(content.scrollTop).toBe(320);
     expect((screen.getByRole('textbox', { name: '搜索 PR' }) as HTMLInputElement).value).toBe(
       '1042',
     );
