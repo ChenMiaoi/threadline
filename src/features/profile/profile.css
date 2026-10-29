@@ -235,3 +235,49 @@
 .theme-light .profile-page .profile-eyebrow {
   color: #216e39;
 }
+
+.profile-overview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: center;
+}
+.profile-overview .profile-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.contribution-chart {
+  min-width: 0;
+}
+.contribution-chart svg {
+  width: 100%;
+  display: block;
+}
+.contribution-chart text {
+  fill: var(--muted);
+  font-size: 12px;
+}
+.contribution-axis {
+  stroke: var(--green);
+  stroke-width: 1.5;
+}
+.contribution-shape {
+  fill: color-mix(in srgb, var(--green) 28%, transparent);
+  stroke: var(--green);
+  stroke-width: 2;
+}
+.contribution-point {
+  fill: var(--text);
+  stroke: var(--green);
+  stroke-width: 1.5;
+}
+@media (max-width: 850px) {
+  .profile-overview {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .contribution-chart {
+    max-width: 400px;
+    width: 100%;
+    margin: 0 auto;
+  }
+}

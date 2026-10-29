@@ -263,9 +263,9 @@ it('omits empty comment reviews but retains decisions and their code freshness',
   await screen.findByRole('heading', { name: '讨论 2' });
   expect(screen.queryByText('empty-reviewer')).toBeNull();
   expect(screen.queryByText('无正文')).toBeNull();
-  expect(screen.getByText('针对当前代码提交的评审')).toBeTruthy();
-  expect(screen.getByText(/评审后代码已有更新，此结论针对旧版本/)).toBeTruthy();
-  expect(screen.getByText(/批准不代表检查已通过或可以合并/)).toBeTruthy();
+  expect(screen.getByTitle('针对当前代码提交的评审')).toBeTruthy();
+  expect(screen.getByTitle(/评审后代码已有更新，此结论针对旧版本/)).toBeTruthy();
+  expect(screen.queryByText(/批准不代表检查已通过或可以合并/)).toBeNull();
 });
 
 it('keeps review replies with their parent and names the actual recipient', async () => {

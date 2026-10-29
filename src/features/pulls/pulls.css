@@ -651,3 +651,60 @@
   color: var(--muted);
   font-size: 12px;
 }
+
+.review-decisions {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+}
+.review-decision {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+.review-decision + .review-decision {
+  border-top: 1px solid var(--border);
+}
+.reviewer-initial {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.reviewer-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.reviewer-info strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.review-version {
+  color: var(--dim);
+  font-size: 11px;
+}
+.review-version-old {
+  color: var(--yellow);
+}
+.review-decision-result {
+  margin-left: auto;
+  text-align: right;
+  flex: none;
+}
+.review-decision-result .status-badge {
+  gap: 5px;
+}
+.review-decision-result time {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--dim);
+}

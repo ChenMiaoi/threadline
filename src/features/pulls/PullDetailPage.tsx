@@ -161,31 +161,50 @@ function DiscussionSection({
     <ResourceState {...result} cached={Boolean(result.response)} onReload={onReload}>
       {result.response && (
         <>
-          <section className="detail-card" aria-label={t('评审结论')}>
+          <section className="detail-card review-summary" aria-label={t('评审结论')}>
             <h2>{t('评审结论')}</h2>
-            <p className="dim">
-              {t('以下是每位评审者最近的正式结论；批准不代表检查已通过或可以合并。')}
-            </p>
             {latestReviews.length ? (
-              latestReviews.map((review) => (
-                <p key={review.id}>
-                  {review.user?.login ?? '已删除用户'} ·{' '}
-                  <span
-                    className={`status-badge ${review.state === 'APPROVED' ? 'status-success' : review.state === 'CHANGES_REQUESTED' ? 'status-warning' : 'status-neutral'}`}
-                  >
-                    {t(reviewLabels[review.state] ?? review.state)}
-                  </span>
-                  {review.submitted_at && <time> · {shortTime(review.submitted_at)}</time>}
-                  <br />
-                  <small>
-                    {review.commit_id === resource.head
-                      ? t('针对当前代码提交的评审')
-                      : t('评审后代码已有更新，此结论针对旧版本 {0}', [
-                          review.commit_id.slice(0, 7),
-                        ])}
-                  </small>
-                </p>
-              ))
+              <ul className="review-decisions">
+                {latestReviews.map((review) => (
+                  <li key={review.id} className="review-decision">
+                    <span className="reviewer-initial" aria-hidden="true">
+                      {review.user?.login?.slice(0, 1).toUpperCase() ?? '?'}
+                    </span>
+                    <div className="reviewer-info">
+                      <strong>{review.user?.login ?? t('已删除用户')}</strong>
+                      <span
+                        className={`review-version ${review.commit_id !== resource.head ? 'review-version-old' : ''}`}
+                        title={
+                          review.commit_id === resource.head
+                            ? t('针对当前代码提交的评审')
+                            : t('评审后代码已有更新，此结论针对旧版本 {0}', [
+                                review.commit_id.slice(0, 7),
+                              ])
+                        }
+                      >
+                        {review.commit_id === resource.head
+                          ? t('当前版本')
+                          : t('旧版本 {0}', [review.commit_id.slice(0, 7)])}
+                      </span>
+                    </div>
+                    <div className="review-decision-result">
+                      <span
+                        className={`status-badge ${review.state === 'APPROVED' ? 'status-success' : review.state === 'CHANGES_REQUESTED' ? 'status-warning' : 'status-neutral'}`}
+                      >
+                        <span aria-hidden="true">
+                          {review.state === 'APPROVED'
+                            ? '✓'
+                            : review.state === 'CHANGES_REQUESTED'
+                              ? '!'
+                              : '−'}
+                        </span>
+                        {t(reviewLabels[review.state] ?? review.state)}
+                      </span>
+                      {review.submitted_at && <time>{shortTime(review.submitted_at)}</time>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
             ) : (
               <p>{t('暂无正式结论')}</p>
             )}

@@ -1,3 +1,4 @@
+import { ContributionChart } from './ContributionChart';
 import { useI18n } from '../../i18n/I18n';
 import { useState } from 'react';
 import type { GitHubGateway, GitHubUser } from '../../core/github';
@@ -168,21 +169,24 @@ export function ProfilePage({
               </div>
             </div>
           </div>
-          <div className="profile-stats">
-            {[
-              ['提交', collection.totalCommitContributions],
-              ['Issues', collection.totalIssueContributions],
-              ['Pull requests', collection.totalPullRequestContributions],
-              ['代码评审', collection.totalPullRequestReviewContributions],
-            ].map(([label, value]) => (
-              <div className="profile-stat" key={label}>
-                <span>{t(String(label))}</span>
-                <strong>{Number(value).toLocaleString(locale)}</strong>
-                <small>
-                  {year} {t('年贡献')}
-                </small>
-              </div>
-            ))}
+          <div className="profile-overview">
+            <div className="profile-stats">
+              {[
+                ['提交', collection.totalCommitContributions],
+                ['Issues', collection.totalIssueContributions],
+                ['Pull requests', collection.totalPullRequestContributions],
+                ['代码评审', collection.totalPullRequestReviewContributions],
+              ].map(([label, value]) => (
+                <div className="profile-stat" key={label}>
+                  <span>{t(String(label))}</span>
+                  <strong>{Number(value).toLocaleString(locale)}</strong>
+                  <small>
+                    {year} {t('年贡献')}
+                  </small>
+                </div>
+              ))}
+            </div>
+            <ContributionChart collection={collection} />
           </div>
           {resource.response && (
             <p className="profile-fetched">
