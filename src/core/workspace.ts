@@ -8,6 +8,7 @@ export interface Preferences {
   theme: 'dark' | 'light' | 'system';
   density: 'comfortable' | 'compact';
   reducedMotion: boolean;
+  autoCheckUpdates: boolean;
   notifyAttention: boolean;
   notifyCommits: boolean;
   notifyComments: boolean;
@@ -49,6 +50,7 @@ export function defaultWorkspace(): WorkspaceData {
       theme: 'dark',
       density: 'comfortable',
       reducedMotion: true,
+      autoCheckUpdates: true,
       notifyAttention: true,
       notifyCommits: true,
       notifyComments: true,
@@ -131,6 +133,7 @@ export function normalizeWorkspace(value: unknown, now: number): WorkspaceData {
     settings.density = prefs.density as Preferences['density'];
   for (const key of [
     'reducedMotion',
+    'autoCheckUpdates',
     'notifyAttention',
     'notifyCommits',
     'notifyComments',

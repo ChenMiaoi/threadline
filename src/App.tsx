@@ -1,3 +1,4 @@
+import { useUpdates } from './lib/useUpdates';
 import { githubErrorMessage } from './lib/github-errors';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { isDesktop, loadAppState, saveLastView, type AppState, type View } from './lib/desktop';
@@ -45,6 +46,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   );
   const workspace = useWorkspace(repository);
   const { data, update } = workspace;
+  const updates = useUpdates(workspace.loaded && data.preferences.autoCheckUpdates);
   const github = useGitHub(data.preferences.refreshMinutes, gateway, 30);
   const resourceCache = useMemo(() => createResourceCache(github.key), [github.key]);
   const profileCache = useMemo(
@@ -299,7 +301,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
         unread={unread}
         notificationsAvailable={Boolean(github.session)}
         onNavigate={navigate}
-        loading={busy || !workspace.loaded}
+        loading={busy || !workspace.loaded || updates.status === 'installing'}
         className={className}
         onSearch={() => {
           navigate('authored');
@@ -329,6 +331,11 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
               </button>
             )}
           </div>
+        )}
+        {updates.status === 'available' && view !== 'settings' && (
+          <p className="sync-status" role="status">
+            新版本 {updates.nextVersion} 可用，可在设置 → 关于与更新下载。
+          </p>
         )}
         {syncError && (
           <div className="sync-error-banner" role="alert">
@@ -402,7 +409,15 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
               当前范围结果较多，每项查询仅显示最近 200 条，计数为已加载条目。可缩小更新范围查看。
             </p>
           )}
-        <fieldset className="workspace-body" disabled={!workspace.loaded}>
+        {updates.status === 'installing' && (
+          <p role="status" className="sync-status">
+            正在保存数据并安装更新，请勿关闭应用。
+          </p>
+        )}
+        <fieldset
+          className="workspace-body"
+          disabled={!workspace.loaded || updates.status === 'installing'}
+        >
           {busy ? (
             <div className="empty-state" role="status">
               正在打开本地工作区…
@@ -436,6 +451,12 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                   />
                 ) : view === 'settings' ? (
                   <SettingsPage
+                    updates={updates}
+                    flush={async () => {
+                      await workspace.flush();
+                      await writeQueue.current;
+                      if (isDesktop) await saveLastView(view);
+                    }}
                     performanceSamples={resourceCache.samples}
                     preferences={data.preferences}
                     onChange={changePreferences}

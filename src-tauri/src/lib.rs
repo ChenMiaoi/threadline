@@ -54,6 +54,8 @@ fn save_last_view(view: String, workspace: State<'_, Workspace>) -> Result<(), S
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
@@ -73,6 +75,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_app_state,
+            updates_configured,
             save_last_view,
             get_workspace_data,
             save_workspace_data,
@@ -238,4 +241,17 @@ fn save_workspace_data(data: String, workspace: State<'_, Workspace>) -> Result<
         .lock()
         .map_err(|error| error.to_string())?
         .save_workspace_data(&data)
+}
+
+#[tauri::command]
+fn updates_configured(app: tauri::AppHandle) -> bool {
+    let config = app.config().plugins.0.get("updater");
+    config.is_some_and(|config| {
+        config["pubkey"]
+            .as_str()
+            .is_some_and(|key| !key.trim().is_empty())
+            && config["endpoints"]
+                .as_array()
+                .is_some_and(|items| !items.is_empty())
+    })
 }

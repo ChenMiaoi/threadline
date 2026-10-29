@@ -380,3 +380,10 @@ select.setting-value:hover {
   margin-top: 24px;
   justify-content: flex-end;
 }
+
+.release-notes {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.6;
+}

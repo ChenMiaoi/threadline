@@ -1,3 +1,5 @@
+import { UpdatesPanel } from './UpdatesPanel';
+import type { useUpdates } from '../../lib/useUpdates';
 import { Modal } from '../../components/Modal';
 import { useRef, useState, type ReactNode } from 'react';
 import type { Preferences } from '../../core/workspace';
@@ -13,6 +15,7 @@ const sections = [
   ['repositories', '仓库与同步'],
   ['notifications', '通知'],
   ['appearance', '外观'],
+  ['updates', '关于与更新'],
 ] as const;
 type Section = (typeof sections)[number][0];
 
@@ -66,6 +69,8 @@ function Toggle({
 
 export function SettingsPage({
   preferences,
+  updates,
+  flush = async () => {},
   performanceSamples = [],
   onChange,
   onConnect,
@@ -75,6 +80,8 @@ export function SettingsPage({
   onChooseRepository,
 }: {
   preferences: Preferences;
+  updates?: ReturnType<typeof useUpdates>;
+  flush?: () => Promise<void>;
   performanceSamples?: PerformanceSample[];
   onChange: (change: Partial<Preferences>) => void;
   onConnect: () => void;
@@ -134,7 +141,19 @@ export function SettingsPage({
           ))}
         </nav>
         <section className="settings-content">
-          {section === 'account' ? (
+          {section === 'updates' ? (
+            <>
+              {updates && <UpdatesPanel updates={updates} flush={flush} />}
+              <SettingRow title="自动检查更新" description="每 6 小时检查一次，安装前由你确认。">
+                <Toggle
+                  label="自动检查更新"
+                  disabled={updates?.status === 'unavailable'}
+                  checked={preferences.autoCheckUpdates}
+                  onChange={() => onChange({ autoCheckUpdates: !preferences.autoCheckUpdates })}
+                />
+              </SettingRow>
+            </>
+          ) : section === 'account' ? (
             <>
               <h2 className="settings-section-heading">GitHub 连接</h2>
               <SettingRow
