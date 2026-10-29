@@ -52,7 +52,7 @@
 }
 .diff-line {
   display: grid;
-  grid-template-columns: 42px 42px max-content;
+  grid-template-columns: 64px max-content;
   min-height: 22px;
 }
 .diff-number {
@@ -436,7 +436,7 @@
 
 .diff-toolbar {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   gap: 12px;
   margin-top: 10px;
@@ -448,7 +448,7 @@
   min-width: 0;
 }
 .diff-wrap .diff-line {
-  grid-template-columns: 42px 42px minmax(0, 1fr);
+  grid-template-columns: 64px minmax(0, 1fr);
 }
 .diff-wrap .diff-source {
   white-space: pre-wrap;

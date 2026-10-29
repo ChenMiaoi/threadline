@@ -18,7 +18,6 @@ export function CodeDiff({ patch, filename }: { patch: string; filename: string 
   return (
     <>
       <div className="diff-toolbar">
-        <span>{t('旧行 · 新行')}</span>
         <button className="chip" aria-pressed={wrap} onClick={() => setWrap((current) => !current)}>
           {t('自动换行')}
         </button>

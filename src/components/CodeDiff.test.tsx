@@ -56,7 +56,7 @@ it('highlights old and new hunk streams independently without changing signs, nu
     '/* removed comment',
   );
   expect(container.querySelector('.diff-context .hljs-keyword')?.textContent).toBe('const');
-  expect(container.querySelector('.diff-added .diff-number:nth-child(2)')?.textContent).toBe('1');
+  expect(container.querySelector('.diff-added .diff-number')?.textContent).toBe('1');
   expect(container.querySelector('script')).toBeNull();
 });
 
@@ -71,4 +71,24 @@ it('preserves plain text for unknown filenames and very long diff lines', async 
     expect(container.querySelector('.diff-added .diff-source')?.textContent).toBe(source + '\n'),
   );
   expect(container.querySelector('.hljs-keyword')).toBeNull();
+});
+
+it('shows one number per row while retaining old/new locations in the tooltip', () => {
+  const { container } = render(
+    <CodeDiff
+      filename="sample.unknown"
+      patch={'@@ -10,3 +20,3 @@\n before\n-removed\n+added\n after'}
+    />,
+  );
+  const rows = container.querySelectorAll('.diff-context, .diff-added, .diff-removed');
+  expect([...rows].map((row) => row.querySelectorAll('.diff-number').length)).toEqual([1, 1, 1, 1]);
+  expect([...rows].map((row) => row.querySelector('.diff-number')?.textContent)).toEqual([
+    '20',
+    '11',
+    '21',
+    '22',
+  ]);
+  expect(screen.getByTitle('旧行 10 · 新行 20')).toBeTruthy();
+  expect(screen.getByTitle('旧行 11 · 新行 —')).toBeTruthy();
+  expect(screen.getByTitle('旧行 — · 新行 21')).toBeTruthy();
 });
