@@ -1,5 +1,26 @@
 # UI Verification
 
+## Distinct PR Status Dimensions
+
+The next UI iteration separated lifecycle, aggregate review decision, current-HEAD checks, and GitHub merge conditions into labeled text badges. Review participation adds a separate personal-review badge with current/older/unknown revision context. A next-action sentence and expandable status explanations make the dimensions readable without relying on colors or tooltips alone.
+
+Classification fixes cover approved PRs previously grouped as waiting for review, completed PRs incorrectly treated as needing re-review, new review requests confused with post-review commits, and missing revision/history data incorrectly implying a known code update. Draft and terminal lifecycle states take precedence for next actions. `BLOCKED` is only reported when GitHub returns it; its specific cause is not inferred. Unknown review/merge information directs the user to confirm details rather than fabricating a pending-review requirement. A clean GitHub merge state can coexist with an unavailable aggregate review decision.
+
+`npm run check` passed with 121 frontend tests and 39 Rust tests, plus lint, formatting, types, and frontend/native builds. The new tests cover independent approval/check/merge dimensions, terminal/draft precedence, unknown values, personal review versus aggregate review, re-requested reviews, truncated history, revision uncertainty, and accessible text in selectable rows.
+
+Terra xhigh native regression used the rebuilt macOS app and public LLVM data:
+
+- PR #229328: open / changes requested / checks passing / merge rules blocked.
+- PR #230927: open / aggregate review decision unavailable / checks passing / merge conditions clean.
+- PR #236597: draft / aggregate review decision unavailable / checks passing / draft merge stage.
+- PR #228990 displayed a merge conflict, #228749 displayed failed checks, and merged PR #228721 retained historical failed checks while showing the workflow as ended.
+
+The first native pass found two issues: a generic `aria-label` hid badge values from the row's accessible name, and the taller summary was compressed by flex layout, overlapping the branch controls. The fixes remove the accessible-name override and let the summary retain its full content height. Regression tests verify the former; native long/short-title checks verify the layout. A visible note distinguishes the list's earlier sync snapshot from independently refreshed details, since GitHub may calculate merge conditions after the first read. The state legend explains that checks and reviews on a completed PR are historical results, not outstanding work.
+
+The final package's focused native recheck passed. Accessible row text explicitly included each badge value. Long-title #229328, shorter-title #230927, and draft #236597 showed separate, non-overlapping summary rows and visible branch/refresh/GitHub controls. The refresh button performed a new read. The authored merged (eight) and closed-without-merge (two) lists matched their lifecycle labels. Review filters showed one requested review, zero drafts, and eight completed PRs; #230692 exposed aggregate changes requested separately from the current user's absence of a formal conclusion. The state explanation and distinct list-sync/detail-read timestamps were visible.
+
+Overview client-wait samples were approximately 1.3–1.9 seconds, with 4–5 ms UI commits; live network conditions prevent a controlled performance comparison. The change adds GraphQL fields to existing queries rather than adding new request operations. Unknown merge states, personal approval, and old-revision personal review did not appear in the final live data, so those branches are covered by automated tests rather than claimed as native observations. Hover tooltips and different window widths were not tested. The app was left signed in to the LLVM workspace.
+
 ## Staged Detail Loading and UI Follow-up
 
 The next iteration added per-operation timing with `Instant` around credential access, live access checks, data reads, final session recheck, and cache writes. Individual HTTP request spans include transport, response reading, and JSON decoding. The desktop interface also records client waiting time and the interval from receiving data to React's layout commit; these are different intervals and should not be added as independent network costs. Screen refresh, later lazy/Suspense work, and Computer Use observation overhead are not measured by the commit value.
