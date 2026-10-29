@@ -8,11 +8,32 @@ export interface PerformanceSample {
   uiCommitMs: number;
   timing?: GitHubResponse<unknown>['timing'];
 }
+interface PendingResource {
+  promise: Promise<GitHubResponse<unknown>>;
+  invalidated: string;
+  invalidate(reason: string): void;
+}
+function pendingResource(request: Promise<GitHubResponse<unknown>>): PendingResource {
+  let rejectInvalidated!: (reason: string) => void;
+  const promise = new Promise<GitHubResponse<unknown>>((resolve, reject) => {
+    rejectInvalidated = reject;
+    void request.then(resolve, reject);
+  });
+  const pending: PendingResource = {
+    promise,
+    invalidated: '',
+    invalidate(reason) {
+      pending.invalidated = reason;
+      rejectInvalidated(reason);
+    },
+  };
+  return pending;
+}
 export interface ResourceCache {
   scope: string;
   samples: PerformanceSample[];
   responses: Map<string, GitHubResponse<unknown>>;
-  pending: Map<string, Promise<GitHubResponse<unknown>>>;
+  pending: Map<string, PendingResource>;
 }
 export function createResourceCache(scope = ''): ResourceCache {
   return { scope, samples: [], responses: new Map(), pending: new Map() };
@@ -24,7 +45,15 @@ export function invalidateRecord(
   number: number,
 ) {
   const prefix = `${cache.scope}:${account}:${repo}:${number}:`;
+  invalidateResources(cache, 'GH_HEAD_CHANGED', prefix);
+}
+function invalidateResources(cache: ResourceCache, reason: string, prefix = '') {
   for (const key of cache.responses.keys()) if (key.startsWith(prefix)) cache.responses.delete(key);
+  for (const [key, pending] of cache.pending) {
+    if (!key.startsWith(prefix)) continue;
+    cache.pending.delete(key);
+    pending.invalidate(reason);
+  }
 }
 export function useGitHubResource<T>(
   gateway: GitHubGateway,
@@ -54,20 +83,22 @@ export function useGitHubResource<T>(
     const started = performance.now();
     let pending = cache.pending.get(key);
     if (!pending) {
-      pending = gateway.request(operation, repo, account, number, head);
+      pending = pendingResource(gateway.request(operation, repo, account, number, head));
       cache.pending.set(key, pending);
       const current = pending;
-      void pending
+      void pending.promise
         .then(
           (response) => {
+            if (cache.pending.get(key) !== current) return;
             cache.responses.delete(key);
             cache.responses.set(key, response);
             if (cache.responses.size > 24)
               cache.responses.delete(cache.responses.keys().next().value!);
           },
           (reason) => {
+            if (cache.pending.get(key) !== current) return;
             if (/GH_(AUTH_REQUIRED|ACCOUNT_CHANGED|FORBIDDEN|NOT_FOUND)/.test(String(reason)))
-              cache.responses.clear();
+              invalidateResources(cache, String(reason));
             else if (/GH_HEAD_CHANGED/.test(String(reason)))
               invalidateRecord(cache, account, repo, number);
           },
@@ -76,35 +107,39 @@ export function useGitHubResource<T>(
           if (cache.pending.get(key) === current) cache.pending.delete(key);
         });
     }
-    void pending.then(
-      (response) => {
-        if (active)
-          setState({
-            key,
-            response: response as GitHubResponse<T>,
-            error: response.error ?? '',
-            loading: false,
-            receivedAt: performance.now(),
-            requestMs: performance.now() - started,
-          });
-      },
-      (reason) => {
-        if (active)
-          setState((previous) => ({
-            ...previous,
-            key,
-            response: /GH_(AUTH_REQUIRED|ACCOUNT_CHANGED|FORBIDDEN|NOT_FOUND|HEAD_CHANGED)/.test(
-              String(reason),
-            )
-              ? undefined
-              : previous.key === key
-                ? previous.response
-                : (cache.responses.get(key) as GitHubResponse<T> | undefined),
-            error: String(reason),
-            loading: false,
-          }));
-      },
-    );
+    const current = pending;
+    function fail(reason: unknown) {
+      if (active)
+        setState((previous) => ({
+          ...previous,
+          key,
+          response: /GH_(AUTH_REQUIRED|ACCOUNT_CHANGED|FORBIDDEN|NOT_FOUND|HEAD_CHANGED)/.test(
+            String(reason),
+          )
+            ? undefined
+            : previous.key === key
+              ? previous.response
+              : (cache.responses.get(key) as GitHubResponse<T> | undefined),
+          error: String(reason),
+          loading: false,
+        }));
+    }
+    void current.promise.then((response) => {
+      // Invalidation may follow settlement before this consumer's callback runs.
+      if (current.invalidated) {
+        fail(current.invalidated);
+        return;
+      }
+      if (active)
+        setState({
+          key,
+          response: response as GitHubResponse<T>,
+          error: response.error ?? '',
+          loading: false,
+          receivedAt: performance.now(),
+          requestMs: performance.now() - started,
+        });
+    }, fail);
     return () => {
       active = false;
     };
