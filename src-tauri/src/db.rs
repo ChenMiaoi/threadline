@@ -126,6 +126,20 @@ mod tests {
             database.save_last_view("review").unwrap();
             assert_eq!(database.workspace_data().unwrap(), "null");
             database
+                .set_setting(
+                    "github:cache:7:owner/project:inbox:0",
+                    r#"{"payload":[],"fetchedAt":123}"#,
+                )
+                .unwrap();
+            assert!(database
+                .setting("github:cache:8:owner/project:inbox:0")
+                .unwrap()
+                .is_none());
+            assert!(database
+                .setting("github:cache:7:owner/other:inbox:0")
+                .unwrap()
+                .is_none());
+            database
                 .save_workspace_data(r#"{"version":1,"read":["inbox-1042"]}"#)
                 .unwrap();
             assert!(database.save_workspace_data("[]").is_err());
@@ -138,6 +152,13 @@ mod tests {
         {
             let database = Database::open(&path).unwrap();
             assert_eq!(database.last_view().unwrap(), "review");
+            assert_eq!(
+                database
+                    .setting("github:cache:7:owner/project:inbox:0")
+                    .unwrap()
+                    .unwrap(),
+                r#"{"payload":[],"fetchedAt":123}"#
+            );
             assert_eq!(
                 database.workspace_data().unwrap(),
                 r#"{"version":1,"read":["inbox-1042"]}"#

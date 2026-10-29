@@ -198,6 +198,12 @@ pub fn request(operation: &str, repo: &str, number: u64, login: &str) -> Result<
                 true,
             );
             let statuses = api(&format!("{base}/commits/{sha}/status?per_page=100"), true);
+            if api(&format!("{base}/pulls/{number}"), false)?["head"]["sha"] != pull["head"]["sha"]
+            {
+                return Err(
+                    "GH_HEAD_CHANGED: 读取期间 PR 的代码版本已更新，请重新加载详情。".into(),
+                );
+            }
             Ok(
                 json!({ "pull":pull,"comments":comments,"reviews":reviews,"reviewComments":review_comments,"files":files,"checks":checks.as_ref().ok(),"statuses":statuses.as_ref().ok(),"checkError":checks.err().or(statuses.err()) }),
             )

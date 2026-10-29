@@ -1,5 +1,7 @@
 mod db;
 mod github;
+mod github_workspace;
+pub mod preview;
 
 use db::{Database, SCHEMA_VERSION};
 use serde::Serialize;
@@ -73,16 +75,11 @@ pub fn run() {
 #[tauri::command]
 async fn github_session(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let user = github::account()?;
-        let workspace = app.state::<Workspace>();
-        let database = workspace.database.lock().map_err(|_| "DATABASE_LOCKED")?;
-        let selected = database.setting(&format!("github:selected:{}", user["id"]))?;
-        Ok(serde_json::json!({"user":user,"selected":selected}))
+        github_workspace::session(&app.state::<Workspace>().database)
     })
     .await
     .map_err(|_| "GH_TASK_FAILED")?
 }
-
 #[tauri::command]
 async fn github_request(
     operation: String,
@@ -92,35 +89,17 @@ async fn github_request(
     app: tauri::AppHandle,
 ) -> Result<serde_json::Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let user = github::account()?;
-        if user["id"].as_u64() != Some(account_id) { return Err("GH_ACCOUNT_CHANGED: gh 的活动账号已切换，请重新检查连接。".into()); }
-        let login = user["login"].as_str().ok_or("GH_RESPONSE_ERROR")?;
-        let key = format!("github:cache:{account_id}:{repo}:{operation}:{number}");
-        let result = github::request(&operation, &repo, number, login);
-        if github::account()?["id"].as_u64() != Some(account_id) { return Err("GH_ACCOUNT_CHANGED: gh 的活动账号已切换，请重新检查连接。".into()); }
-        let workspace = app.state::<Workspace>();
-        let database = workspace.database.lock().map_err(|_| "DATABASE_LOCKED")?;
-        match result {
-            Ok(payload) => {
-                let fetched_at = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|_| "INVALID_CLOCK")?.as_millis() as u64;
-                let response = serde_json::json!({"payload":payload,"fetchedAt":fetched_at,"stale":false,"error":null});
-                database.set_setting(&key, &response.to_string())?;
-                Ok(response)
-            }
-            Err(error) => {
-                // Permission and authentication failures must never reveal previously cached private data.
-                if error.starts_with("GH_REQUEST_FAILED") || error.starts_with("GH_TIMEOUT") || error.starts_with("GH_RATE_LIMIT") {
-                    if let Some(cached) = database.setting(&key)? {
-                        let mut response: serde_json::Value = serde_json::from_str(&cached).map_err(|_| "CACHE_INVALID")?;
-                        response["stale"] = true.into(); response["error"] = error.into(); return Ok(response);
-                    }
-                }
-                Err(error)
-            }
-        }
-    }).await.map_err(|_| "GH_TASK_FAILED")?
+        github_workspace::request(
+            &app.state::<Workspace>().database,
+            &operation,
+            &repo,
+            number,
+            account_id,
+        )
+    })
+    .await
+    .map_err(|_| "GH_TASK_FAILED")?
 }
-
 #[tauri::command]
 async fn github_select_repository(
     repo: String,
@@ -128,21 +107,7 @@ async fn github_select_repository(
     app: tauri::AppHandle,
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let user = github::account()?;
-        if user["id"].as_u64() != Some(account_id) {
-            return Err("GH_ACCOUNT_CHANGED".into());
-        }
-        github::request(
-            "repository",
-            &repo,
-            0,
-            user["login"].as_str().ok_or("GH_RESPONSE_ERROR")?,
-        )?;
-        app.state::<Workspace>()
-            .database
-            .lock()
-            .map_err(|_| "DATABASE_LOCKED")?
-            .set_setting(&format!("github:selected:{account_id}"), &repo)
+        github_workspace::select(&app.state::<Workspace>().database, &repo, account_id)
     })
     .await
     .map_err(|_| "GH_TASK_FAILED")?

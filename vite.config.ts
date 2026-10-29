@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { githubPreview } from './dev/github-preview.ts';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), githubPreview()],
   clearScreen: false,
   server: {
     host: '127.0.0.1',
