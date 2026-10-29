@@ -774,6 +774,10 @@ mod isolation_tests {
             "/repos/owner/repo/issues/1/comments?per_page=100",
             json!([]),
         );
+        http.push_for(
+            "/repos/owner/repo/issues/1/timeline?per_page=100",
+            json!([]),
+        );
         let entered = Arc::new(Barrier::new(2));
         let released = Arc::new(Barrier::new(2));
         let auth = AuthManager::new(
@@ -1016,6 +1020,10 @@ mod isolation_tests {
             );
             http.push_for(
                 "/repos/owner/repo/issues/1/comments?per_page=100",
+                json!([]),
+            );
+            http.push_for(
+                "/repos/owner/repo/issues/1/timeline?per_page=100",
                 json!([]),
             );
             let auth = AuthManager::new(

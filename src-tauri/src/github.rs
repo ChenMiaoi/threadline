@@ -442,12 +442,44 @@ impl Client {
                     json!({ "pull":pull,"comments":comments,"reviews":reviews,"reviewComments":review_comments,"files":files,"checks":checks.as_ref().ok(),"statuses":statuses.as_ref().ok(),"checkError":checks.err().or(statuses.err()) }),
                 )
             }
-            "issue" if number > 0 => Ok(
-                json!({"issue":self.api(&format!("{base}/issues/{number}"), false)?, "comments":self.api(&format!("{base}/issues/{number}/comments?per_page=100"), true)?}),
-            ),
+            "issue" if number > 0 => {
+                let issue = self.api(&format!("{base}/issues/{number}"), false)?;
+                let comments = self.api(
+                    &format!("{base}/issues/{number}/comments?per_page=100"),
+                    true,
+                )?;
+                let timeline = self.api(
+                    &format!("{base}/issues/{number}/timeline?per_page=100"),
+                    true,
+                )?;
+                Ok(
+                    json!({"issue": issue, "comments": comments, "referencedPulls": referenced_pulls(&timeline)}),
+                )
+            }
             _ => Err("INVALID_OPERATION".into()),
         }
     }
+}
+fn referenced_pulls(pages: &Value) -> Vec<Value> {
+    let mut seen = HashSet::new();
+    pages
+        .as_array()
+        .into_iter()
+        .flatten()
+        .flat_map(|page| page.as_array().into_iter().flatten())
+        .filter(|event| event["event"] == "cross-referenced")
+        .filter_map(|event| {
+            let issue = &event["source"]["issue"];
+            let url = issue["html_url"].as_str()?;
+            if !issue["pull_request"].is_object() || !seen.insert(url.to_owned()) {
+                return None;
+            }
+            Some(
+                json!({"number": issue["number"], "title": issue["title"], "url": url,
+                "state": issue["state"], "merged": issue["pull_request"]["merged_at"].is_string()}),
+            )
+        })
+        .collect()
 }
 fn request_stage(url: &str) -> &'static str {
     if url.ends_with("/user") {
@@ -572,6 +604,43 @@ mod tests {
     fn client() -> (Client, Arc<FakeHttp>) {
         let http = Arc::new(FakeHttp::default());
         (Client::new(http.clone(), "ghu_fake-test".into()), http)
+    }
+    #[test]
+    fn issue_reads_timeline_and_deduplicates_only_pull_references() {
+        let (client, http) = client();
+        http.push(json!({"body":"Issue"}));
+        http.push(json!([]));
+        let reference = json!({"event":"cross-referenced", "source":{"issue":{
+            "number":12, "title":"Fix", "html_url":"https://github.com/o/r/pull/12",
+            "state":"open", "pull_request":{}
+        }}});
+        http.push(json!([reference.clone(), reference,
+            {"event":"cross-referenced", "source":{"issue":{"number":13,"html_url":"https://github.com/o/r/issues/13"}}},
+            {"event":"commented"}
+        ]));
+        let detail = client.request("issue", "o/r", 1, "user").unwrap();
+        assert_eq!(detail["referencedPulls"].as_array().unwrap().len(), 1);
+        assert_eq!(detail["referencedPulls"][0]["number"], 12);
+        assert_eq!(detail["referencedPulls"][0]["merged"], false);
+        assert!(http
+            .requests
+            .lock()
+            .unwrap()
+            .last()
+            .unwrap()
+            .url
+            .ends_with("/issues/1/timeline?per_page=100"));
+    }
+    #[test]
+    fn issue_does_not_report_missing_references_when_timeline_fails() {
+        let (client, http) = client();
+        http.push(json!({"body":"Issue"}));
+        http.push(json!([]));
+        http.responses
+            .lock()
+            .unwrap()
+            .push_back(Err("GH_NETWORK_ERROR".into()));
+        assert!(client.request("issue", "o/r", 1, "user").is_err());
     }
     struct ParallelHttp {
         arrivals: (std::sync::Mutex<usize>, std::sync::Condvar),

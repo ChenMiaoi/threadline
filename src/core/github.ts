@@ -467,6 +467,13 @@ export interface PullDetail {
 export interface IssueDetail {
   issue: { body: string | null; user: Author | null };
   comments: RestComment[][];
+  referencedPulls?: {
+    number: number;
+    title: string;
+    url: string;
+    state: string;
+    merged: boolean;
+  }[];
 }
 
 /** The inbox is a thread list; each new revision replaces the previous revision. */
