@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { PullDetailPage } from './PullDetailPage';
 import { createResourceCache } from '../../lib/useGitHubResource';
 import { createGateway, detail, record, repo, response, user } from '../../test/github.fixture';
@@ -118,4 +118,93 @@ it('browses detail tabs with arrows without loading a section until activation',
   fireEvent.keyDown(checks, { key: 'ArrowRight' });
   expect(document.activeElement).toBe(discussion);
   expect(checks.getAttribute('aria-selected')).toBe('true');
+});
+
+it('opens cached discussion before a stale cached overview finishes its background refresh', async () => {
+  const gateway = createGateway();
+  const original = gateway.request;
+  gateway.cached = vi.fn().mockImplementation(async (...args: Parameters<typeof original>) => ({
+    ...(await original(...args)),
+    fetchedAt: Date.now() - (args[0] === 'pull' ? 121_000 : 0),
+  }));
+  gateway.request = vi.fn().mockImplementation(() => new Promise(() => {}));
+  const cache = createResourceCache();
+  render(
+    <PullDetailPage
+      pull={pullFromGitHub(record, user.id, repo)}
+      onBack={vi.fn()}
+      repo={repo}
+      accountId={user.id}
+      gateway={gateway}
+      cache={cache}
+    />,
+  );
+  await screen.findByText('Please add coverage');
+  expect(gateway.cached).toHaveBeenCalledWith(
+    'discussion',
+    repo,
+    user.id,
+    record.number,
+    detail.pull.head.sha,
+  );
+  expect(gateway.request).toHaveBeenCalledTimes(1);
+  expect(cache.samples.some((sample) => sample.source === 'disk' && sample.uiCommitMs < 1000)).toBe(
+    true,
+  );
+});
+
+it('blocks children for a newly known HEAD until live overview validates an even newer HEAD', async () => {
+  const gateway = createGateway();
+  const original = gateway.request;
+  const headB = 'b'.repeat(40);
+  const headC = 'c'.repeat(40);
+  const firstPull = pullFromGitHub(record, user.id, repo);
+  let finish!: (value: unknown) => void;
+  const cache = createResourceCache();
+  gateway.request = vi.fn().mockImplementation(async (...args: Parameters<typeof original>) => ({
+    ...(await original(...args)),
+    fetchedAt: Date.now(),
+  }));
+  const view = render(
+    <PullDetailPage
+      pull={firstPull}
+      onBack={vi.fn()}
+      repo={repo}
+      accountId={user.id}
+      gateway={gateway}
+      cache={cache}
+    />,
+  );
+  await screen.findByText('Please add coverage');
+  gateway.request = vi.fn().mockImplementation((operation, ...args) =>
+    operation === 'pull'
+      ? new Promise((resolve) => {
+          finish = resolve;
+        })
+      : original(operation, ...(args as [string, number, number, string])),
+  );
+  gateway.cached = vi.fn().mockImplementation(() => new Promise(() => {}));
+  view.rerender(
+    <PullDetailPage
+      pull={{ ...firstPull, headSha: headB }}
+      onBack={vi.fn()}
+      repo={repo}
+      accountId={user.id}
+      gateway={gateway}
+      cache={cache}
+    />,
+  );
+  await waitFor(() => expect(gateway.request).toHaveBeenCalledTimes(1));
+  expect(gateway.cached).not.toHaveBeenCalled();
+  expect(screen.queryByText('Please add coverage')).toBeNull();
+  gateway.cached = vi.fn().mockResolvedValue(null);
+  await act(async () =>
+    finish({
+      ...response({ pull: { ...detail.pull, head: { ...detail.pull.head, sha: headC } } }),
+      fetchedAt: Date.now(),
+    }),
+  );
+  await waitFor(() =>
+    expect(gateway.request).toHaveBeenCalledWith('discussion', repo, user.id, record.number, headC),
+  );
 });

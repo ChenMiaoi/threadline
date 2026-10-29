@@ -171,7 +171,12 @@ export function SettingsPage({
                           issue: 'Issue',
                         } as Partial<Record<string, string>>
                       )[sample.operation] ?? sample.operation}{' '}
-                      · {sample.source === 'memory' ? '已加载内容' : '最新读取'}
+                      ·{' '}
+                      {sample.source === 'memory'
+                        ? '已加载内容'
+                        : sample.source === 'disk'
+                          ? '本地缓存'
+                          : '最新读取'}
                     </p>
                     <p>
                       客户端等待 {Math.round(sample.requestMs)} ms · 界面提交{' '}

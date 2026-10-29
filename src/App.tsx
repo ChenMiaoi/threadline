@@ -189,8 +189,8 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
     preloadGitHubMarkdown();
     if (record.kind === 'pull') {
       listScroll.current = document.querySelector<HTMLElement>('main.content')?.scrollTop ?? 0;
-      setOpenedPull(
-        github.pulls.find((pull) => pull.number === record.number) ?? {
+      setOpenedPull({
+        ...(github.pulls.find((pull) => pull.number === record.number) ?? {
           number: record.number,
           title: record.title,
           id: record.id,
@@ -204,8 +204,12 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
           check: 'none',
           reviewer: '',
           updated: record.updated,
-        },
-      );
+          updatedAt: record.updatedAt,
+          headSha: record.headSha,
+        }),
+        updatedAt: record.updatedAt,
+        headSha: record.headSha,
+      });
     } else setRecordPreview(record);
   }
   function openPull(pull: PullRequest) {
@@ -232,12 +236,33 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   );
   const currentPage =
     view === 'authored' || view === 'inbox' || view === 'review' || view === 'issues' ? view : null;
-  const syncError = currentPage
-    ? github.errors[currentPage] ||
-      (currentPage === 'inbox'
-        ? github.errors.authored || github.errors.review || github.errors.issues
-        : '')
-    : '';
+  const syncError =
+    (github.session ? github.connectionError : '') ||
+    (currentPage
+      ? github.errors[currentPage] ||
+        (currentPage === 'inbox'
+          ? github.errors.authored || github.errors.review || github.errors.issues
+          : '')
+      : '');
+  const latestPull =
+    openedPull &&
+    [...github.pulls, ...github.inbox, ...github.review, openedPull]
+      .filter(
+        (record) =>
+          record.number === openedPull.number && (!('kind' in record) || record.kind === 'pull'),
+      )
+      .sort(
+        (a, b) => (Date.parse(b.updatedAt ?? '') || 0) - (Date.parse(a.updatedAt ?? '') || 0),
+      )[0];
+  const latestIssue =
+    recordPreview &&
+    [...github.inbox, ...github.issues, recordPreview]
+      .filter(
+        (record) => record.kind === recordPreview.kind && record.number === recordPreview.number,
+      )
+      .sort(
+        (a, b) => (Date.parse(b.updatedAt ?? '') || 0) - (Date.parse(a.updatedAt ?? '') || 0),
+      )[0];
   const className = `${light ? 'theme-light' : ''} density-${data.preferences.density} ${data.preferences.reducedMotion ? 'reduced-motion' : ''}`;
 
   return (
@@ -422,7 +447,11 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                 accountId={github.session.user.id}
                 gateway={github.gateway}
                 cache={resourceCache}
-                pull={openedPull}
+                pull={{
+                  ...openedPull,
+                  updatedAt: latestPull?.updatedAt,
+                  headSha: latestPull?.headSha,
+                }}
                 onBack={() => setOpenedPull(null)}
               />
             )}
@@ -433,7 +462,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
         <IssuePreview
           key={`${github.key}:${recordPreview.number}`}
           cache={resourceCache}
-          record={recordPreview}
+          record={latestIssue ?? recordPreview}
           repo={github.repo}
           accountId={github.session.user.id}
           gateway={github.gateway}

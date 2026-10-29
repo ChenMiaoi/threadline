@@ -15,6 +15,24 @@ async function command<T>(name: string, args?: Record<string, unknown>): Promise
   return result.value;
 }
 export const githubGateway: GitHubGateway = {
+  async cachedSession() {
+    return command('github_cached_session');
+  },
+  async cached<T>(
+    operation: GitHubOperation,
+    repo: string,
+    accountId: number,
+    number = 0,
+    head = '',
+  ): Promise<GitHubResponse<T> | null> {
+    return command('github_cached_request', {
+      operation,
+      repo,
+      accountId,
+      number,
+      ...(head ? { head } : {}),
+    });
+  },
   async session() {
     return command('github_session');
   },

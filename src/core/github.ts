@@ -57,6 +57,14 @@ export type GitHubOperation =
   | 'checks';
 export interface GitHubGateway {
   session(): Promise<GitHubSession>;
+  cachedSession?(): Promise<GitHubSession | null>;
+  cached?<T>(
+    operation: GitHubOperation,
+    repo: string,
+    accountId: number,
+    number?: number,
+    head?: string,
+  ): Promise<GitHubResponse<T> | null>;
   request<T>(
     operation: GitHubOperation,
     repo: string,
@@ -204,6 +212,8 @@ export function pullFromGitHub(record: SearchRecord, account: number, repo: stri
             : 'none',
     reviewer: state === 'open' ? (reviewer?.login ?? reviewer?.name ?? '') : '',
     updated: compactTime(record.updatedAt),
+    updatedAt: record.updatedAt,
+    headSha: record.headRefOid,
     summary: previewText(comment?.body || record.body || '暂无说明'),
     author: record.author?.login ?? '已删除用户',
     previewAuthor: comment?.author?.login ?? record.author?.login ?? '已删除用户',
@@ -230,6 +240,8 @@ export function issueFromGitHub(
     state: record.state === 'OPEN' ? 'open' : 'closed',
     tone: record.state === 'OPEN' ? 'blue' : 'muted',
     updated: compactTime(record.updatedAt),
+    updatedAt: record.updatedAt,
+    headSha: record.headRefOid,
     category: authored ? 'authored' : 'participated',
   };
 }
@@ -343,6 +355,8 @@ export function reviewFromGitHub(
     status,
     tone: category === 'updated' ? 'yellow' : category === 'waiting' ? 'blue' : 'muted',
     updated: compactTime(record.updatedAt),
+    updatedAt: record.updatedAt,
+    headSha: record.headRefOid,
     category,
     state: presentation.state,
   };

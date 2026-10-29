@@ -141,3 +141,18 @@ describe('preview command validation', () => {
     expect(allowsCommand('github_logout', { password: 'fixture' })).toBe(false);
   });
 });
+
+it('allows local cache reads while rejecting extra arguments and invalid resource identities', () => {
+  expect(allowsCommand('github_cached_session', {})).toBe(true);
+  expect(allowsCommand('github_cached_session', { token: 'unexpected' })).toBe(false);
+  expect(
+    allowsCommand('github_cached_request', {
+      operation: 'files',
+      repo: 'owner/project',
+      accountId: 7,
+      number: 42,
+      head: 'a'.repeat(40),
+    }),
+  ).toBe(true);
+  expect(allowsCommand('github_cached_request', { accountId: -1 })).toBe(false);
+});

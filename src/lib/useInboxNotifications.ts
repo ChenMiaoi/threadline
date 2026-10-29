@@ -18,6 +18,7 @@ export function useInboxNotifications(
     if (
       !github.key ||
       github.syncing ||
+      github.liveReady === false ||
       !github.times.inbox ||
       github.errors.inbox ||
       github.errors.authored ||
@@ -83,6 +84,7 @@ export function useInboxNotifications(
   }, [
     github.key,
     github.syncing,
+    github.liveReady,
     github.times.inbox,
     github.times.review,
     github.errors.inbox,

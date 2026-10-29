@@ -398,3 +398,23 @@ it('requests profile lazily using the selected repository', async () => {
   );
   expect(screen.getByText(`当前仓库 · ${repo}`)).toBeTruthy();
 });
+
+it('keeps the cached-session connection error visible on profile and settings until a successful refresh', async () => {
+  const gateway = createGateway();
+  const original = gateway.request;
+  gateway.cachedSession = vi.fn().mockResolvedValue({ user, selected: repo });
+  gateway.cached = vi.fn().mockImplementation(async (...args: Parameters<typeof original>) => ({
+    ...(await original(...args)),
+    fetchedAt: Date.now(),
+  }));
+  gateway.session = vi.fn().mockRejectedValue('GH_TIMEOUT');
+  render(<App gateway={gateway} />);
+  await screen.findByText('GH_TIMEOUT');
+  fireEvent.click(screen.getByRole('button', { name: '个人主页' }));
+  await screen.findByRole('heading', { name: '个人主页' });
+  expect(screen.getByText('GH_TIMEOUT')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: '设置' }));
+  expect(screen.getByText('GH_TIMEOUT')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: '重试同步' }));
+  await waitFor(() => expect(screen.queryByText('GH_TIMEOUT')).toBeNull());
+});

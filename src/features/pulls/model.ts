@@ -2,6 +2,8 @@ import type { PullStatus } from '../../core/pull-status';
 export type PullState = 'open' | 'merged' | 'closed';
 export type CheckState = 'passed' | 'failed' | 'none' | 'pending';
 export interface PullRequest {
+  updatedAt?: string;
+  headSha?: string;
   presentation?: PullStatus;
   id?: string;
   url?: string;

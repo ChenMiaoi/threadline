@@ -346,3 +346,25 @@ it('releases migration sources after successful decisions including unchanged re
   expect(releaseMigrationSources).toHaveBeenCalledTimes(2);
   expect(legacyAliases).not.toHaveBeenCalled();
 });
+
+it('never consumes cached or mixed refresh data as a notification baseline', async () => {
+  const repository = {
+    load: async () => defaultWorkspace(),
+    save: vi.fn().mockResolvedValue(undefined),
+  };
+  const { result, rerender } = renderHook(
+    ({ liveReady }) => {
+      const workspace = useWorkspace(repository);
+      const notices = useInboxNotifications({ ...github, liveReady }, [activity], workspace);
+      return { workspace, notices };
+    },
+    { initialProps: { liveReady: false } },
+  );
+  await flush();
+  expect(result.current.workspace.data.inboxSeen[key]).toBeUndefined();
+  expect(result.current.notices.toast).toBe('');
+  rerender({ liveReady: true });
+  await flush();
+  expect(result.current.workspace.data.inboxSeen[key]).toEqual([activity.id]);
+  expect(result.current.notices.toast).toBe('');
+});

@@ -286,3 +286,15 @@ describe('collaboration revision identity', () => {
     expect(changed.updatedAt).toBe(original.updatedAt);
   });
 });
+
+it('preserves raw revision and HEAD hints across authored, issue, review, and activity mappings', () => {
+  for (const mapped of [
+    pullFromGitHub(record, user.id, repo),
+    issueFromGitHub(record, user.id, repo, user.login),
+    reviewFromGitHub(record, user.id, repo, user.login),
+    activityFromGitHub(record, user.id, repo, user.login),
+  ]) {
+    expect(mapped.updatedAt).toBe(record.updatedAt);
+    expect(mapped.headSha).toBe(record.headRefOid);
+  }
+});

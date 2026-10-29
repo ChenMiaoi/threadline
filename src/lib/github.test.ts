@@ -40,3 +40,17 @@ describe('GitHub desktop boundary', () => {
     expect(invoke).toHaveBeenCalledWith('github_logout', undefined);
   });
 });
+
+it('uses dedicated local-only cache commands with the complete resource identity', async () => {
+  vi.mocked(invoke).mockResolvedValue(null);
+  await githubGateway.cachedSession!();
+  expect(invoke).toHaveBeenCalledWith('github_cached_session', undefined);
+  await githubGateway.cached!('files', 'owner/repository', 7, 42, 'b'.repeat(40));
+  expect(invoke).toHaveBeenCalledWith('github_cached_request', {
+    operation: 'files',
+    repo: 'owner/repository',
+    accountId: 7,
+    number: 42,
+    head: 'b'.repeat(40),
+  });
+});

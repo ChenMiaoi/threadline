@@ -204,3 +204,115 @@ it('keeps the replacement request deduplicated when an invalidated request fails
   expect(sibling.result.current.response?.payload).toEqual({ version: 'unrelated' });
   expect(cache.responses.size).toBe(2);
 });
+
+it('hydrates fresh persisted resources without a network request and forces manual retry', async () => {
+  const gateway = createGateway();
+  gateway.cached = vi
+    .fn()
+    .mockResolvedValue({ ...response({ saved: true }), fetchedAt: Date.now() });
+  const cache = createResourceCache();
+  const { result } = renderHook(() => useGitHubResource(gateway, cache, 'pull', repo, 7, 1042));
+  await waitFor(() => expect(result.current.response?.payload).toEqual({ saved: true }));
+  expect(result.current.loading).toBe(false);
+  expect(gateway.request).not.toHaveBeenCalled();
+  vi.mocked(gateway.request).mockResolvedValue(response({ refreshed: true }));
+  act(() => result.current.retry());
+  await waitFor(() => expect(result.current.response?.payload).toEqual({ refreshed: true }));
+  expect(gateway.request).toHaveBeenCalledTimes(1);
+  expect(gateway.cached).toHaveBeenCalledTimes(1);
+});
+
+it('renders expired persisted resources before a delayed refresh and retains them offline', async () => {
+  const gateway = createGateway();
+  gateway.cached = vi
+    .fn()
+    .mockResolvedValue({ ...response({ saved: true }), fetchedAt: Date.now() - 121_000 });
+  const network = deferredResponse();
+  vi.mocked(gateway.request).mockImplementation(() => network.promise);
+  const cache = createResourceCache();
+  const { result } = renderHook(() => useGitHubResource(gateway, cache, 'pull', repo, 7, 1042));
+  await waitFor(() => expect(result.current.response?.payload).toEqual({ saved: true }));
+  expect(result.current.loading).toBe(true);
+  await act(async () => network.reject('GH_TIMEOUT'));
+  expect(result.current.error).toBe('GH_TIMEOUT');
+  expect(result.current.response?.payload).toEqual({ saved: true });
+});
+
+it('does not rehydrate disk data after a record is explicitly invalidated', async () => {
+  const gateway = createGateway();
+  gateway.cached = vi
+    .fn()
+    .mockResolvedValue({ ...response({ saved: true }), fetchedAt: Date.now() });
+  const cache = createResourceCache();
+  invalidateRecord(cache, 7, repo, 1042);
+  const { result } = renderHook(() =>
+    useGitHubResource(gateway, cache, 'files', repo, 7, 1042, 'a'.repeat(40)),
+  );
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(gateway.cached).not.toHaveBeenCalled();
+  expect(gateway.request).toHaveBeenCalledTimes(1);
+});
+
+it('uses operation freshness windows for checks and profile periods', async () => {
+  const cases = [
+    ['checks', 1042, 31_000, true],
+    ['checks', 1042, 29_000, false],
+    ['profile', new Date().getFullYear(), 16 * 60_000, true],
+    ['profile', new Date().getFullYear() - 1, 16 * 60_000, false],
+    ['files', 1042, 11 * 60_000, true],
+  ] as const;
+  for (const [operation, number, age, fetch] of cases) {
+    const gateway = createGateway();
+    gateway.cached = vi
+      .fn()
+      .mockResolvedValue({ ...response({ saved: true }), fetchedAt: Date.now() - age });
+    const cache = createResourceCache();
+    const resource = renderHook(() =>
+      useGitHubResource(gateway, cache, operation, repo, 7, number, 'a'.repeat(40)),
+    );
+    await waitFor(() => expect(resource.result.current.loading).toBe(false));
+    expect(gateway.request).toHaveBeenCalledTimes(fetch ? 1 : 0);
+    resource.unmount();
+  }
+});
+
+it('refreshes TTL-fresh cache when a newer record revision is known and skips reuse when the revision is unchanged', async () => {
+  const gateway = createGateway();
+  const fetchedAt = Date.now() - 10_000;
+  gateway.cached = vi.fn().mockResolvedValue({ ...response({ saved: true }), fetchedAt });
+  gateway.request = vi
+    .fn()
+    .mockResolvedValue({ ...response({ latest: true }), fetchedAt: Date.now() });
+  const cache = createResourceCache();
+  const { result, rerender } = renderHook(
+    ({ floor }) => useGitHubResource(gateway, cache, 'pull', repo, 7, 1042, '', true, floor),
+    { initialProps: { floor: fetchedAt - 1000 } },
+  );
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.response?.payload).toEqual({ saved: true });
+  expect(gateway.request).not.toHaveBeenCalled();
+  rerender({ floor: fetchedAt + 1000 });
+  await waitFor(() => expect(result.current.response?.payload).toEqual({ latest: true }));
+  expect(gateway.request).toHaveBeenCalledTimes(1);
+});
+
+it('refreshes a TTL-fresh persisted overview whose HEAD differs from the latest list', async () => {
+  const gateway = createGateway();
+  const oldHead = 'a'.repeat(40);
+  const head = 'b'.repeat(40);
+  gateway.cached = vi.fn().mockResolvedValue({
+    ...response({ pull: { head: { sha: oldHead } } }),
+    fetchedAt: Date.now(),
+  });
+  gateway.request = vi
+    .fn()
+    .mockResolvedValue({ ...response({ pull: { head: { sha: head } } }), fetchedAt: Date.now() });
+  const cache = createResourceCache();
+  const { result } = renderHook(() =>
+    useGitHubResource(gateway, cache, 'pull', repo, 7, 1042, '', true, 0, head),
+  );
+  await waitFor(() =>
+    expect(result.current.response?.payload).toEqual({ pull: { head: { sha: head } } }),
+  );
+  expect(gateway.request).toHaveBeenCalledTimes(1);
+});

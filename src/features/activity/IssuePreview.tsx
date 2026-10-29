@@ -33,6 +33,9 @@ export function IssuePreview({
     repo,
     accountId,
     record.number,
+    '',
+    true,
+    Date.parse(record.updatedAt ?? '') || 0,
   );
   const detail = result.response?.payload;
   const [openError, setOpenError] = useState('');

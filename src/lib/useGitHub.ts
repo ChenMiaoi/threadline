@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { findLegacyActivityAliases } from '../core/migrate-activity-state';
 import { observeUpdates } from '../core/inbox';
 import { githubGateway } from './github';
+import { assertCacheAccess, isFresh } from './github-cache';
 import { useGitHubLogin } from './useGitHubLogin';
 import {
   activityFromGitHub,
@@ -21,6 +22,7 @@ import type { PullRequest } from '../features/pulls/model';
 type Page = 'inbox' | 'authored' | 'review' | 'issues';
 interface Snapshot {
   key: string;
+  liveReady: boolean;
   pulls: PullRequest[];
   inbox: Activity[];
   review: Activity[];
@@ -32,6 +34,7 @@ interface Snapshot {
 }
 const empty: Snapshot = {
   key: '',
+  liveReady: false,
   pulls: [],
   inbox: [],
   review: [],
@@ -54,40 +57,62 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
   const [repositoryError, setRepositoryError] = useState('');
   const generation = useRef(0);
   const identity = useRef(0);
-  const inFlight = useRef<{ token: number; promise: Promise<void> } | null>(null);
+  const inFlight = useRef<{ token: number; force: boolean; promise: Promise<void> } | null>(null);
   const key = session && repo ? `${session.user.id}:${repo}` : '';
 
-  const connect = useCallback(async () => {
-    const token = ++identity.current;
-    ++generation.current;
-    setConnecting(true);
-    setPicking(false);
-    setRepositoryError('');
-    setConnectionError('');
-    try {
-      const current = await gateway.session();
-      if (token !== identity.current) return;
-      setSession(current);
-      setRepo(current.selected ?? '');
-      setRepositories([]);
-    } catch (reason) {
-      if (token === identity.current) {
-        const error = String(reason);
-        if (/GH_(AUTH_REQUIRED|ACCOUNT_CHANGED)/.test(error)) {
-          setSession(null);
-          setRepo('');
-          setSnapshot(empty);
-          setRepositories([]);
+  const connect = useCallback(
+    async (hydrate = false) => {
+      const token = ++identity.current;
+      ++generation.current;
+      setConnecting(true);
+      setPicking(false);
+      setRepositoryError('');
+      setConnectionError('');
+      try {
+        if (hydrate && gateway.cachedSession) {
+          try {
+            const cached = await gateway.cachedSession();
+            if (token !== identity.current) return;
+            if (cached) {
+              setSession(cached);
+              setRepo(cached.selected ?? '');
+            }
+          } catch {
+            /* The live session supplies authoritative connection errors. */
+          }
         }
-        setConnectionError(error);
+        const current = await gateway.session();
+        if (token !== identity.current) return;
+        setSession((previous) =>
+          previous && JSON.stringify(previous) === JSON.stringify(current) ? previous : current,
+        );
+        setRepo(current.selected ?? '');
+        setRepositories([]);
+      } catch (reason) {
+        if (token === identity.current) {
+          const error = String(reason);
+          if (
+            /GH_(AUTH_REQUIRED|ACCOUNT_CHANGED|APP_PERMISSIONS_UNSAFE|APP_IDENTITY_MISMATCH|FORBIDDEN|NOT_FOUND)/.test(
+              error,
+            )
+          ) {
+            ++generation.current;
+            setSession(null);
+            setRepo('');
+            setSnapshot(empty);
+            setRepositories([]);
+          }
+          setConnectionError(error);
+        }
+      } finally {
+        if (token === identity.current) {
+          setConnecting(false);
+          if (inFlight.current?.token !== generation.current) setSyncing(false);
+        }
       }
-    } finally {
-      if (token === identity.current) {
-        setConnecting(false);
-        setSyncing(false);
-      }
-    }
-  }, [gateway]);
+    },
+    [gateway],
+  );
   const invalidate = useCallback(() => {
     ++identity.current;
     ++generation.current;
@@ -96,112 +121,157 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
     ++generation.current;
   }, []);
   useEffect(() => {
-    const timer = window.setTimeout(() => void connect(), 0);
+    const timer = window.setTimeout(() => void connect(true), 0);
     return () => {
       window.clearTimeout(timer);
       invalidate();
     };
   }, [connect, invalidate]);
 
-  const refresh = useCallback(() => {
-    if (!session || !repo) return Promise.resolve();
-    if (inFlight.current?.token === generation.current) return inFlight.current.promise;
-    const token = ++generation.current;
-    setSyncing(true);
-    const pages: Page[] = ['authored', 'inbox', 'review', 'issues'];
-    const promise = Promise.all(
-      pages.map(async (page) => {
-        try {
-          const result = await gateway.request<SearchPage[]>(
-            page === 'inbox' ? 'activity' : page,
-            repo,
-            session.user.id,
-          );
-          if (token !== generation.current) return;
-          const source = searchRecords(result.payload);
-          const records = source.map((r) =>
-            page === 'inbox'
-              ? activityFromGitHub(r, session.user.id, repo, session.user.login)
-              : page === 'authored'
-                ? pullFromGitHub(r, session.user.id, repo)
-                : page === 'issues'
-                  ? issueFromGitHub(r, session.user.id, repo, session.user.login)
-                  : reviewFromGitHub(r, session.user.id, repo, session.user.login),
-          );
-          setSnapshot((previous) => {
-            const current = previous.key === key ? previous : empty;
-            const errors = { ...current.errors };
-            if (result.error) errors[page] = result.error;
-            else delete errors[page];
-            return {
-              ...current,
-              key,
-              sources: { ...current.sources, [page]: source },
-              ...(page !== 'inbox'
-                ? {
-                    updates: {
-                      ...current.updates,
-                      [page]: observeUpdates(
-                        source.map((r) =>
-                          activityFromGitHub(r, session.user.id, repo, session.user.login),
-                        ),
-                        current.updates[page] ?? [],
-                        result.fetchedAt,
-                      ),
-                    },
-                  }
-                : {}),
-              errors,
-              [page === 'authored' ? 'pulls' : page]:
+  const sync = useCallback(
+    (force: boolean) => {
+      if (!session || !repo) return Promise.resolve();
+      if (inFlight.current?.token === generation.current) return inFlight.current.promise;
+      const token = ++generation.current;
+      setSyncing(true);
+      const pages: Page[] = ['authored', 'inbox', 'review', 'issues'];
+      let livePages = 0;
+      setSnapshot((previous) => ({ ...previous, liveReady: false }));
+      const promise = Promise.all(
+        pages.map(async (page) => {
+          try {
+            const operation = page === 'inbox' ? 'activity' : page;
+            const apply = (result: import('../core/github').GitHubResponse<SearchPage[]>) => {
+              if (token !== generation.current) return;
+              assertCacheAccess(result);
+              const source = searchRecords(result.payload);
+              const records = source.map((r) =>
                 page === 'inbox'
-                  ? observeUpdates(records as Activity[], current.inbox, result.fetchedAt)
-                  : records,
-              times: { ...current.times, [page]: result.fetchedAt },
+                  ? activityFromGitHub(r, session.user.id, repo, session.user.login)
+                  : page === 'authored'
+                    ? pullFromGitHub(r, session.user.id, repo)
+                    : page === 'issues'
+                      ? issueFromGitHub(r, session.user.id, repo, session.user.login)
+                      : reviewFromGitHub(r, session.user.id, repo, session.user.login),
+              );
+              setSnapshot((previous) => {
+                const current = previous.key === key ? previous : empty;
+                const errors = { ...current.errors };
+                if (result.error) errors[page] = result.error;
+                else delete errors[page];
+                return {
+                  ...current,
+                  key,
+                  sources: { ...current.sources, [page]: source },
+                  ...(page !== 'inbox'
+                    ? {
+                        updates: {
+                          ...current.updates,
+                          [page]: observeUpdates(
+                            source.map((r) =>
+                              activityFromGitHub(r, session.user.id, repo, session.user.login),
+                            ),
+                            current.updates[page] ?? [],
+                            result.fetchedAt,
+                          ),
+                        },
+                      }
+                    : {}),
+                  errors,
+                  [page === 'authored' ? 'pulls' : page]:
+                    page === 'inbox'
+                      ? observeUpdates(records as Activity[], current.inbox, result.fetchedAt)
+                      : records,
+                  times: { ...current.times, [page]: result.fetchedAt },
+                };
+              });
             };
-          });
-        } catch (reason) {
-          if (token !== generation.current) return;
-          const error = String(reason);
-          if (/GH_(AUTH_REQUIRED|ACCOUNT_CHANGED)/.test(error)) {
-            ++identity.current;
-            ++generation.current;
-            setSession(null);
-            setRepo('');
-            setSnapshot(empty);
-            setRepositories([]);
-            setConnectionError(error);
-            setSyncing(false);
-            return;
+            if (!force && gateway.cached) {
+              const cached = await gateway
+                .cached<SearchPage[]>(operation, repo, session.user.id)
+                .catch((reason: unknown) => {
+                  if (
+                    /GH_(AUTH_REQUIRED|ACCOUNT_CHANGED|APP_PERMISSIONS_UNSAFE|APP_IDENTITY_MISMATCH|FORBIDDEN|NOT_FOUND)/.test(
+                      String(reason),
+                    )
+                  )
+                    throw reason;
+                  return null;
+                });
+              if (token !== generation.current) return;
+              if (cached) {
+                apply(cached);
+                if (isFresh(cached, (refreshMinutes || 5) * 60_000)) return;
+              }
+            }
+            const result = await gateway.request<SearchPage[]>(operation, repo, session.user.id);
+            if (token !== generation.current) return;
+            if (!result.stale && !result.error) ++livePages;
+            apply(result);
+          } catch (reason) {
+            if (token !== generation.current) return;
+            const error = String(reason);
+            if (
+              /GH_(AUTH_REQUIRED|ACCOUNT_CHANGED|APP_PERMISSIONS_UNSAFE|APP_IDENTITY_MISMATCH)/.test(
+                error,
+              )
+            ) {
+              ++identity.current;
+              ++generation.current;
+              setSession(null);
+              setRepo('');
+              setSnapshot(empty);
+              setRepositories([]);
+              setConnectionError(error);
+              setSyncing(false);
+              return;
+            }
+            if (/GH_(FORBIDDEN|NOT_FOUND)/.test(error)) {
+              ++generation.current;
+              setSnapshot({
+                ...empty,
+                key,
+                errors: { authored: error, inbox: error, review: error, issues: error },
+              });
+              setSyncing(false);
+              return;
+            }
+            setSnapshot((previous) => {
+              const current = previous.key === key ? previous : empty;
+              return {
+                ...current,
+                key,
+                errors: { ...current.errors, [page]: error },
+              };
+            });
           }
-          setSnapshot((previous) => {
-            const current = previous.key === key ? previous : empty;
-            return {
-              ...current,
-              key,
-              errors: { ...current.errors, [page]: error },
-              ...(/GH_(FORBIDDEN|NOT_FOUND)/.test(error)
-                ? {
-                    [page === 'authored' ? 'pulls' : page]: [],
-                    updates: { ...current.updates, [page]: [] },
-                    sources: { ...current.sources, [page]: [] },
-                  }
-                : {}),
-            };
-          });
-        }
-      }),
-    )
-      .then(() => {
-        if (token === generation.current) setSyncing(false);
-      })
-      .finally(() => {
-        if (inFlight.current?.token === token) inFlight.current = null;
-      });
-    inFlight.current = { token, promise };
-    return promise;
-  }, [gateway, session, repo, key]);
+        }),
+      )
+        .then(() => {
+          if (token === generation.current) {
+            setSnapshot((previous) => ({ ...previous, liveReady: livePages === pages.length }));
+            if (livePages === pages.length) setConnectionError('');
+            setSyncing(false);
+          }
+        })
+        .finally(() => {
+          if (inFlight.current?.token === token) inFlight.current = null;
+        });
+      inFlight.current = { token, force, promise };
+      return promise;
+    },
+    [gateway, session, repo, key, refreshMinutes],
+  );
+  const refresh = useCallback(() => {
+    const pending = inFlight.current;
+    if (pending?.token === generation.current && !pending.force && gateway.cached) {
+      const token = generation.current;
+      return pending.promise.then(() => (token === generation.current ? sync(true) : undefined));
+    }
+    return sync(true);
+  }, [sync, gateway]);
   useEffect(() => {
-    const initial = window.setTimeout(() => void refresh(), 0);
+    const initial = window.setTimeout(() => void sync(false), 0);
     const timer = refreshMinutes
       ? window.setInterval(() => void refresh(), refreshMinutes * 60000)
       : undefined;
@@ -210,7 +280,7 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
       window.clearInterval(timer);
       invalidateRequests();
     };
-  }, [refresh, refreshMinutes, invalidateRequests]);
+  }, [refresh, sync, refreshMinutes, invalidateRequests]);
 
   async function listRepositories() {
     if (!session) return;
@@ -235,7 +305,8 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
   }
   async function selectRepository(value: string) {
     if (!session) return;
-    const token = identity.current;
+    const token = ++identity.current;
+    setConnecting(false);
     setRepositoryError('');
     setPicking(true);
     try {

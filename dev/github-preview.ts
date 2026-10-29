@@ -13,6 +13,14 @@ const binary = fileURLToPath(
 );
 const commandFields: Record<string, Record<string, 'string' | 'number'>> = {
   github_session: {},
+  github_cached_session: {},
+  github_cached_request: {
+    operation: 'string',
+    repo: 'string',
+    number: 'number',
+    accountId: 'number',
+    head: 'string',
+  },
   github_login: {},
   github_login_status: {},
   github_login_cancel: {},

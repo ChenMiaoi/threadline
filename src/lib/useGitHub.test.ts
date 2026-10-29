@@ -175,7 +175,7 @@ describe('GitHub synchronization', () => {
     expect(result.current.session?.user.id).toBe(user.id);
     expect(result.current.connectionError).toBe('GH_SECURE_STORAGE');
   });
-  it('keeps successful pages when notifications lack permission', async () => {
+  it('clears every repository page when activity access is forbidden', async () => {
     const gateway = createGateway();
     const request = gateway.request;
     gateway.request = vi
@@ -186,10 +186,11 @@ describe('GitHub synchronization', () => {
           : request(operation, repository, accountId, number),
       );
     const { result } = renderHook(() => useGitHub(0, gateway));
-    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+    await waitFor(() => expect(result.current.errors.inbox).toBe('GH_FORBIDDEN'));
+    expect(result.current.pulls).toEqual([]);
     expect(result.current.errors.inbox).toBe('GH_FORBIDDEN');
     expect(result.current.inbox).toEqual([]);
-    expect(result.current.errors.authored).toBeUndefined();
+    expect(result.current.errors.authored).toBe('GH_FORBIDDEN');
   });
   it('discards late data from the previous repository', async () => {
     const gateway = createGateway();
@@ -383,4 +384,169 @@ it('releases only its captured raw snapshot without changing the inbox or refres
   expect(result.current.legacyAliases([previous], lastInbox).size).toBe(0);
   expect(result.current.inbox).toBe(lastInbox);
   expect(gateway.request).toHaveBeenCalledTimes(calls + 8);
+});
+
+it('opens a cached session and fresh lists while live authentication is pending without duplicate fetches', async () => {
+  const gateway = createGateway();
+  const live = gateway.request;
+  gateway.cachedSession = vi.fn().mockResolvedValue({ user, selected: repo });
+  gateway.cached = vi.fn().mockImplementation(async (...args: Parameters<typeof live>) => ({
+    ...(await live(...args)),
+    fetchedAt: Date.now(),
+  }));
+  gateway.request = vi.fn().mockImplementation(live);
+  let finish!: (session: { user: typeof user; selected: string }) => void;
+  gateway.session = vi.fn().mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const { result } = renderHook(() => useGitHub(5, gateway));
+  await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+  expect(result.current.connecting).toBe(true);
+  expect(result.current.liveReady).toBe(false);
+  expect(gateway.request).not.toHaveBeenCalled();
+  await act(async () => finish({ user, selected: repo }));
+  await waitFor(() => expect(result.current.connecting).toBe(false));
+  expect(gateway.cached).toHaveBeenCalledTimes(4);
+  expect(gateway.request).not.toHaveBeenCalled();
+  await act(async () => {
+    await result.current.refresh();
+  });
+  expect(gateway.request).toHaveBeenCalledTimes(4);
+  expect(result.current.liveReady).toBe(true);
+});
+
+it('publishes stale cached lists before network completion and only marks a complete live refresh ready', async () => {
+  const gateway = createGateway();
+  const live = gateway.request;
+  gateway.cached = vi.fn().mockImplementation(live);
+  const finishes: Array<(value: unknown) => void> = [];
+  gateway.request = vi.fn().mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finishes.push(resolve);
+      }),
+  );
+  const { result } = renderHook(() => useGitHub(5, gateway));
+  await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+  expect(result.current.syncing).toBe(true);
+  expect(result.current.liveReady).toBe(false);
+  await waitFor(() => expect(finishes).toHaveLength(4));
+  await act(async () => {
+    finishes.forEach((finish, index) => finish({ ...response([]), stale: index === 0 }));
+  });
+  expect(result.current.syncing).toBe(false);
+  expect(result.current.liveReady).toBe(false);
+});
+
+it('queues a forced refresh requested during cache hydration', async () => {
+  const gateway = createGateway();
+  const live = gateway.request;
+  gateway.request = vi.fn().mockImplementation(live);
+  let finish!: (value: unknown) => void;
+  gateway.cached = vi.fn().mockImplementation((operation) =>
+    operation === 'review'
+      ? new Promise((resolve) => {
+          finish = resolve;
+        })
+      : live(operation, repo, user.id).then((value) => ({ ...value, fetchedAt: Date.now() })),
+  );
+  const { result } = renderHook(() => useGitHub(5, gateway));
+  await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+  let forced!: Promise<void>;
+  act(() => {
+    forced = result.current.refresh();
+  });
+  await act(async () => {
+    finish({ ...response([]), fetchedAt: Date.now() });
+    await forced;
+  });
+  expect(gateway.request).toHaveBeenCalledTimes(4);
+  expect(result.current.liveReady).toBe(true);
+});
+
+it('clears cached identity and records if background session validation denies application permissions', async () => {
+  const gateway = createGateway();
+  const live = gateway.request;
+  gateway.cachedSession = vi.fn().mockResolvedValue({ user, selected: repo });
+  gateway.cached = vi.fn().mockImplementation(live);
+  let reject!: (reason: string) => void;
+  gateway.session = vi.fn().mockImplementation(
+    () =>
+      new Promise((_, fail) => {
+        reject = fail;
+      }),
+  );
+  const { result } = renderHook(() => useGitHub(5, gateway));
+  await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+  await act(async () => reject('GH_APP_PERMISSIONS_UNSAFE'));
+  expect(result.current.session).toBeNull();
+  expect(result.current.pulls).toEqual([]);
+});
+
+it('preserves repository selection made while cached-session validation is pending', async () => {
+  const gateway = createGateway();
+  gateway.cachedSession = vi.fn().mockResolvedValue({ user, selected: repo });
+  let finish!: (value: { user: typeof user; selected: string }) => void;
+  gateway.session = vi.fn().mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const { result } = renderHook(() => useGitHub(0, gateway));
+  await waitFor(() => expect(result.current.repo).toBe(repo));
+  await act(async () => {
+    await result.current.selectRepository('owner/other');
+  });
+  await act(async () => finish({ user, selected: repo }));
+  expect(result.current.repo).toBe('owner/other');
+  expect(result.current.connecting).toBe(false);
+});
+
+it('clears all cached repository pages when any page denies repository access', async () => {
+  const gateway = createGateway();
+  const original = gateway.request;
+  gateway.cached = vi.fn().mockImplementation(async (...args: Parameters<typeof original>) => ({
+    ...(await original(...args)),
+    fetchedAt: Date.now(),
+  }));
+  gateway.request = vi.fn().mockImplementation(original);
+  const { result } = renderHook(() => useGitHub(5, gateway));
+  await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+  gateway.request = vi.fn().mockImplementation(async (operation) => {
+    if (operation === 'review') throw new Error('GH_FORBIDDEN');
+    return original(operation, repo, user.id);
+  });
+  await act(async () => {
+    await result.current.refresh();
+  });
+  expect(result.current.pulls).toEqual([]);
+  expect(result.current.inbox).toEqual([]);
+  expect(result.current.review).toEqual([]);
+  expect(result.current.issues).toEqual([]);
+  expect(result.current.liveReady).toBe(false);
+});
+
+it('clears an offline cached-session connection error after a complete successful manual refresh', async () => {
+  const gateway = createGateway();
+  const original = gateway.request;
+  gateway.cachedSession = vi.fn().mockResolvedValue({ user, selected: repo });
+  gateway.cached = vi.fn().mockImplementation(async (...args: Parameters<typeof original>) => ({
+    ...(await original(...args)),
+    fetchedAt: Date.now(),
+  }));
+  gateway.session = vi.fn().mockRejectedValue('GH_TIMEOUT');
+  const { result } = renderHook(() => useGitHub(5, gateway));
+  await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+  expect(result.current.connectionError).toBe('GH_TIMEOUT');
+  expect(result.current.session?.user.id).toBe(user.id);
+  expect(result.current.liveReady).toBe(false);
+  await act(async () => {
+    await result.current.refresh();
+  });
+  expect(result.current.liveReady).toBe(true);
+  expect(result.current.connectionError).toBe('');
 });

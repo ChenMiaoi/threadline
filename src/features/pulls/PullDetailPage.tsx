@@ -26,6 +26,7 @@ type ResourceProps = {
   number: number;
   head: string;
   ready: boolean;
+  minFetchedAt: number;
 };
 const reviewLabels: Record<string, string> = {
   APPROVED: '已批准',
@@ -90,6 +91,7 @@ function DiscussionSection({
     resource.number,
     resource.head,
     resource.ready,
+    resource.minFetchedAt,
   );
   const [limit, setLimit] = useState(30);
   const timeline = useMemo(() => {
@@ -219,6 +221,7 @@ function FilesSection({
     resource.number,
     resource.head,
     resource.ready,
+    resource.minFetchedAt,
   );
   const files = result.response?.payload.files.flat() ?? [];
   const [limit, setLimit] = useState(100);
@@ -257,6 +260,7 @@ function ChecksSection({ resource, onReload }: { resource: ResourceProps; onRelo
     resource.number,
     resource.head,
     resource.ready,
+    resource.minFetchedAt,
   );
   const checks = result.response?.payload.checks?.flatMap((page) => page.check_runs) ?? [];
   const statuses = [
@@ -318,7 +322,19 @@ export function PullDetailPage({
   gateway: GitHubGateway;
   cache: ResourceCache;
 }) {
-  const result = useGitHubResource<Overview>(gateway, cache, 'pull', repo, accountId, pull.number);
+  const minFetchedAt = Date.parse(pull.updatedAt ?? '') || 0;
+  const result = useGitHubResource<Overview>(
+    gateway,
+    cache,
+    'pull',
+    repo,
+    accountId,
+    pull.number,
+    '',
+    true,
+    minFetchedAt,
+    pull.headSha,
+  );
   const [tab, setTab] = useState('discussion');
   const tabsId = useId();
   const [generation, setGeneration] = useState(0);
@@ -341,7 +357,10 @@ export function PullDetailPage({
     account: accountId,
     number: pull.number,
     head: detail?.head.sha ?? '',
-    ready: !result.loading,
+    ready: Boolean(
+      detail && (!pull.headSha || detail.head.sha === pull.headSha || result.liveValidated),
+    ),
+    minFetchedAt,
   };
   function refresh() {
     invalidateRecord(cache, accountId, repo, pull.number);
