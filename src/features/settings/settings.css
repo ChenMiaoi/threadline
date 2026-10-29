@@ -216,6 +216,12 @@
 }
 .theme-light {
   --hover: #d9dbe7;
+  --yellow: #8d600c;
+  --blue: #315db8;
+  --green: #17704e;
+  --avatar-bg: #d1d3e0;
+  --error: #9b2942;
+  --error-border: #bc8291;
   --text: #272936;
   --muted: #5f6274;
   --dim: #727586;
@@ -237,16 +243,13 @@
 .theme-light .icon {
   filter: brightness(0.6);
 }
-.theme-light .pull-row:hover {
-  background: #dedfe8;
-}
 .theme-light .pull-tabs button.active {
   color: var(--text);
 }
 .density-compact .activity-record,
 .density-compact .record-main {
   min-height: 88px;
-  height: 88px;
+  height: auto;
 }
 .density-compact .pull-row {
   height: 48px;
@@ -302,5 +305,60 @@
   }
   .quiet-hours input {
     width: 68px;
+  }
+}
+
+.setting-control {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.density-compact .record-main {
+  padding-block: 10px;
+}
+.density-compact .record-body {
+  gap: 2px;
+}
+.density-compact .record-title {
+  line-height: 24px;
+}
+.density-compact .record-summary {
+  -webkit-line-clamp: 1;
+  line-height: 20px;
+}
+.density-compact .record-detail {
+  line-height: 20px;
+}
+@media (max-width: 760px) {
+  .settings-layout {
+    padding: 16px;
+    gap: 20px;
+  }
+  .settings-nav {
+    gap: 4px;
+  }
+  .settings-nav button {
+    padding: 8px 10px;
+    min-height: 36px;
+    font-size: 12px;
+  }
+  .setting-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 14px;
+  }
+  .setting-text {
+    min-height: 0;
+  }
+  .setting-control {
+    flex-basis: auto;
+  }
+  .theme-option {
+    flex: 1 0 140px;
+    width: auto;
+  }
+  .density-compact .pull-row {
+    height: auto;
+    min-height: 68px;
   }
 }

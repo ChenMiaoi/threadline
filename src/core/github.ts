@@ -165,10 +165,12 @@ export function pullFromGitHub(record: SearchRecord, account: number, repo: stri
           : check
             ? 'pending'
             : 'none',
-    reviewer: reviewer?.login ?? reviewer?.name ?? record.author?.login ?? '已删除用户',
+    reviewer:
+      reviewer?.login ?? reviewer?.name ?? record.reviews?.nodes.at(-1)?.author?.login ?? '',
     updated: compactTime(record.updatedAt),
     summary: previewText(comment?.body || record.body || '暂无说明'),
-    author: comment?.author?.login ?? record.author?.login ?? '已删除用户',
+    author: record.author?.login ?? '已删除用户',
+    previewAuthor: comment?.author?.login ?? record.author?.login ?? '已删除用户',
   };
 }
 export function issueFromGitHub(

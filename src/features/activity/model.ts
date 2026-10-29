@@ -46,5 +46,18 @@ export function groupActivities(records: readonly Activity[]) {
   const groups = new Map<string, Activity[]>();
   for (const record of records)
     groups.set(record.group, [...(groups.get(record.group) ?? []), record]);
-  return [...groups];
+  const priority: Record<string, number> = {
+    attention: 0,
+    updated: 0,
+    authored: 0,
+    waiting: 1,
+    notification: 1,
+    participated: 1,
+    reviewed: 2,
+    discussion: 3,
+  };
+  return [...groups].sort(
+    ([, left], [, right]) =>
+      (priority[left[0].category] ?? 99) - (priority[right[0].category] ?? 99),
+  );
 }

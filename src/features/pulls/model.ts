@@ -5,6 +5,7 @@ export interface PullRequest {
   url?: string;
   summary?: string;
   author?: string;
+  previewAuthor?: string;
   number: number;
   title: string;
   state: PullState;
@@ -34,5 +35,10 @@ export function filterPullRequests(
 export function groupPullRequests(pulls: readonly PullRequest[]) {
   const groups = new Map<string, PullRequest[]>();
   for (const pull of pulls) groups.set(pull.group, [...(groups.get(pull.group) ?? []), pull]);
-  return [...groups.entries()];
+  const order = ['需要我的处理', '等待评审', '草稿'];
+  const priority = (group: string) => {
+    const index = order.indexOf(group);
+    return index < 0 ? order.length : index;
+  };
+  return [...groups.entries()].sort(([left], [right]) => priority(left) - priority(right));
 }

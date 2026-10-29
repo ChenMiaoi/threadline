@@ -5,13 +5,13 @@
   color: var(--dim);
 }
 .yellow {
-  color: #e8be62;
+  color: var(--yellow);
 }
 .blue {
-  color: #779df3;
+  color: var(--blue);
 }
 .green {
-  color: #66c8a0;
+  color: var(--green);
 }
 .icon-button {
   display: grid;
@@ -44,7 +44,7 @@
   color: var(--accent);
 }
 .chip.green {
-  color: #66c8a0;
+  color: var(--green);
 }
 .content {
   display: flex;
@@ -124,8 +124,9 @@
 }
 .pull-list {
   padding: 0 18px 24px;
-  min-height: 562px;
+  min-height: 0;
   flex: 1;
+  overflow: auto;
 }
 .pull-group-heading {
   display: flex;
@@ -151,7 +152,7 @@
   width: 100%;
   height: 58px;
   padding: 0 18px 0 26px;
-  border-bottom: 1px solid #2a2c35;
+  border-bottom: 1px solid var(--border);
   border-radius: 10px;
   text-align: left;
 }
@@ -159,7 +160,7 @@
   background: var(--raised);
 }
 .pull-row:hover {
-  background: #282a34;
+  background: var(--hover);
 }
 .pull-number {
   width: 68px;
@@ -180,7 +181,7 @@
   flex-shrink: 0;
 }
 .pull-row .reviewer-avatar {
-  background: #454754;
+  background: var(--avatar-bg);
   flex-shrink: 0;
 }
 .row-time {
@@ -339,10 +340,10 @@
   line-height: 24px;
 }
 .detail-card .yellow {
-  color: #e8be62;
+  color: var(--yellow);
 }
 .detail-card .green {
-  color: #66c8a0;
+  color: var(--green);
 }
 .detail-card small,
 .footnote {
@@ -430,7 +431,7 @@
     font-size: 13px;
   }
   .row-time {
-    width: 32px;
+    width: 44px;
     font-size: 13px;
   }
   .reviewer-avatar {
@@ -460,4 +461,178 @@
   .pr-summary h1 {
     font-size: 21px;
   }
+}
+
+.authored-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.pull-tabs {
+  flex-shrink: 0;
+}
+.pull-row > .icon,
+.pull-row > span {
+  flex-shrink: 0;
+}
+.pull-row .pull-title {
+  flex-shrink: 1;
+}
+.discussion-preview {
+  min-height: 0;
+  padding-block: 16px;
+  gap: 10px;
+}
+.inline-group {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.branch-summary > .dim {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.detail-timeline,
+.detail-aside {
+  min-width: 0;
+}
+.file-record code {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.file-record > span {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.detail-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .pull-location > .location-repository {
+    max-width: calc(100% - 42px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pull-tabs {
+    padding: 8px 12px;
+    gap: 6px;
+    min-height: 60px;
+  }
+  .pull-tabs button {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    font-size: 14px;
+    gap: 6px;
+  }
+  .pull-tabs button span {
+    font-size: 13px;
+  }
+  .pull-list {
+    padding: 0 10px 12px;
+  }
+  .pull-row {
+    display: grid;
+    grid-template-columns: 20px 56px minmax(0, 1fr) 28px 40px;
+    gap: 4px 8px;
+    height: auto;
+    min-height: 76px;
+    padding: 10px;
+  }
+  .pull-row > .icon {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .pull-number {
+    grid-column: 2;
+    grid-row: 1;
+    width: auto;
+    font-size: 12px;
+  }
+  .pull-title {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .pull-status {
+    grid-column: 3;
+    grid-row: 2;
+    width: auto;
+    font-size: 12px;
+  }
+  .pull-row > span[title]:not(.pull-title):not(.reviewer-avatar) {
+    grid-column: 4;
+    grid-row: 1;
+  }
+  .pull-row .reviewer-avatar {
+    grid-column: 4;
+    grid-row: 2;
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+  .row-time {
+    grid-column: 5;
+    grid-row: 1;
+    width: auto;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .discussion-preview {
+    padding: 12px 16px;
+    gap: 8px;
+    border-radius: 14px;
+  }
+  .discussion-heading {
+    gap: 10px;
+  }
+  .reviewer-message {
+    gap: 10px;
+    min-height: 0;
+  }
+  .reviewer-message p {
+    font-size: 13px;
+    line-height: 20px;
+  }
+  .discussion-actions {
+    padding-left: 0;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .discussion-actions .text-button {
+    gap: 8px;
+    font-size: 12px;
+  }
+  .outline-button {
+    min-height: 36px;
+    padding: 4px 12px;
+    font-size: 13px;
+  }
+  .pr-summary {
+    padding: 8px 16px 16px;
+  }
+  .detail-tabs {
+    padding-inline: 16px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .detail-columns {
+    padding-inline: 16px;
+  }
+  .detail-aside {
+    grid-template-columns: 1fr;
+  }
+  .detail-card {
+    padding: 14px;
+  }
+  .page-note {
+    padding: 14px 16px;
+  }
+}
+
+.pr-summary {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }

@@ -22,6 +22,9 @@ describe('GitHub records', () => {
     expect(pullFromGitHub({ ...record, state: 'MERGED' }, user.id, repo).state).toBe('merged');
     expect(pullFromGitHub({ ...record, isDraft: true }, user.id, repo).status).toBe('草稿');
     expect(pullFromGitHub(record, user.id, repo).check).toBe('none');
+    expect(pullFromGitHub(record, user.id, repo).reviewer).toBe('');
+    expect(pullFromGitHub(record, user.id, repo).author).toBe(user.login);
+    expect(pullFromGitHub(record, user.id, repo).previewAuthor).toBe('reviewer');
   });
   it('requires re-review when a formal review targets an older commit', () => {
     const reviews = {

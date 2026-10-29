@@ -33,6 +33,55 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('workspace interactions', () => {
+  it('keeps repository access failures in the picker without losing the current page', async () => {
+    const gateway = createGateway();
+    vi.mocked(gateway.select).mockRejectedValue('GH_NOT_FOUND');
+    render(<App gateway={gateway} />);
+    await screen.findByRole('textbox', { name: '搜索 PR' });
+    fireEvent.click(screen.getByRole('button', { name: '设置' }));
+    fireEvent.click(screen.getByRole('button', { name: '仓库与同步' }));
+    fireEvent.click(screen.getByRole('button', { name: '选择仓库' }));
+    await screen.findByRole('radio', { name: /owner\/other/ });
+    fireEvent.change(screen.getByRole('textbox', { name: '仓库完整名称' }), {
+      target: { value: 'owner/missing' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '打开仓库' }));
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'GH_NOT_FOUND');
+    expect(screen.getByRole('dialog', { name: '选择仓库' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '关闭弹窗' }));
+    expect(screen.getByRole('heading', { name: '仓库与同步', level: 1 })).toBeTruthy();
+  });
+  it('distinguishes failed synchronization from an empty list and retries real requests', async () => {
+    const gateway = createGateway();
+    const request = gateway.request;
+    gateway.request = vi
+      .fn()
+      .mockImplementation((operation, repository, accountId, number) =>
+        operation === 'authored'
+          ? Promise.reject('GH_FORBIDDEN')
+          : request(operation, repository, accountId, number),
+      );
+    render(<App gateway={gateway} />);
+    expect(await screen.findByRole('alert')).toHaveProperty(
+      'textContent',
+      expect.stringContaining('GH_FORBIDDEN'),
+    );
+    expect(screen.queryByRole('heading', { name: '当前筛选下没有 PR' })).toBeNull();
+    gateway.request = request;
+    fireEvent.click(screen.getByRole('button', { name: '重试同步' }));
+    await screen.findByRole('textbox', { name: '搜索 PR' });
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+  it('keeps the current settings section when repository selection is cancelled', async () => {
+    render(<App gateway={createGateway()} />);
+    await screen.findByRole('textbox', { name: '搜索 PR' });
+    fireEvent.click(screen.getByRole('button', { name: '设置' }));
+    fireEvent.click(screen.getByRole('button', { name: '仓库与同步' }));
+    fireEvent.click(screen.getByRole('button', { name: '选择仓库' }));
+    fireEvent.click(await screen.findByRole('button', { name: '关闭弹窗' }));
+    expect(screen.getByRole('heading', { name: '仓库与同步', level: 1 })).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: '搜索 PR' })).toBeNull();
+  });
   it('shows actual login failures without displaying sample records', async () => {
     const gateway = createGateway();
     vi.mocked(gateway.session).mockRejectedValue('GH_NOT_FOUND');

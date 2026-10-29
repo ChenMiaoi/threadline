@@ -34,14 +34,17 @@ export function AuthoredPage({
   const [panelVisible, setPanelVisible] = useState(true);
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
   const rows = filterPullRequests(pulls, state, query, attentionOnly);
+  const groups = groupPullRequests(rows);
 
-  const selected = pulls.find((p) => p.number === selectedNumber) ?? rows[0];
+  const selected = rows.find((p) => p.number === selectedNumber) ?? groups[0]?.[1][0];
 
   return (
-    <>
+    <div className="authored-page">
       <header className="location pull-location">
         <Icon name="repo-heading" />
-        <span>{repo}</span>
+        <span className="location-repository" title={repo}>
+          {repo}
+        </span>
         <span className="separator">/</span>
         <span className="muted">我发起的 PR</span>
         <div className="location-tools">
@@ -89,7 +92,7 @@ export function AuthoredPage({
         ))}
       </div>
       <section className="pull-list" aria-label="我发起的 PR">
-        {groupPullRequests(rows).map(([group, pulls]) => (
+        {groups.map(([group, pulls]) => (
           <section key={group}>
             <h2 className="pull-group-heading">
               {group}
@@ -107,12 +110,16 @@ export function AuthoredPage({
               >
                 <Icon name="pr" />
                 <span className="pull-number">#{pull.number}</span>
-                <span className="pull-title">{pull.title}</span>
+                <span className="pull-title" title={pull.title}>
+                  {pull.title}
+                </span>
                 <span className={`pull-status ${pull.tone}`}>●&nbsp; {pull.status}</span>
                 <span title={checkLabels[pull.check]}>
                   <Icon name={checkIcons[pull.check]} />
                 </span>
-                <span className="avatar reviewer-avatar">{pull.reviewer.slice(0, 1)}</span>
+                <span className="avatar reviewer-avatar" title={pull.reviewer || '未指定评审人'}>
+                  {pull.reviewer.slice(0, 1).toUpperCase() || '—'}
+                </span>
                 <span className="row-time">{pull.updated}</span>
               </button>
             ))}
@@ -144,10 +151,12 @@ export function AuthoredPage({
             <IconButton name="close" label="关闭最新动态" onClick={() => setPanelVisible(false)} />
           </div>
           <div className="reviewer-message">
-            <span className="avatar">{selected.reviewer.slice(0, 1)}</span>
+            <span className="avatar" title={selected.previewAuthor ?? selected.author}>
+              {(selected.previewAuthor ?? selected.author)?.slice(0, 1).toUpperCase() ?? '—'}
+            </span>
             <div>
               <p>
-                {selected.author} · {selected.status} · {selected.updated}
+                {selected.previewAuthor ?? selected.author} · {selected.status} · {selected.updated}
               </p>
               <p>{selected.summary}</p>
             </div>
@@ -169,6 +178,6 @@ export function AuthoredPage({
           </div>
         </section>
       )}
-    </>
+    </div>
   );
 }

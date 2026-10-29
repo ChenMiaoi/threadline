@@ -45,8 +45,8 @@
 }
 .activity-list {
   padding: 0 32px;
-  flex: 1;
-  min-height: 650px;
+  flex: 1 0 auto;
+  min-height: 0;
 }
 .activity-group {
   font-size: 15px;
@@ -76,11 +76,11 @@
   color: inherit;
   width: 100%;
   min-height: 108px;
-  height: 108px;
+  height: auto;
   display: flex;
   gap: 20px;
   align-items: center;
-  padding: 0 20px;
+  padding: 16px 20px;
   border-radius: 9px;
 }
 .record-dot {
@@ -94,7 +94,7 @@
   gap: 4px;
   flex: 1;
   min-width: 0;
-  height: 76px;
+  height: auto;
 }
 .record-title {
   font-size: 17px;
@@ -119,10 +119,10 @@
   line-height: 22px;
 }
 .record-status {
-  width: 230px;
+  width: 150px;
   display: flex;
   align-self: center;
-  height: 70px;
+  height: auto;
   align-items: flex-end;
   flex-direction: column;
   gap: 6px;
@@ -233,5 +233,130 @@
   }
   .activity-title p {
     display: none;
+  }
+}
+
+.record-main {
+  align-items: flex-start;
+}
+.record-dot {
+  line-height: 26px;
+}
+.record-title,
+.record-summary,
+.record-detail {
+  flex-shrink: 0;
+}
+.record-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.record-status {
+  align-self: flex-start;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.activity-record:has(.record-actions) .record-main {
+  padding-bottom: 48px;
+}
+.activity-empty {
+  padding: 36px 24px;
+  gap: 16px;
+  text-align: center;
+}
+.activity-filters select {
+  max-width: 100%;
+}
+.modal {
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+.modal > header {
+  position: sticky;
+  top: -24px;
+  z-index: 2;
+  padding-block: 12px;
+  background: var(--surface);
+}
+.modal .icon-button {
+  flex-shrink: 0;
+}
+@media (max-width: 760px) {
+  .activity-controls {
+    padding: 10px 16px 16px;
+  }
+  .activity-title {
+    gap: 10px;
+  }
+  .activity-title h1 {
+    font-size: 18px;
+  }
+  .activity-tools {
+    gap: 8px;
+  }
+  .activity-filters {
+    gap: 8px;
+  }
+  .activity-search {
+    max-width: 100%;
+    width: 100%;
+    flex: 1 0 100%;
+  }
+  .activity-list {
+    padding-inline: 12px;
+  }
+  .record-main {
+    display: grid;
+    grid-template-columns: 14px minmax(0, 1fr);
+    gap: 8px 10px;
+    padding: 12px;
+  }
+  .record-dot {
+    grid-column: 1;
+    grid-row: 1;
+    width: auto;
+    font-size: 12px;
+  }
+  .record-body {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .record-status {
+    grid-column: 2;
+    grid-row: 2;
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+  }
+  .record-title {
+    font-size: 14px;
+  }
+  .record-summary {
+    font-size: 12px;
+    line-height: 20px;
+  }
+  .record-detail {
+    font-size: 12px;
+  }
+  .activity-empty {
+    padding: 28px 12px;
+  }
+  .activity-empty h1 {
+    font-size: 21px;
+  }
+  .activity-empty .inline-group {
+    justify-content: center;
+  }
+  .modal {
+    width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+    padding: 16px;
+  }
+  .modal > header {
+    top: -16px;
   }
 }

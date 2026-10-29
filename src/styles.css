@@ -1,5 +1,11 @@
 :root {
   --text: #ececf4;
+  --yellow: #e8be62;
+  --blue: #779df3;
+  --green: #66c8a0;
+  --avatar-bg: #454754;
+  --error: #f0b0ba;
+  --error-border: #915a65;
   --app: #111216;
   --hover: #2c2e3a;
   --discussion-bg: linear-gradient(170.75deg, #22242c, #1a1c21 71.43%);
@@ -22,7 +28,7 @@
 }
 body {
   margin: 0;
-  min-width: 760px;
+  min-width: 320px;
 }
 button {
   font: inherit;
@@ -238,9 +244,9 @@ p {
 .error {
   margin: 0 32px;
   padding: 16px;
-  border: 1px solid #915a65;
+  border: 1px solid var(--error-border);
   border-radius: 8px;
-  color: #f0b0ba;
+  color: var(--error);
   overflow-wrap: anywhere;
 }
 @media (max-width: 1100px) {
@@ -274,4 +280,139 @@ p {
 }
 .repository-empty {
   color: var(--text);
+}
+
+.app-bar,
+.workspace-switcher,
+.workspace-current,
+.account-name,
+.sidebar {
+  min-width: 0;
+}
+.workspace-switcher {
+  max-width: min(48vw, 600px);
+}
+.workspace-switcher .workspace-current {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.account,
+.brand {
+  flex-shrink: 0;
+}
+.repository-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.location {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.location-repository,
+.breadcrumb-button {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .app {
+    min-height: 0;
+  }
+  .app-bar {
+    min-height: 112px;
+    height: auto;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    gap: 10px;
+  }
+  .brand {
+    min-width: 0;
+    flex: 1;
+    gap: 10px;
+  }
+  .brand strong {
+    font-size: 18px;
+  }
+  .app-bar > .icon-button {
+    order: 1;
+  }
+  .account {
+    order: 2;
+    gap: 8px;
+  }
+  .account-name {
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .app-bar > .workspace-switcher {
+    order: 3;
+    flex: 1 0 100%;
+    max-width: 100%;
+    margin: 0;
+    height: 38px;
+  }
+  .workspace-switcher .workspace-current {
+    flex: 1;
+    text-align: left;
+    font-size: 14px;
+    padding: 8px 14px;
+  }
+  .workspace-menu summary {
+    padding: 8px 14px;
+  }
+  .sidebar {
+    flex: 0 0 68px;
+    padding: 16px 6px;
+  }
+  .sidebar .section-label,
+  .sidebar .nav-label,
+  .sidebar .repository-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .sidebar .nav-item,
+  .sidebar .repository-empty {
+    position: relative;
+    justify-content: center;
+    padding-inline: 0;
+    gap: 0;
+  }
+  .nav-count {
+    position: absolute;
+    right: 2px;
+    top: 0;
+    min-width: 16px;
+    padding-inline: 3px;
+    background: var(--surface);
+    border-radius: 4px;
+    font-size: 10px;
+    line-height: 16px;
+  }
+  .repository-section {
+    margin-top: 20px;
+  }
+  .content {
+    border-radius: 16px 16px 0 0;
+  }
+  .location {
+    padding: 14px 16px;
+    gap: 10px;
+    font-size: 15px;
+    min-height: 64px;
+  }
+  .location .connection-badge {
+    padding: 4px 8px;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .account-name {
+    display: none;
+  }
 }

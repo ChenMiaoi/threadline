@@ -337,11 +337,10 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
       {repositoryPicker && (
         <RepositoryPicker
           github={github}
-          onClose={() => {
+          onClose={() => setRepositoryPicker(false)}
+          onSelected={() => {
             setRepositoryPicker(false);
-            setOpenedPull(null);
-            setRecordPreview(null);
-            setView('authored');
+            navigate('authored');
           }}
         />
       )}

@@ -188,7 +188,11 @@ export function SettingsPage({
                 title="手动刷新"
                 description="读取所选仓库的最新信息；失败时保留可用的本地缓存。"
               >
-                <button className="setting-value accent" onClick={onSync}>
+                <button
+                  className="setting-value accent"
+                  disabled={github.syncing || !github.session || !github.repo}
+                  onClick={onSync}
+                >
                   {github.syncing ? '正在刷新…' : '立即刷新'}
                 </button>
               </SettingRow>

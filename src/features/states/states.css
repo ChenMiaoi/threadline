@@ -198,14 +198,9 @@
 }
 .snooze-checkbox {
   position: absolute;
-  left: 0;
-  top: 43px;
+  left: 12px;
+  top: 20px;
   z-index: 1;
-  opacity: 0;
-}
-.snooze-checkbox:has(input:checked),
-.snooze-selection:hover .snooze-checkbox,
-.snooze-selection:focus-within .snooze-checkbox {
   opacity: 1;
 }
 .snooze-checkbox input {
@@ -341,4 +336,72 @@
 }
 .page-view[hidden] {
   display: none;
+}
+
+.connection-explanation {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.connection-explanation code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.repository-choice > input {
+  flex-shrink: 0;
+}
+.repository-choice > span:first-of-type {
+  flex: 1;
+  min-width: 0;
+}
+.repository-choice > span:last-of-type {
+  flex-shrink: 0;
+}
+.sync-error-banner {
+  min-height: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .onboarding-page {
+    padding: 24px 16px;
+    gap: 18px;
+  }
+  .onboarding-page h1 {
+    font-size: 22px;
+    line-height: 32px;
+  }
+  .connection-steps {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .connection-steps .chip {
+    font-size: 12px;
+    padding-inline: 8px;
+  }
+  .connection-explanation {
+    padding: 18px;
+    min-height: 0;
+  }
+  .repository-choice {
+    padding: 12px;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .snoozed-page {
+    padding: 20px 16px;
+  }
+  .sync-status {
+    padding-inline: 16px;
+  }
+  .workspace-menu-items {
+    width: 190px;
+    top: 42px;
+  }
+}
+
+.snooze-selection .record-main {
+  padding-left: 42px;
+}
+.snooze-form input[type='datetime-local'] {
+  min-width: 0;
+  max-width: 100%;
 }

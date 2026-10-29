@@ -79,9 +79,11 @@ export function GitHubConnection({
 export function RepositoryPicker({
   github,
   onClose,
+  onSelected,
 }: {
   github: GitHubWorkspace;
   onClose: () => void;
+  onSelected: () => void;
 }) {
   const [query, setQuery] = useState('');
   const [choice, setChoice] = useState(github.repo);
@@ -97,7 +99,7 @@ export function RepositoryPicker({
           event.preventDefault();
           void github
             .selectRepository(choice)
-            .then(onClose)
+            .then(onSelected)
             .catch((reason) => setError(String(reason)));
         }}
       >

@@ -28,6 +28,7 @@ const config = {
     title: 'Issues',
     description: '关注你发起和参与的讨论',
     tabs: [
+      ['all', '全部'],
       ['open', '开放'],
       ['closed', '已关闭'],
       ['authored', '我发起的'],
@@ -64,12 +65,16 @@ export function ActivityRecord({
           ●
         </span>
         <span className="record-body">
-          <span className="record-title">
-            {record.kind === 'issue' && (showKind || record.id.startsWith('inbox')) ? 'Issue ' : ''}
+          <span className="record-title" title={record.title}>
+            {record.kind === 'issue' && (showKind || record.id.includes(':notification:'))
+              ? 'Issue '
+              : ''}
             #{record.number}&nbsp; {record.title}
           </span>
           <span className="record-summary">{record.summary}</span>
-          <span className="record-detail">{record.detail}</span>
+          <span className="record-detail" title={record.detail}>
+            {record.detail}
+          </span>
         </span>
         <span className="record-status">
           <span className={record.tone}>{onRead ? (isRead ? '已读' : '未读') : record.status}</span>
@@ -123,6 +128,12 @@ export function ActivityPage({
   const [searchVisible, setSearchVisible] = useState(false);
   const [attention, setAttention] = useState(false);
   const [label, setLabel] = useState('');
+  function showAll() {
+    setFilter('all');
+    setQuery('');
+    setAttention(false);
+    setLabel('');
+  }
   const input = useRef<HTMLInputElement>(null);
   const unread = items.filter(
     (item) => !read.includes(item.id) && !snoozed.includes(item.id),
@@ -134,6 +145,8 @@ export function ActivityPage({
       record.category === 'updated' ||
       record.tone === 'blue',
   );
+  const visibleRecords = records.filter((record) => !label || record.labels?.includes(label));
+  const groups = groupActivities(visibleRecords);
   return (
     <>
       <header className="location">
@@ -214,51 +227,43 @@ export function ActivityPage({
         </div>
       </div>
       <div className="activity-list">
-        {groupActivities(records.filter((record) => !label || record.labels?.includes(label))).map(
-          ([group, items]) => (
-            <section key={group}>
-              <h2 className="activity-group">
-                {group}
-                <span>{items.length}</span>
-              </h2>
-              {items.map((record, index) => (
-                <ActivityRecord
-                  key={record.id}
-                  record={record}
-                  selected={records[0]?.id === record.id && index === 0}
-                  onOpen={onOpen}
-                  onRead={view === 'inbox' ? onRead : undefined}
-                  onSnooze={view === 'inbox' ? onSnooze : undefined}
-                  isRead={read.includes(record.id)}
-                />
-              ))}
-            </section>
-          ),
-        )}
-        {!records.filter((record) => !label || record.labels?.includes(label)).length && (
+        {groups.map(([group, items]) => (
+          <section key={group}>
+            <h2 className="activity-group">
+              {group}
+              <span>{items.length}</span>
+            </h2>
+            {items.map((record) => (
+              <ActivityRecord
+                key={record.id}
+                record={record}
+                selected={groups[0]?.[1][0]?.id === record.id}
+                onOpen={onOpen}
+                onRead={view === 'inbox' ? onRead : undefined}
+                onSnooze={view === 'inbox' ? onSnooze : undefined}
+                isRead={read.includes(record.id)}
+              />
+            ))}
+          </section>
+        ))}
+        {!visibleRecords.length && (
           <section className="activity-empty">
             <div className="empty-symbol">✓</div>
             <h1>
               {view === 'inbox'
-                ? '当前筛选下没有未读更新'
+                ? filter === 'unread'
+                  ? '当前筛选下没有未读更新'
+                  : '当前筛选下没有更新'
                 : view === 'issues'
                   ? '当前筛选下没有 Issue'
                   : '当前筛选下没有 PR'}
             </h1>
             <p>没有条目需要你现在处理。你可以查看全部记录，或清除筛选。</p>
             <div className="inline-group">
-              <button className="chip accent" onClick={() => setFilter('all')}>
+              <button className="chip accent" onClick={showAll}>
                 查看全部记录
               </button>
-              <button
-                className="chip"
-                onClick={() => {
-                  setFilter('all');
-                  setQuery('');
-                  setAttention(false);
-                  setLabel('');
-                }}
-              >
+              <button className="chip" onClick={showAll}>
                 清除筛选
               </button>
             </div>

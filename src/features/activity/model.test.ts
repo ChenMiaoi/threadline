@@ -3,6 +3,13 @@ import { demoActivities } from '../../test/activities.fixture';
 import { filterActivities, groupActivities } from './model';
 
 describe('activity filters', () => {
+  it('keeps review updates ahead of discussion-only groups without reordering their rows', () => {
+    const records = [...demoActivities.review].reverse();
+    const grouped = groupActivities(records);
+    expect(grouped[0][1].every((record) => record.category === 'updated')).toBe(true);
+    expect(grouped.at(-1)?.[1].every((record) => record.category === 'discussion')).toBe(true);
+    expect(grouped[0][1]).toEqual(records.filter((record) => record.category === 'updated'));
+  });
   it('keeps read items in all but removes them from unread', () => {
     expect(filterActivities(demoActivities.inbox, 'unread', '', ['inbox-1042'])).toHaveLength(3);
     expect(filterActivities(demoActivities.inbox, 'all', '', ['inbox-1042'])).toHaveLength(4);

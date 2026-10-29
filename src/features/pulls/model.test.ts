@@ -3,6 +3,15 @@ import { demoPulls } from '../../test/pulls.fixture';
 import { filterPullRequests, groupPullRequests } from './model';
 
 describe('pull request views', () => {
+  it('keeps actionable groups ahead of more recent waiting and draft groups', () => {
+    const reversed = [...demoPulls].reverse();
+    expect(groupPullRequests(reversed).map(([group]) => group)).toEqual([
+      '需要我的处理',
+      '等待评审',
+      '草稿',
+    ]);
+    expect(reversed[0]).toBe(demoPulls.at(-1));
+  });
   it('searches numbers, titles, and status without changing the source', () => {
     expect(filterPullRequests(demoPulls, 'open', ' #1042 ').map((p) => p.number)).toEqual([1042]);
     expect(filterPullRequests(demoPulls, 'open', 'LEADING')).toHaveLength(2);

@@ -51,11 +51,19 @@ export function WorkspaceShell({
           <details className="workspace-menu" ref={menu}>
             <summary>工作台</summary>
             <nav aria-label="工作台页面" className="workspace-menu-items">
-              <button onClick={() => choose('inbox')}>工具收件箱</button>
-              <button onClick={() => choose('snoozed')}>稍后处理</button>
+              <button aria-label="工具收件箱" onClick={() => choose('inbox')}>
+                工具收件箱
+              </button>
+              <button aria-label="稍后处理" onClick={() => choose('snoozed')}>
+                稍后处理
+              </button>
             </nav>
           </details>
-          <button className="workspace-current" onClick={onChooseRepository}>
+          <button
+            className="workspace-current"
+            title={repo || '选择仓库'}
+            onClick={onChooseRepository}
+          >
             {repo || '选择仓库'}
           </button>
         </div>
@@ -65,7 +73,9 @@ export function WorkspaceShell({
           aria-label="账号与连接设置"
         >
           <span className="avatar">{login?.slice(0, 1).toUpperCase() ?? '?'}</span>
-          <span>{login ?? '未连接'}</span>
+          <span className="account-name" title={login}>
+            {login ?? '未连接'}
+          </span>
           <Icon name="chev" />
         </button>
       </header>
@@ -82,7 +92,7 @@ export function WorkspaceShell({
                 onClick={() => onNavigate(item.id)}
               >
                 <Icon name={item.icon} />
-                {item.label}
+                <span className="nav-label">{item.label}</span>
                 {item.id !== 'authored' && (
                   <span className="nav-count">
                     {item.id === 'inbox'
@@ -97,9 +107,13 @@ export function WorkspaceShell({
           </nav>
           <div className="repository-section">
             <div className="section-label">仓库</div>
-            <button className="repository-empty" onClick={onChooseRepository}>
+            <button
+              className="repository-empty"
+              title={repo || '选择仓库'}
+              onClick={onChooseRepository}
+            >
               <Icon name="repo" />
-              <span>{repo || '选择仓库'}</span>
+              <span className="repository-name">{repo || '选择仓库'}</span>
             </button>
           </div>
           <button
@@ -109,7 +123,7 @@ export function WorkspaceShell({
             onClick={() => onNavigate('settings')}
           >
             <Icon name="settings" />
-            设置
+            <span className="nav-label">设置</span>
           </button>
         </aside>
         <main className="content">{children}</main>
