@@ -16,3 +16,6 @@ src-tauri/icons/ios/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+*.vault
+*.v3.key

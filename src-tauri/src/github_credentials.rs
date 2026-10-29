@@ -32,56 +32,70 @@ pub trait CredentialStore: Send + Sync {
     fn write(&self, credential: &Credential) -> Result<(), String>;
     fn clear(&self) -> Result<(), String>;
 }
-// The application owns the ciphertext; the OS protects its random encryption key.
-// Keeping this boundary injectable allows restart/failure tests without touching a user's keychain.
+// Keys are application-owned files, separate from the encrypted credential payload.
 trait VaultKeys: Send + Sync {
     fn read(&self) -> Result<Option<Zeroizing<Vec<u8>>>, String>;
     fn write(&self, key: &[u8]) -> Result<(), String>;
     fn clear(&self) -> Result<(), String>;
 }
-struct NativeKeys {
-    client_id: String,
+struct FileKeys {
+    path: Option<PathBuf>,
 }
 fn secure_error() -> String {
-    "GH_SECURE_STORAGE: 无法访问 ThreadLine 的系统安全存储，请允许本应用访问后重试。".into()
+    "GH_SECURE_STORAGE: 无法读取本机登录密钥，请检查登录存储文件是否完整、可访问。".into()
 }
-#[cfg(any(target_os = "macos", target_os = "windows"))]
-impl NativeKeys {
-    fn entry(&self) -> Result<keyring::Entry, String> {
-        keyring::Entry::new("io.chenmiaoi.threadline.vault-key.v2", &self.client_id)
-            .map_err(|_| secure_error())
+impl FileKeys {
+    fn path(&self) -> Result<&Path, String> {
+        self.path.as_deref().ok_or_else(secure_error)
     }
 }
-#[cfg(any(target_os = "macos", target_os = "windows"))]
-impl VaultKeys for NativeKeys {
+impl VaultKeys for FileKeys {
     fn read(&self) -> Result<Option<Zeroizing<Vec<u8>>>, String> {
-        match self.entry()?.get_secret() {
-            Ok(key) => Ok(Some(Zeroizing::new(key))),
-            Err(keyring::Error::NoEntry) => Ok(None),
-            Err(_) => Err(secure_error()),
+        let path = self.path()?;
+        let metadata = match std::fs::symlink_metadata(path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(_) => return Err(secure_error()),
+        };
+        if !metadata.is_file() || metadata.len() != 32 {
+            return Err(secure_error());
         }
+        let mut key = Zeroizing::new(Vec::with_capacity(32));
+        std::fs::File::open(path)
+            .map_err(|_| secure_error())?
+            .take(33)
+            .read_to_end(&mut key)
+            .map_err(|_| secure_error())?;
+        if key.len() != 32 {
+            return Err(secure_error());
+        }
+        Ok(Some(key))
     }
     fn write(&self, key: &[u8]) -> Result<(), String> {
-        self.entry()?.set_secret(key).map_err(|_| secure_error())
+        if key.len() != 32 {
+            return Err(secure_error());
+        }
+        let path = self.path()?;
+        let directory = path.parent().ok_or_else(secure_error)?;
+        std::fs::create_dir_all(directory).map_err(|_| secure_error())?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700))
+                .map_err(|_| secure_error())?;
+        }
+        let mut file = tempfile::NamedTempFile::new_in(directory).map_err(|_| secure_error())?;
+        file.write_all(key).map_err(|_| secure_error())?;
+        file.as_file().sync_all().map_err(|_| secure_error())?;
+        file.persist_noclobber(path).map_err(|_| secure_error())?;
+        Ok(())
     }
     fn clear(&self) -> Result<(), String> {
-        match self.entry()?.delete_credential() {
-            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        match std::fs::remove_file(self.path()?) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(_) => Err(secure_error()),
         }
-    }
-}
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
-impl VaultKeys for NativeKeys {
-    fn read(&self) -> Result<Option<Zeroizing<Vec<u8>>>, String> {
-        let _ = &self.client_id;
-        Err(secure_error())
-    }
-    fn write(&self, _: &[u8]) -> Result<(), String> {
-        Err(secure_error())
-    }
-    fn clear(&self) -> Result<(), String> {
-        Err(secure_error())
     }
 }
 #[derive(Serialize, Deserialize)]
@@ -105,13 +119,16 @@ fn corrupt() -> String {
 }
 impl VaultStore {
     pub fn new(client_id: String) -> Self {
+        let directory =
+            dirs::data_local_dir().map(|p| p.join("io.chenmiaoi.threadline").join("vault"));
         Self {
-            keys: Arc::new(NativeKeys {
-                client_id: client_id.clone(),
+            keys: Arc::new(FileKeys {
+                path: directory
+                    .as_ref()
+                    .map(|p| p.join("keys").join(format!("{client_id}.v3.key"))),
             }),
             client_id,
-            directory: dirs::data_local_dir()
-                .map(|p| p.join("io.chenmiaoi.threadline").join("vault")),
+            directory,
         }
     }
     fn directory(&self) -> Result<&Path, String> {
@@ -129,7 +146,7 @@ impl VaultStore {
     fn path(&self) -> Result<PathBuf, String> {
         Ok(self
             .directory()?
-            .join(format!("{}.session.vault", self.client_id)))
+            .join(format!("{}.session.v3.vault", self.client_id)))
     }
     fn envelope(&self) -> Result<Envelope, String> {
         let file = std::fs::File::open(self.path()?).map_err(|_| io_error())?;
@@ -141,13 +158,13 @@ impl VaultStore {
             return Err(corrupt());
         }
         let envelope: Envelope = serde_json::from_slice(&bytes).map_err(|_| corrupt())?;
-        if envelope.version != 2 || envelope.client_id != self.client_id {
+        if envelope.version != 3 || envelope.client_id != self.client_id {
             return Err(corrupt());
         }
         Ok(envelope)
     }
     fn aad(&self) -> String {
-        format!("ThreadLine:session-vault:2:{}", self.client_id)
+        format!("ThreadLine:session-vault:3:{}", self.client_id)
     }
     fn key(&self) -> Result<Zeroizing<Vec<u8>>, String> {
         self.keys
@@ -199,7 +216,7 @@ impl VaultStore {
             )
             .map_err(|_| "GH_VAULT_CRYPTO")?;
         let envelope = Envelope {
-            version: 2,
+            version: 3,
             client_id: self.client_id.clone(),
             nonce: STANDARD.encode(nonce),
             ciphertext: STANDARD.encode(ciphertext),
@@ -238,8 +255,19 @@ impl CredentialStore for VaultStore {
         Ok(Box::new(file))
     }
     fn read(&self) -> Result<Option<Credential>, String> {
-        // A fresh install never touches the keychain or asks for a password.
+        // Legacy OS-keyed vaults are preserved; reauthorization creates a new software-owned vault.
         if !self.path()?.try_exists().map_err(|_| io_error())? {
+            if self
+                .directory()?
+                .join(format!("{}.session.vault", self.client_id))
+                .try_exists()
+                .map_err(|_| io_error())?
+            {
+                return Err(
+                    "GH_AUTH_REQUIRED: 登录存储已升级，请重新登录一次以启用软件管理的本机凭据。"
+                        .into(),
+                );
+            }
             return Ok(None);
         }
         let envelope = self.envelope()?;
@@ -449,6 +477,93 @@ pub mod tests {
         assert!(vault(directory.path(), "Iv1../../outside", keys)
             .lock()
             .is_err());
+    }
+    fn file_vault(directory: &Path) -> VaultStore {
+        VaultStore {
+            client_id: "Iv1.test".into(),
+            directory: Some(directory.into()),
+            keys: Arc::new(FileKeys {
+                path: Some(directory.join("keys/Iv1.test.v3.key")),
+            }),
+        }
+    }
+    #[test]
+    fn software_keys_restore_after_restart_without_os_services_and_logout_removes_both_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = file_vault(directory.path());
+        {
+            let _guard = store.lock().unwrap();
+            store.write(&credential()).unwrap();
+        }
+        let path = directory.path().join("keys/Iv1.test.v3.key");
+        let key = std::fs::read(&path).unwrap();
+        assert_eq!(key.len(), 32);
+        let ciphertext = std::fs::read_to_string(store.path().unwrap()).unwrap();
+        assert!(!ciphertext.contains("ghu_"));
+        assert!(!ciphertext.contains(&STANDARD.encode(&key)));
+        let restarted = file_vault(directory.path());
+        assert_eq!(
+            restarted.read().unwrap().unwrap().access_token,
+            credential().access_token
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+                0o600
+            );
+            assert_eq!(
+                std::fs::metadata(path.parent().unwrap())
+                    .unwrap()
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                0o700
+            );
+        }
+        let _guard = restarted.lock().unwrap();
+        restarted.clear().unwrap();
+        assert!(!path.exists());
+        assert!(file_vault(directory.path()).read().unwrap().is_none());
+    }
+    #[test]
+    fn missing_or_damaged_software_keys_never_replace_saved_credentials() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = file_vault(directory.path());
+        let _guard = store.lock().unwrap();
+        store.write(&credential()).unwrap();
+        let path = directory.path().join("keys/Iv1.test.v3.key");
+        let key = std::fs::read(&path).unwrap();
+        let ciphertext = std::fs::read(store.path().unwrap()).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        assert!(store.read().is_err());
+        assert!(store.write(&credential()).is_err());
+        assert!(!path.exists());
+        std::fs::write(&path, [0; 31]).unwrap();
+        assert!(store.read().is_err());
+        assert!(store.write(&credential()).is_err());
+        std::fs::write(&path, [0; 32]).unwrap();
+        assert!(store.read().is_err());
+        assert!(store.write(&credential()).is_err());
+        assert_eq!(std::fs::read(store.path().unwrap()).unwrap(), ciphertext);
+        std::fs::write(&path, key).unwrap();
+        assert_eq!(store.read().unwrap().unwrap().user_id, 7);
+    }
+    #[test]
+    fn legacy_os_keyed_credentials_are_preserved_and_reauthorization_uses_separate_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let legacy = directory.path().join("Iv1.test.session.vault");
+        std::fs::write(&legacy, "legacy-encrypted-payload").unwrap();
+        let store = file_vault(directory.path());
+        assert!(store.read().err().unwrap().starts_with("GH_AUTH_REQUIRED"));
+        let _guard = store.lock().unwrap();
+        store.write(&credential()).unwrap();
+        assert_eq!(store.read().unwrap().unwrap().user_id, 7);
+        assert_eq!(
+            std::fs::read_to_string(legacy).unwrap(),
+            "legacy-encrypted-payload"
+        );
     }
     #[test]
     fn transaction_lock_excludes_other_handles_and_releases_on_drop() {
