@@ -410,6 +410,7 @@ export interface RestComment {
   user: Author | null;
   created_at: string;
   path?: string;
+  in_reply_to_id?: number;
 }
 export interface RestReview {
   id: number;

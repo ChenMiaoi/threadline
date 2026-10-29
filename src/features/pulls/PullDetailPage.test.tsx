@@ -267,3 +267,65 @@ it('omits empty comment reviews but retains decisions and their code freshness',
   expect(screen.getByText(/评审后代码已有更新，此结论针对旧版本/)).toBeTruthy();
   expect(screen.getByText(/批准不代表检查已通过或可以合并/)).toBeTruthy();
 });
+
+it('keeps review replies with their parent and names the actual recipient', async () => {
+  const gateway = createGateway();
+  const request = gateway.request;
+  gateway.request = vi.fn().mockImplementation((operation, ...args) =>
+    operation === 'discussion'
+      ? Promise.resolve(
+          response({
+            ...detail,
+            comments: [],
+            reviews: [],
+            reviewComments: [
+              [
+                {
+                  id: 2,
+                  in_reply_to_id: 1,
+                  body: 'Changed the test.',
+                  user: { login: 'author' },
+                  created_at: '2026-10-29T10:00:00Z',
+                  path: 'test.cpp',
+                },
+              ],
+              [
+                {
+                  id: 1,
+                  body: 'Use this test instead.',
+                  user: { login: 'reviewer' },
+                  created_at: '2026-10-28T10:00:00Z',
+                  path: 'test.cpp',
+                },
+                {
+                  id: 3,
+                  in_reply_to_id: 99,
+                  body: 'An orphan reply.',
+                  user: { login: 'other' },
+                  created_at: '2026-10-29T11:00:00Z',
+                  path: 'test.cpp',
+                },
+              ],
+            ],
+          }),
+        )
+      : request(operation, ...(args as [string, number, number, string])),
+  );
+  render(
+    <PullDetailPage
+      pull={pullFromGitHub(record, user.id, repo)}
+      onBack={vi.fn()}
+      repo={repo}
+      accountId={user.id}
+      gateway={gateway}
+      cache={createResourceCache()}
+    />,
+  );
+  await screen.findByRole('heading', { name: '讨论 3' });
+  const reply = await screen.findByText('回复 @reviewer');
+  const thread = reply.closest('.detail-card');
+  expect(thread?.textContent).toContain('Use this test instead.');
+  expect(thread?.textContent).toContain('Changed the test.');
+  expect(thread?.textContent).not.toContain('An orphan reply.');
+  expect(screen.getByText('回复较早的评论')).toBeTruthy();
+});

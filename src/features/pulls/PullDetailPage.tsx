@@ -1,3 +1,4 @@
+import { reviewThreads } from './reviewThreads';
 import { useI18n } from '../../i18n/I18n';
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import { TabList, TabPanel } from '../../components/Tabs';
@@ -110,20 +111,26 @@ function DiscussionSection({
             date: c.created_at,
             label: '普通评论',
             version: '',
+            replies: [],
+            replyTo: undefined,
           })),
-          ...data.reviewComments.flat().map((c) => ({
+          ...reviewThreads(data.reviewComments.flat()).map(({ comment: c, replies }) => ({
             id: `inline-${c.id}`,
             author: c.user?.login,
             body: c.body,
             date: c.created_at,
             label: t('代码评论 · {0}', [c.path ?? '']),
             version: '',
+            replies,
+            replyTo: c.in_reply_to_id,
           })),
           ...data.reviews
             .flat()
             .filter((r) => r.state !== 'PENDING' && (r.state !== 'COMMENTED' || r.body.trim()))
             .map((r) => ({
               id: `review-${r.id}`,
+              replies: [],
+              replyTo: undefined,
               author: r.user?.login,
               body: r.body,
               date: r.submitted_at ?? '',
@@ -134,7 +141,11 @@ function DiscussionSection({
                 r.commit_id !== resource.head ? t(' · 代码版本已变化') : '',
               ]),
             })),
-        ].sort((a, b) => a.date.localeCompare(b.date))
+        ].sort((a, b) =>
+          (a.replies.at(-1)?.created_at ?? a.date).localeCompare(
+            b.replies.at(-1)?.created_at ?? b.date,
+          ),
+        )
       : [];
   }, [result.response, resource.head, t]);
   const reviews = result.response?.payload.reviews.flat() ?? [];
@@ -180,7 +191,7 @@ function DiscussionSection({
             )}
           </section>
           <h2 className="section-count">
-            {t('讨论')} {timeline.length}
+            {t('讨论')} {timeline.reduce((count, event) => count + 1 + event.replies.length, 0)}
           </h2>
           {timeline.length > limit && (
             <button className="chip" onClick={() => setLimit((n) => n + 30)}>
@@ -197,10 +208,29 @@ function DiscussionSection({
                 <span className="muted">{t(event.label)}</span>
                 <time className="dim">{event.date && shortTime(event.date)}</time>
               </div>
+              {event.replyTo != null && <p className="reply-context">{t('回复较早的评论')}</p>}
               {event.body.trim() && (
                 <GitHubMarkdown repo={resource.repo}>{event.body}</GitHubMarkdown>
               )}
               {event.version && <small>{event.version}</small>}
+              {event.replies.length > 0 && (
+                <div className="review-replies" role="group" aria-label={t('代码评论回复')}>
+                  {event.replies.map((reply) => {
+                    const parent = event.replies.find((item) => item.id === reply.in_reply_to_id);
+                    const author = (parent ? parent.user?.login : event.author) ?? t('已删除用户');
+                    return (
+                      <article className="review-reply" key={reply.id}>
+                        <div className="inline-group">
+                          <h3>{reply.user?.login ?? t('已删除用户')}</h3>
+                          <span className="reply-context">{t('回复 @{0}', [author])}</span>
+                          <time className="dim">{shortTime(reply.created_at)}</time>
+                        </div>
+                        <GitHubMarkdown repo={resource.repo}>{reply.body}</GitHubMarkdown>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
             </article>
           ))}
           {!timeline.length && <p className="resource-status">{t('暂无讨论。')}</p>}

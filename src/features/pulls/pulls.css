@@ -633,3 +633,21 @@
   padding: 10px 8px;
   font-size: 12px;
 }
+
+.review-replies {
+  margin-top: 18px;
+  padding-left: 18px;
+  border-left: 2px solid var(--border);
+}
+.review-reply {
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+.review-reply h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.reply-context {
+  color: var(--muted);
+  font-size: 12px;
+}
