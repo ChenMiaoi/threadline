@@ -1,47 +1,73 @@
-# GitHub App Setup
+# GitHub App setup
 
-This checklist is for ThreadLine maintainers. Ordinary users sign in to the distributed app; they do not register GitHub Apps or supply client secrets.
+[Documentation](README.md) · [Development](development.md) · [Data and security](data-and-security.md)
 
-## Shared Application Registration
+This guide is for maintainers configuring a ThreadLine build or a fork. Users of an existing build follow [Getting started](getting-started.md); they do not register another app or provide a client secret.
 
-The current application is **ThreadLine Desktop**, owned by `ChenMiaoi`, with slug `threadline-desktop`. Its client ID in `src-tauri/github-app.json` is public application metadata, not a secret. The original name `ThreadLine` was reserved on GitHub.
+## Register the application
 
-Register a GitHub App under a maintainer account and configure:
+Create a [GitHub App](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/registering-a-github-app) under the maintainer account or organization, then configure:
 
-- Homepage: the project's public repository URL.
-- Device flow: enabled.
-- Expiring user tokens: enabled.
-- Webhooks: disabled; no webhook endpoint or secret is needed.
-- Account, organization, and enterprise permissions: no access.
-- Repository permissions: Metadata, Contents, Issues, Pull requests, Checks, and Commit statuses, each read-only. Metadata is mandatory.
-- Installation availability: public, so other users and organizations can install the same app. Making the app public does not automatically grant it access to the maintainer's repositories.
+| Setting                                       | Required value                                               |
+| --------------------------------------------- | ------------------------------------------------------------ |
+| Homepage                                      | Your project's public homepage or repository                 |
+| Device flow                                   | Enabled                                                      |
+| Expiring user access tokens                   | Enabled                                                      |
+| Webhooks                                      | Disabled; no webhook server is used                          |
+| Account, organization, enterprise permissions | No access                                                    |
+| Installation availability                     | Public if other accounts or organizations need to install it |
 
-No OAuth web callback, backend authorization server, app private key, or client secret is required for this device-flow implementation. The application does not generate installation access tokens or sign app JWTs. It uses user access tokens for the signed-in user's identity, limited by the app's read-only permissions and any installation's selected repository access.
+Set only these repository permissions, all **read-only**:
 
-For a fork with its own app registration, update the public client ID and app slug in `src-tauri/github-app.json`, or set `THREADLINE_GITHUB_CLIENT_ID` and `THREADLINE_GITHUB_APP_SLUG` at launch. Keep the permission set unchanged; the backend rejects write/admin and unexpected permissions. The client ID must identify a GitHub App, not the shared GitHub CLI OAuth application.
+- Metadata
+- Contents
+- Issues
+- Pull requests
+- Checks
+- Commit statuses
 
-## User Experience
+Metadata is mandatory. The backend rejects write/admin access and permissions outside its supported set. Consult [GitHub's permission guide](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app) when configuring the registration.
 
-The standard path is **Log in to GitHub → enter device code on GitHub → authorize ThreadLine Desktop → select a public repository**. The app polls automatically. It remembers the login and restores the selected repository after restart without a master password or another GitHub authorization.
+ThreadLine uses [device flow for user access tokens](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app), followed by refresh-token rotation. It does not implement a web callback server, create installation tokens, or sign app JWTs. No app private key or client secret is embedded in, or required by, this runtime flow.
 
-Public repositories can be read without installing the app. Private repositories require the owning account or organization to install the app and choose repositories once. For organizations this may require an administrator. Private installation was not submitted or verified in the local audit. GitHub's registration page may require maintainer signing-key setup before installation; that setup is separate from the verified public device-flow login and must never embed a signing key or client secret in the desktop app. Users authorize their own identity but do not create new application registrations. Repository selection offers the optional installation link separately from public repository access.
+## Configure the build
 
-The backend stores access and refresh tokens in an application-owned version 3 encrypted vault. XChaCha20-Poly1305 authenticates and encrypts the payload using a random 256-bit key and a fresh 192-bit nonce per write. The application manages the key in a separate local file (`vault/keys/<client-id>.v3.key`); the payload is stored as `vault/<client-id>.session.v3.vault`. No system credential-store access or user-created master password is required. A missing or damaged key returns an error without silently replacing existing credentials.
+The public application metadata lives in [`src-tauri/github-app.json`](../src-tauri/github-app.json):
 
-The app does not import `gh` credentials or token environment variables, and does not save tokens in SQLite or browser storage. A cross-process lock serializes vault changes and refresh-token rotation between desktop and preview helper processes. Lock files contain no secrets. Key creation is atomic and does not overwrite existing keys. On Unix, directories use mode 0700 and secret files use 0600; Windows inherits the per-user local application-data directory permissions. Local encryption does not protect against a process that can read both the key and ciphertext under the same user account.
+```json
+{
+  "clientId": "YOUR_GITHUB_APP_CLIENT_ID",
+  "appSlug": "your-app-slug"
+}
+```
 
-Version 2 vaults used macOS Keychain or Windows Credential Manager. Upgrading preserves those files and does not read the old system key. Users sign in once to create version 3 storage; the old file is not a fallback and is never overwritten by the new vault.
+Replace the placeholder with the GitHub App's client ID, not its numeric app ID or a GitHub CLI OAuth client. The checked-in registration uses the slug `threadline-desktop`; its client ID is public metadata, not a credential.
 
-Logging out removes the version 3 encrypted credential file and its local key. Reopening after logout stays signed out. Legacy version 2 files and system entries are not accessed or deleted by the new implementation. Users can revoke GitHub-side authorization in account settings; existing CLI credentials and grants are not modified. Temporary network failures do not remove the saved login.
+For a temporary runtime override, set `THREADLINE_GITHUB_CLIENT_ID` and `THREADLINE_GITHUB_APP_SLUG` in the launching process environment. For example, in a POSIX shell:
 
-## Unsupported Notifications
+```sh
+THREADLINE_GITHUB_CLIENT_ID=YOUR_GITHUB_APP_CLIENT_ID \
+THREADLINE_GITHUB_APP_SLUG=your-app-slug npm run desktop
+```
 
-GitHub Notifications REST endpoints do not support GitHub App tokens. ThreadLine displays an explicit capability limitation and keeps PR, review, and issue views available. Do not add a fallback to broad OAuth, classic PAT, or shared CLI credentials to hide this limitation.
+Set both values to the same registration. Editing the JSON requires rebuilding Rust; environment overrides are read when the Rust process starts. The application does not load a token or client secret from these settings. The client ID also namespaces the local credentials and cache.
 
-## References
+## Verify the integration
 
-- [Register a GitHub App](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/registering-a-github-app)
-- [Choose GitHub App permissions](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/choosing-permissions-for-a-github-app)
-- [Generate user tokens with device flow](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app)
-- [Refresh user tokens](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/refreshing-user-access-tokens)
-- [GitHub Notifications API limitations](https://docs.github.com/en/rest/activity/notifications)
+1. Run the [project checks](testing.md#automated-gates).
+2. Start the application and authorize the configured app on GitHub's device page.
+3. Confirm that the app returns to repository selection and can read a public repository.
+4. Restart and verify that the login and selected repository restore.
+5. With a disposable account or approved test workspace, verify logout and subsequent sign-in.
+
+The backend verifies the remote app's client ID, permission set, and installations. It accepts only expiring GitHub App user tokens with refresh credentials. Do not fall back to classic personal access tokens, broad OAuth grants, GitHub CLI, or environment tokens to bypass a failed check.
+
+## Private repositories and API limits
+
+For private repositories, an owner or authorized organization administrator must install the app and select the repositories it may access. User authorization and repository installation are separate steps; the user must have access as well. Organization policy can impose additional approval or SSO requirements. GitHub describes this intersection in its [user access token documentation](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app).
+
+Public installation availability lets other owners install the registration; it does not automatically install the app or grant access to their repositories. Private installation and organization policy need their own integration checks and are not established by a public-repository smoke test.
+
+GitHub's [Notifications REST endpoints](https://docs.github.com/en/rest/activity/notifications) do not support GitHub App tokens. ThreadLine builds its own activity feed from PR and Issue reads and maintains read/snooze state locally. Preserve that boundary rather than adding broader credentials to imitate the GitHub notification inbox.
+
+See [Data and security](data-and-security.md) for credential encryption, cache availability, local files, and logout behavior; see [Troubleshooting](troubleshooting.md) for connection recovery.
