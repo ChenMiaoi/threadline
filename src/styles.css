@@ -638,3 +638,10 @@ select {
 .workspace-body {
   display: contents;
 }
+.sync-status select {
+  background: var(--raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}

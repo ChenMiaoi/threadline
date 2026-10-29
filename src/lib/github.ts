@@ -3,7 +3,11 @@ import { isDesktop } from './desktop';
 import type { GitHubGateway, GitHubResponse, GitHubOperation } from '../core/github';
 
 async function command<T>(name: string, args?: Record<string, unknown>): Promise<T> {
-  if (isDesktop) return invoke<T>(name, args);
+  if (isDesktop)
+    return invoke<T>(
+      name,
+      name === 'github_request' || name === 'github_cached_request' ? { request: args } : args,
+    );
   if (!import.meta.env.DEV) throw new Error('请在 ThreadLine 桌面应用中连接 GitHub。');
   const response = await fetch('/__threadline/github', {
     method: 'POST',
@@ -24,6 +28,7 @@ export const githubGateway: GitHubGateway = {
     accountId: number,
     number = 0,
     head = '',
+    searchDays = 0,
   ): Promise<GitHubResponse<T> | null> {
     return command('github_cached_request', {
       operation,
@@ -31,6 +36,7 @@ export const githubGateway: GitHubGateway = {
       accountId,
       number,
       ...(head ? { head } : {}),
+      ...(searchDays ? { searchDays } : {}),
     });
   },
   async session() {
@@ -42,6 +48,7 @@ export const githubGateway: GitHubGateway = {
     accountId: number,
     number = 0,
     head = '',
+    searchDays = 0,
   ): Promise<GitHubResponse<T>> {
     return command('github_request', {
       operation,
@@ -49,6 +56,7 @@ export const githubGateway: GitHubGateway = {
       accountId,
       number,
       ...(head ? { head } : {}),
+      ...(searchDays ? { searchDays } : {}),
     });
   },
   async select(repo, accountId) {

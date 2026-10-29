@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { newUpdates, quietHours, shouldNotify } from '../core/inbox';
 import { legacyActivityStateIds, migrateActivityState } from '../core/migrate-activity-state';
 import { MAX_INBOX_REVISIONS } from '../core/workspace';
@@ -12,6 +12,7 @@ export function useInboxNotifications(
   records: Activity[],
   workspace: ReturnType<typeof useWorkspace>,
 ) {
+  const observedScope = useRef(github.searchDays);
   const [toast, setToast] = useState({ key: '', text: '' });
   const [error, setError] = useState({ key: '', text: '' });
   const observe = useEffectEvent(() => {
@@ -31,7 +32,9 @@ export function useInboxNotifications(
       return;
     try {
       const seen = workspace.data.inboxSeen[github.key];
-      const observed = newUpdates(records, seen);
+      const scopeChanged = observedScope.current !== github.searchDays;
+      observedScope.current = github.searchDays;
+      const observed = scopeChanged ? [] : newUpdates(records, seen);
       const ids = records.map((record) => record.id);
       const known = new Set(seen);
       if (seen && ids.length === seen.length && ids.every((id) => known.has(id))) return;
@@ -83,6 +86,7 @@ export function useInboxNotifications(
     return () => clearTimeout(timer);
   }, [
     github.key,
+    github.searchDays,
     github.syncing,
     github.liveReady,
     github.times.inbox,

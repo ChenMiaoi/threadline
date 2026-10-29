@@ -590,3 +590,44 @@ it('clears an offline cached-session connection error after a complete successfu
   expect(result.current.liveReady).toBe(true);
   expect(result.current.connectionError).toBe('');
 });
+
+it('isolates search ranges and ignores a delayed response from the previous range', async () => {
+  const gateway = createGateway();
+  const original = gateway.request;
+  let finish!: (value: unknown) => void;
+  gateway.request = vi
+    .fn()
+    .mockImplementation((operation, repository, accountId, number, head, days) => {
+      if (operation === 'authored' && days === 30)
+        return new Promise((resolve) => {
+          finish = resolve;
+        });
+      return original(operation, repository, accountId, number, head, days);
+    });
+  const { result } = renderHook(() => useGitHub(0, gateway, 30));
+  await waitFor(() => expect(finish).toBeDefined());
+  act(() => result.current.setSearchDays(7));
+  await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+  await act(async () =>
+    finish(
+      response([
+        { data: { search: { issueCount: 1, nodes: [{ ...record, title: 'stale scope' }] } } },
+      ]),
+    ),
+  );
+  expect(result.current.pulls[0].title).not.toBe('stale scope');
+  expect(gateway.request).toHaveBeenCalledWith('authored', repo, user.id, 0, '', 7);
+});
+
+it('exposes bounded search results without treating them as an error or a complete count', async () => {
+  const gateway = createGateway();
+  gateway.request = vi
+    .fn()
+    .mockResolvedValue(
+      response([{ data: { search: { issueCount: 5000, nodes: [record], truncated: true } } }]),
+    );
+  const { result } = renderHook(() => useGitHub(0, gateway, 30));
+  await waitFor(() => expect(result.current.pulls).toHaveLength(1));
+  expect(result.current.limited.authored).toBe(true);
+  expect(result.current.errors.authored).toBeUndefined();
+});

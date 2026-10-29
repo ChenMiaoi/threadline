@@ -1,3 +1,12 @@
+#[derive(Default)]
+pub struct RequestOptions<'a> {
+    pub head: &'a str,
+    pub search_days: u16,
+}
+fn scoped_key(key: String, days: u16) -> String {
+    format!("{key}:search-v2:{days}")
+}
+
 use crate::{db::Database, github_auth::AuthManager};
 use serde_json::{json, Value};
 use std::sync::Mutex;
@@ -188,6 +197,7 @@ pub fn cached_session(database: &Mutex<Database>, auth: &AuthManager) -> Result<
     }
     Ok(value.map(|value| json!({"user":{"id":value["user"]["id"],"login":value["user"]["login"],"name":value["user"]["name"],"avatar_url":value["user"]["avatar_url"]},"selected":value["selected"],"notificationsAvailable":false,"installationUrl":auth.config.installation_url(),"authProvider":"github-app"})).unwrap_or(Value::Null))
 }
+#[cfg(test)]
 pub fn cached_request(
     database: &Mutex<Database>,
     auth: &AuthManager,
@@ -197,6 +207,35 @@ pub fn cached_request(
     account: u64,
     head: &str,
 ) -> Result<Value, String> {
+    cached_request_scoped(
+        database,
+        auth,
+        operation,
+        repo,
+        number,
+        account,
+        RequestOptions {
+            head,
+            search_days: 0,
+        },
+    )
+}
+pub fn cached_request_scoped(
+    database: &Mutex<Database>,
+    auth: &AuthManager,
+    operation: &str,
+    repo: &str,
+    number: u64,
+    account: u64,
+    options: RequestOptions<'_>,
+) -> Result<Value, String> {
+    let head = options.head;
+    let search_days = options.search_days;
+    let list = matches!(operation, "activity" | "authored" | "review" | "issues");
+    if !matches!(search_days, 0 | 1 | 7 | 30 | 90 | 365) || (!list && search_days != 0) {
+        return Err("INVALID_SEARCH_RANGE".into());
+    }
+
     if !(matches!(
         operation,
         "repositories"
@@ -223,7 +262,14 @@ pub fn cached_request(
     auth.ensure_account(account)?;
     let value = read_response(
         &database,
-        &response_key(auth, operation, repo, number, account, head),
+        &if list {
+            scoped_key(
+                response_key(auth, operation, repo, number, account, head),
+                search_days,
+            )
+        } else {
+            response_key(auth, operation, repo, number, account, head)
+        },
     )?;
     auth.ensure_account(account)?;
     Ok(value.unwrap_or(Value::Null))
@@ -294,6 +340,7 @@ pub fn request(
 ) -> Result<Value, String> {
     request_at_head(database, auth, operation, repo, number, account_id, "")
 }
+#[cfg(any(test, feature = "browser-preview"))]
 pub fn request_at_head(
     database: &Mutex<Database>,
     auth: &AuthManager,
@@ -303,6 +350,35 @@ pub fn request_at_head(
     account_id: u64,
     head: &str,
 ) -> Result<Value, String> {
+    request_scoped(
+        database,
+        auth,
+        operation,
+        repo,
+        number,
+        account_id,
+        RequestOptions {
+            head,
+            search_days: 0,
+        },
+    )
+}
+pub fn request_scoped(
+    database: &Mutex<Database>,
+    auth: &AuthManager,
+    operation: &str,
+    repo: &str,
+    number: u64,
+    account_id: u64,
+    options: RequestOptions<'_>,
+) -> Result<Value, String> {
+    let head = options.head;
+    let search_days = options.search_days;
+    let list = matches!(operation, "activity" | "authored" | "review" | "issues");
+    if !matches!(search_days, 0 | 1 | 7 | 30 | 90 | 365) || (!list && search_days != 0) {
+        return Err("INVALID_SEARCH_RANGE".into());
+    }
+
     let (epoch, pull_epoch) = {
         let database = database.lock().map_err(|_| "DATABASE_LOCKED")?;
         (
@@ -356,8 +432,17 @@ pub fn request_at_head(
     };
     let login = user["login"].as_str().ok_or("GH_RESPONSE_ERROR")?;
     let key = response_key(auth, operation, repo, number, account_id, head);
+    let key = if list {
+        scoped_key(key, search_days)
+    } else {
+        key
+    };
     let result = timed(&mut stages, "data", || {
-        client.section(operation, repo, number, login, head)
+        if list {
+            client.search_lists(operation, repo, login, search_days)
+        } else {
+            client.section(operation, repo, number, login, head)
+        }
     });
     // A token's remote identity is immutable. Re-read the locked credential to detect logout or
     // cross-process account replacement, without issuing a redundant second /user request.
@@ -787,7 +872,14 @@ mod isolation_tests {
                 .lock()
                 .unwrap()
                 .set_setting(
-                    &response_key(&auth, operation, "owner/repo", number, 7, ""),
+                    &if operation == "authored" {
+                        scoped_key(
+                            response_key(&auth, operation, "owner/repo", number, 7, ""),
+                            0,
+                        )
+                    } else {
+                        response_key(&auth, operation, "owner/repo", number, 7, "")
+                    },
                     &response.to_string(),
                 )
                 .unwrap();
@@ -1015,5 +1107,56 @@ mod isolation_tests {
         let cached = request(&database, &auth, "issue", "owner/repo", 1, 7).unwrap();
         assert_eq!(cached["stale"], true);
         assert_eq!(cached["payload"]["body"], "app-scoped-content");
+    }
+    #[test]
+    fn list_cache_is_isolated_by_range_and_rejects_invalid_ranges() {
+        let (database, auth, http, _) = setup();
+        for days in [7, 30] {
+            database
+                .set_setting(
+                    &scoped_key(
+                        response_key(&auth, "authored", "owner/repo", 0, 7, ""),
+                        days,
+                    ),
+                    &json!({"payload": days,"fetchedAt":42,"stale":false,"error":null}).to_string(),
+                )
+                .unwrap();
+        }
+        let database = Mutex::new(database);
+        for days in [7, 30] {
+            let value = cached_request_scoped(
+                &database,
+                &auth,
+                "authored",
+                "owner/repo",
+                0,
+                7,
+                RequestOptions {
+                    head: "",
+                    search_days: days,
+                },
+            )
+            .unwrap();
+            assert_eq!(value["payload"], days);
+        }
+        assert!(
+            cached_request(&database, &auth, "authored", "owner/repo", 0, 7, "")
+                .unwrap()
+                .is_null()
+        );
+        assert!(cached_request_scoped(
+            &database,
+            &auth,
+            "authored",
+            "owner/repo",
+            0,
+            7,
+            RequestOptions {
+                head: "",
+                search_days: 2
+            }
+        )
+        .is_err());
+        assert!(http.requests.lock().unwrap().is_empty());
     }
 }

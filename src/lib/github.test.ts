@@ -8,10 +8,12 @@ describe('GitHub desktop boundary', () => {
     vi.mocked(invoke).mockResolvedValue({ payload: [], stale: false });
     await githubGateway.request('authored', 'owner/repository', 7);
     expect(invoke).toHaveBeenCalledWith('github_request', {
-      operation: 'authored',
-      repo: 'owner/repository',
-      accountId: 7,
-      number: 0,
+      request: {
+        operation: 'authored',
+        repo: 'owner/repository',
+        accountId: 7,
+        number: 0,
+      },
     });
     await githubGateway.select('owner/repository', 7);
     expect(invoke).toHaveBeenCalledWith('github_select_repository', {
@@ -23,11 +25,13 @@ describe('GitHub desktop boundary', () => {
     vi.mocked(invoke).mockResolvedValue({ payload: [], stale: false });
     await githubGateway.request('files', 'owner/repository', 7, 42, 'a'.repeat(40));
     expect(invoke).toHaveBeenCalledWith('github_request', {
-      operation: 'files',
-      repo: 'owner/repository',
-      accountId: 7,
-      number: 42,
-      head: 'a'.repeat(40),
+      request: {
+        operation: 'files',
+        repo: 'owner/repository',
+        accountId: 7,
+        number: 42,
+        head: 'a'.repeat(40),
+      },
     });
   });
   it('propagates login failures instead of replacing them with records', async () => {
@@ -47,10 +51,12 @@ it('uses dedicated local-only cache commands with the complete resource identity
   expect(invoke).toHaveBeenCalledWith('github_cached_session', undefined);
   await githubGateway.cached!('files', 'owner/repository', 7, 42, 'b'.repeat(40));
   expect(invoke).toHaveBeenCalledWith('github_cached_request', {
-    operation: 'files',
-    repo: 'owner/repository',
-    accountId: 7,
-    number: 42,
-    head: 'b'.repeat(40),
+    request: {
+      operation: 'files',
+      repo: 'owner/repository',
+      accountId: 7,
+      number: 42,
+      head: 'b'.repeat(40),
+    },
   });
 });

@@ -178,24 +178,19 @@ impl Client {
             request.json = Some(
                 json!({"query": SEARCH_QUERY, "variables": {"search":query,"endCursor":cursor}}),
             );
-            let body = self.checked(request)?.body;
+            let mut body = self.checked(request)?.body;
             let search = &body["data"]["search"];
-            if search["issueCount"]
+            search["issueCount"]
                 .as_u64()
-                .ok_or("GH_RESPONSE_ERROR: search count")?
-                > 1000
-            {
-                return Err(
-                    "GH_SEARCH_LIMIT: 相关记录超过 GitHub 搜索的 1000 条上限，无法完整加载。"
-                        .into(),
-                );
-            }
+                .ok_or("GH_RESPONSE_ERROR: search count")?;
             let more = search["pageInfo"]["hasNextPage"]
                 .as_bool()
                 .ok_or("GH_RESPONSE_ERROR: search page info")?;
             let end = search["pageInfo"]["endCursor"].as_str().map(str::to_string);
+            let limited = more && pages.len() >= 3;
+            body["data"]["search"]["truncated"] = json!(limited);
             pages.push(body);
-            if !more {
+            if !more || limited {
                 return Ok(pages.into());
             }
             let end = end.filter(|c| !c.is_empty()).ok_or("GH_PAGINATION_ERROR")?;
@@ -204,6 +199,56 @@ impl Client {
             }
             cursor = Some(end);
         }
+    }
+    pub fn search_lists(
+        &self,
+        operation: &str,
+        repo: &str,
+        login: &str,
+        days: u16,
+    ) -> Result<Value, String> {
+        if !valid_repo(repo) || !matches!(days, 0 | 1 | 7 | 30 | 90 | 365) {
+            return Err("INVALID_SEARCH_RANGE".into());
+        }
+        let range = if days == 0 {
+            String::new()
+        } else {
+            let since = chrono::Utc::now().date_naive() - chrono::Days::new(u64::from(days));
+            format!(" updated:>={since}")
+        };
+        let qualifiers = match operation {
+            "activity" => vec![format!("is:pr involves:{login}")],
+            "authored" => vec![format!("is:pr author:{login}")],
+            "issues" => vec![format!("is:issue involves:{login}")],
+            "review" => ["reviewed-by", "review-requested", "commenter"]
+                .iter()
+                .map(|q| format!("is:pr {q}:{login} -author:{login}"))
+                .collect(),
+            _ => return Err("INVALID_OPERATION".into()),
+        };
+        let results = std::thread::scope(|scope| {
+            let jobs: Vec<_> = qualifiers
+                .iter()
+                .map(|qualifier| {
+                    let query = format!("repo:{repo} {qualifier} sort:updated-desc{range}");
+                    scope.spawn(move || self.search(&query))
+                })
+                .collect();
+            jobs.into_iter()
+                .map(|job| job.join().unwrap_or_else(|_| Err("GH_TASK_FAILED".into())))
+                .collect::<Vec<_>>()
+        });
+        let mut pages = Vec::new();
+        for result in results {
+            pages.extend(
+                result?
+                    .as_array()
+                    .ok_or("GH_RESPONSE_ERROR")?
+                    .iter()
+                    .cloned(),
+            );
+        }
+        Ok(pages.into())
     }
     pub fn section(
         &self,
@@ -361,32 +406,8 @@ impl Client {
             "inbox" => Err(
                 "GH_NOTIFICATIONS_UNSUPPORTED: GitHub 通知接口不支持只读 GitHub App 授权。".into(),
             ),
-            "activity" => self.search(&format!(
-                "repo:{repo} is:pr involves:{login} sort:updated-desc"
-            )),
-            "authored" | "review" | "issues" => {
-                if operation == "review" {
-                    let mut pages = Vec::new();
-                    let results = std::thread::scope(|scope| {
-                        ["reviewed-by", "review-requested", "commenter"].map(|qualifier| {
-                            scope.spawn(move || self.search(&format!(
-                                "repo:{repo} is:pr {qualifier}:{login} -author:{login} sort:updated-desc"
-                            )))
-                        }).map(|job| job.join().unwrap_or_else(|_| Err("GH_TASK_FAILED".into())))
-                    });
-                    for result in results {
-                        let value = result?;
-                        pages.extend(value.as_array().ok_or("GH_RESPONSE_ERROR")?.iter().cloned());
-                    }
-                    return Ok(pages.into());
-                }
-                let qualifier = match operation {
-                    "authored" => format!("is:pr author:{login}"),
-                    "review" => format!("is:pr involves:{login} -author:{login}"),
-                    _ => format!("is:issue involves:{login}"),
-                };
-                let query = format!("repo:{repo} {qualifier} sort:updated-desc");
-                self.search(&query)
+            "activity" | "authored" | "review" | "issues" => {
+                self.search_lists(operation, repo, login, 0)
             }
             "detail" if number > 0 => {
                 let pull = self.api(&format!("{base}/pulls/{number}"), false)?;
@@ -891,7 +912,7 @@ mod tests {
         json!({"data":{"search":{"issueCount":total,"nodes":[],"pageInfo":{"hasNextPage":more,"endCursor":cursor}}}})
     }
     #[test]
-    fn graphql_follows_cursors_and_enforces_search_limit_and_partial_failure() {
+    fn graphql_follows_cursors_and_reports_partial_failure() {
         let (client, http) = client();
         http.push(search_page("next".into(), true, 60));
         http.push(search_page(Value::Null, false, 60));
@@ -911,15 +932,33 @@ mod tests {
             "next"
         );
         drop(requests);
-        http.push(search_page(Value::Null, false, 1001));
-        assert!(client
-            .search("query")
-            .unwrap_err()
-            .starts_with("GH_SEARCH_LIMIT"));
         http.push(json!({"data":{},"errors":[{"message":"private-secret"}]}));
         let error = client.search("query").unwrap_err();
         assert!(error.starts_with("GH_API_ERROR"));
         assert!(!error.contains("private-secret"));
+    }
+    #[test]
+    fn large_searches_return_bounded_results_with_explicit_truncation() {
+        let (client, http) = client();
+        for cursor in ["a", "b", "c", "d"] {
+            http.push(search_page(cursor.into(), true, 5000));
+        }
+        let pages = client
+            .search_lists("authored", "owner/repo", "owner", 30)
+            .unwrap();
+        assert_eq!(pages.as_array().unwrap().len(), 4);
+        assert_eq!(pages[3]["data"]["search"]["truncated"], true);
+        let requests = http.requests.lock().unwrap();
+        assert_eq!(requests.len(), 4);
+        assert!(requests[0].json.as_ref().unwrap()["variables"]["search"]
+            .as_str()
+            .unwrap()
+            .contains(" updated:>="));
+        drop(requests);
+        assert!(client
+            .search_lists("authored", "owner/repo", "owner", 2)
+            .is_err());
+        assert_eq!(http.requests.lock().unwrap().len(), 4);
     }
     #[test]
     fn activity_search_uses_explicit_pull_type_without_notifications_permission() {

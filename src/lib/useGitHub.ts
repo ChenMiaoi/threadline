@@ -31,6 +31,7 @@ interface Snapshot {
   sources: Partial<Record<Page, SearchRecord[]>>;
   errors: Partial<Record<Page, string>>;
   times: Partial<Record<Page, number>>;
+  limited: Partial<Record<Page, boolean>>;
 }
 const empty: Snapshot = {
   key: '',
@@ -43,9 +44,15 @@ const empty: Snapshot = {
   sources: {},
   errors: {},
   times: {},
+  limited: {},
 };
 
-export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githubGateway) {
+export function useGitHub(
+  refreshMinutes: number,
+  gateway: GitHubGateway = githubGateway,
+  initialSearchDays = 0,
+) {
+  const [searchDays, setSearchDays] = useState(initialSearchDays);
   const [session, setSession] = useState<GitHubSession | null>(null);
   const [connecting, setConnecting] = useState(true);
   const [connectionError, setConnectionError] = useState('');
@@ -60,6 +67,7 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
   const hadSession = useRef(false);
   const inFlight = useRef<{ token: number; force: boolean; promise: Promise<void> } | null>(null);
   const key = session && repo ? `${session.user.id}:${repo}` : '';
+  const scopeKey = searchDays ? `${key}:days:${searchDays}` : key;
 
   const connect = useCallback(
     async (hydrate = false) => {
@@ -142,6 +150,7 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
       if (inFlight.current?.token === generation.current) return inFlight.current.promise;
       const token = ++generation.current;
       setSyncing(true);
+      const searchArgs: [number?, string?, number?] = searchDays ? [0, '', searchDays] : [];
       const pages: Page[] = ['authored', 'inbox', 'review', 'issues'];
       let livePages = 0;
       setSnapshot((previous) => ({ ...previous, liveReady: false }));
@@ -163,13 +172,17 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
                       : reviewFromGitHub(r, session.user.id, repo, session.user.login),
               );
               setSnapshot((previous) => {
-                const current = previous.key === key ? previous : empty;
+                const current = previous.key === scopeKey ? previous : empty;
                 const errors = { ...current.errors };
                 if (result.error) errors[page] = result.error;
                 else delete errors[page];
                 return {
                   ...current,
-                  key,
+                  key: scopeKey,
+                  limited: {
+                    ...current.limited,
+                    [page]: result.payload.some((p) => p.data.search.truncated),
+                  },
                   sources: { ...current.sources, [page]: source },
                   ...(page !== 'inbox'
                     ? {
@@ -196,7 +209,7 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
             };
             if (!force && gateway.cached) {
               const cached = await gateway
-                .cached<SearchPage[]>(operation, repo, session.user.id)
+                .cached<SearchPage[]>(operation, repo, session.user.id, ...searchArgs)
                 .catch((reason: unknown) => {
                   if (
                     /GH_(AUTH_REQUIRED|ACCOUNT_CHANGED|APP_PERMISSIONS_UNSAFE|APP_IDENTITY_MISMATCH|FORBIDDEN|NOT_FOUND)/.test(
@@ -212,7 +225,12 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
                 if (isFresh(cached, (refreshMinutes || 5) * 60_000)) return;
               }
             }
-            const result = await gateway.request<SearchPage[]>(operation, repo, session.user.id);
+            const result = await gateway.request<SearchPage[]>(
+              operation,
+              repo,
+              session.user.id,
+              ...searchArgs,
+            );
             if (token !== generation.current) return;
             if (!result.stale && !result.error) ++livePages;
             apply(result);
@@ -238,17 +256,17 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
               ++generation.current;
               setSnapshot({
                 ...empty,
-                key,
+                key: scopeKey,
                 errors: { authored: error, inbox: error, review: error, issues: error },
               });
               setSyncing(false);
               return;
             }
             setSnapshot((previous) => {
-              const current = previous.key === key ? previous : empty;
+              const current = previous.key === scopeKey ? previous : empty;
               return {
                 ...current,
-                key,
+                key: scopeKey,
                 errors: { ...current.errors, [page]: error },
               };
             });
@@ -268,7 +286,7 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
       inFlight.current = { token, force, promise };
       return promise;
     },
-    [gateway, session, repo, key, refreshMinutes],
+    [gateway, session, repo, scopeKey, searchDays, refreshMinutes],
   );
   const refresh = useCallback(() => {
     const pending = inFlight.current;
@@ -331,7 +349,7 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
       if (token === identity.current) setPicking(false);
     }
   }
-  const current = snapshot.key === key ? snapshot : empty;
+  const current = snapshot.key === scopeKey ? snapshot : empty;
   const inbox = useMemo(
     () =>
       /GH_(FORBIDDEN|NOT_FOUND)/.test(current.errors.inbox ?? '')
@@ -387,6 +405,9 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
   }
   return {
     ...visible,
+    key,
+    searchDays,
+    setSearchDays,
     inbox,
     legacyAliases,
     releaseMigrationSources,

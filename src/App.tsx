@@ -45,7 +45,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   );
   const workspace = useWorkspace(repository);
   const { data, update } = workspace;
-  const github = useGitHub(data.preferences.refreshMinutes, gateway);
+  const github = useGitHub(data.preferences.refreshMinutes, gateway, 30);
   const resourceCache = useMemo(() => createResourceCache(github.key), [github.key]);
   const profileCache = useMemo(
     () => createResourceCache(`profile-v2:${github.session?.user.id}:${github.repo}`),
@@ -369,6 +369,23 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                   ? `${openedPull ? '列表同步时间' : '上次读取'} ${new Date(github.times[currentPage]!).toLocaleTimeString('zh-CN')}`
                   : ''}
             </span>
+            {currentPage && !openedPull && (
+              <label className="inline-group">
+                更新范围
+                <select
+                  aria-label="更新范围"
+                  value={github.searchDays}
+                  onChange={(event) => github.setSearchDays(Number(event.target.value))}
+                >
+                  <option value={1}>最近 1 天</option>
+                  <option value={7}>最近 7 天</option>
+                  <option value={30}>最近 30 天</option>
+                  <option value={90}>最近 90 天</option>
+                  <option value={365}>最近一年</option>
+                  <option value={0}>全部时间</option>
+                </select>
+              </label>
+            )}
             <button
               className="text-button"
               disabled={github.syncing}
@@ -378,6 +395,13 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
             </button>
           </div>
         )}
+        {currentPage &&
+          (github.limited[currentPage] ||
+            (currentPage === 'inbox' && Object.values(github.limited).some(Boolean))) && (
+            <p role="status" className="sync-error-banner">
+              当前范围结果较多，每项查询仅显示最近 200 条，计数为已加载条目。可缩小更新范围查看。
+            </p>
+          )}
         <fieldset className="workspace-body" disabled={!workspace.loaded}>
           {busy ? (
             <div className="empty-state" role="status">

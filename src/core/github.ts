@@ -64,6 +64,7 @@ export interface GitHubGateway {
     accountId: number,
     number?: number,
     head?: string,
+    searchDays?: number,
   ): Promise<GitHubResponse<T> | null>;
   request<T>(
     operation: GitHubOperation,
@@ -71,6 +72,7 @@ export interface GitHubGateway {
     accountId: number,
     number?: number,
     head?: string,
+    searchDays?: number,
   ): Promise<GitHubResponse<T>>;
   select(repo: string, accountId: number): Promise<void>;
   login(): Promise<GitHubLoginState>;
@@ -117,7 +119,7 @@ export interface SearchRecord {
   participants?: { nodes: Author[] };
 }
 export interface SearchPage {
-  data: { search: { issueCount: number; nodes: SearchRecord[] } };
+  data: { search: { issueCount: number; truncated?: boolean; nodes: SearchRecord[] } };
 }
 export interface GitHubNotification {
   id: string;

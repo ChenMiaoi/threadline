@@ -45,6 +45,8 @@ struct Args {
     #[serde(default)]
     head: String,
     #[serde(default)]
+    search_days: u16,
+    #[serde(default)]
     url: String,
 }
 #[derive(Deserialize)]
@@ -62,23 +64,29 @@ fn execute(
     match request.command {
         Command::Session => github_workspace::session(database, auth),
         Command::CachedSession => github_workspace::cached_session(database, auth),
-        Command::CachedRequest => github_workspace::cached_request(
+        Command::CachedRequest => github_workspace::cached_request_scoped(
             database,
             auth,
             &request.args.operation,
             &request.args.repo,
             request.args.number,
             request.args.account_id,
-            &request.args.head,
+            github_workspace::RequestOptions {
+                head: &request.args.head,
+                search_days: request.args.search_days,
+            },
         ),
-        Command::Request => github_workspace::request_at_head(
+        Command::Request => github_workspace::request_scoped(
             database,
             auth,
             &request.args.operation,
             &request.args.repo,
             request.args.number,
             request.args.account_id,
-            &request.args.head,
+            github_workspace::RequestOptions {
+                head: &request.args.head,
+                search_days: request.args.search_days,
+            },
         ),
         Command::SelectRepository => {
             github_workspace::select(database, auth, &request.args.repo, request.args.account_id)?;
@@ -153,8 +161,17 @@ pub fn measure(repo: &str, number: u64, full: bool) -> Result<(), String> {
             .as_str()
             .ok_or("GH_RESPONSE_ERROR")?;
         for operation in ["discussion", "files", "checks"] {
-            let result = github_workspace::request_at_head(
-                &database, &auth, operation, repo, number, account, head,
+            let result = github_workspace::request_scoped(
+                &database,
+                &auth,
+                operation,
+                repo,
+                number,
+                account,
+                github_workspace::RequestOptions {
+                    head,
+                    search_days: 0,
+                },
             )?;
             println!(
                 "{}",

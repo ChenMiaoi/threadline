@@ -368,3 +368,30 @@ it('never consumes cached or mixed refresh data as a notification baseline', asy
   expect(result.current.workspace.data.inboxSeen[key]).toEqual([activity.id]);
   expect(result.current.notices.toast).toBe('');
 });
+
+it('does not announce historical records when changing the search range', async () => {
+  const preferences = { ...defaultWorkspace().preferences, quietStart: '00:00', quietEnd: '00:00' };
+  const repository = {
+    load: async () => ({
+      ...defaultWorkspace(),
+      preferences,
+      inboxSeen: { [key]: [records[0].id] },
+    }),
+    save: vi.fn().mockResolvedValue(undefined),
+  };
+  const { result, rerender } = renderHook(
+    ({ days, items }) => {
+      const workspace = useWorkspace(repository);
+      return useInboxNotifications({ ...github, searchDays: days }, items, workspace);
+    },
+    { initialProps: { days: 7, items: [records[0]] } },
+  );
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  rerender({ days: 30, items: [records[0], records[1]] });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(result.current.toast).toBe('');
+});

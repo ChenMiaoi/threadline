@@ -113,24 +113,35 @@ async fn github_cached_session(app: tauri::AppHandle) -> Result<serde_json::Valu
     .await
     .map_err(|_| "GH_TASK_FAILED")?
 }
-#[tauri::command]
-async fn github_cached_request(
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct GitHubRequest {
     operation: String,
     repo: String,
     number: u64,
     account_id: u64,
-    head: Option<String>,
+    #[serde(default)]
+    head: String,
+    #[serde(default)]
+    search_days: u16,
+}
+#[tauri::command]
+async fn github_cached_request(
+    request: GitHubRequest,
     app: tauri::AppHandle,
 ) -> Result<serde_json::Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        github_workspace::cached_request(
+        github_workspace::cached_request_scoped(
             &app.state::<Workspace>().database,
             &app.state::<github_auth::AuthManager>(),
-            &operation,
-            &repo,
-            number,
-            account_id,
-            head.as_deref().unwrap_or(""),
+            &request.operation,
+            &request.repo,
+            request.number,
+            request.account_id,
+            github_workspace::RequestOptions {
+                head: &request.head,
+                search_days: request.search_days,
+            },
         )
     })
     .await
@@ -138,22 +149,21 @@ async fn github_cached_request(
 }
 #[tauri::command]
 async fn github_request(
-    operation: String,
-    repo: String,
-    number: u64,
-    account_id: u64,
-    head: Option<String>,
+    request: GitHubRequest,
     app: tauri::AppHandle,
 ) -> Result<serde_json::Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        github_workspace::request_at_head(
+        github_workspace::request_scoped(
             &app.state::<Workspace>().database,
             &app.state::<github_auth::AuthManager>(),
-            &operation,
-            &repo,
-            number,
-            account_id,
-            head.as_deref().unwrap_or(""),
+            &request.operation,
+            &request.repo,
+            request.number,
+            request.account_id,
+            github_workspace::RequestOptions {
+                head: &request.head,
+                search_days: request.search_days,
+            },
         )
     })
     .await
