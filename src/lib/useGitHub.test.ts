@@ -82,6 +82,82 @@ describe('GitHub synchronization', () => {
     expect(result.current.times.authored).toBe(fetchedAt);
     expect(result.current.errors.authored).toBe('GH_REQUEST_FAILED');
   });
+  it('replaces stale records and clears errors after a successful refresh', async () => {
+    const gateway = createGateway();
+    const request = gateway.request;
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+    const fetchedAt = result.current.times.authored!;
+    vi.mocked(gateway.request).mockRejectedValue('GH_REQUEST_FAILED');
+    await act(() => result.current.refresh());
+    expect(result.current.pulls).toHaveLength(2);
+    expect(result.current.times.authored).toBe(fetchedAt);
+    expect(result.current.errors.authored).toBe('GH_REQUEST_FAILED');
+    gateway.request = vi.fn().mockImplementation((operation, repository, accountId, number) =>
+      operation === 'authored'
+        ? Promise.resolve({
+            ...response([
+              { data: { search: { issueCount: 1, nodes: [{ ...record, title: 'Recovered' }] } } },
+            ]),
+            fetchedAt: fetchedAt + 1000,
+          })
+        : request(operation, repository, accountId, number),
+    );
+    await act(() => result.current.refresh());
+    expect(result.current.pulls.map((pull) => pull.title)).toEqual(['Recovered']);
+    expect(result.current.times.authored).toBe(fetchedAt + 1000);
+    expect(result.current.errors.authored).toBeUndefined();
+  });
+  it('ignores a late refresh after reconnecting', async () => {
+    const gateway = createGateway();
+    const request = gateway.request;
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+    let fail: (reason: string) => void = () => {};
+    gateway.request = vi.fn().mockImplementation((operation, repository, accountId, number) =>
+      operation === 'authored'
+        ? new Promise((_resolve, reject) => {
+            fail = reject;
+          })
+        : request(operation, repository, accountId, number),
+    );
+    let pending: Promise<void>;
+    act(() => {
+      pending = result.current.refresh();
+    });
+    gateway.request = request;
+    await act(() => result.current.connect());
+    await act(async () => {
+      fail('GH_AUTH_REQUIRED');
+      await pending;
+    });
+    await waitFor(() => expect(result.current.syncing).toBe(false));
+    expect(result.current.session?.user.id).toBe(user.id);
+    expect(result.current.pulls).toHaveLength(2);
+    expect(result.current.connectionError).toBe('');
+  });
+  it('retains the current workspace when rechecking the connection fails temporarily', async () => {
+    const gateway = createGateway();
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+    vi.mocked(gateway.session).mockRejectedValueOnce('GH_REQUEST_FAILED');
+    await act(() => result.current.connect());
+    expect(result.current.session?.user.id).toBe(user.id);
+    expect(result.current.repo).toBe(repo);
+    expect(result.current.pulls).toHaveLength(2);
+    expect(result.current.connectionError).toBe('GH_REQUEST_FAILED');
+    await act(() => result.current.connect());
+    await waitFor(() => expect(result.current.connectionError).toBe(''));
+  });
+  it('clears the workspace when rechecking reveals lost authentication', async () => {
+    const gateway = createGateway();
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+    vi.mocked(gateway.session).mockRejectedValueOnce('GH_AUTH_REQUIRED');
+    await act(() => result.current.connect());
+    expect(result.current.session).toBeNull();
+    expect(result.current.pulls).toEqual([]);
+  });
   it('does not clear an earlier request error until a retry succeeds', async () => {
     const gateway = createGateway();
     vi.mocked(gateway.session).mockRejectedValueOnce('GH_AUTH_REQUIRED');

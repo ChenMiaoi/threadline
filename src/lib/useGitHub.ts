@@ -53,18 +53,26 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
     const token = ++identity.current;
     ++generation.current;
     setConnecting(true);
-    setSession(null);
-    setRepo('');
-    setSnapshot(empty);
-    setRepositories([]);
+    setPicking(false);
+    setRepositoryError('');
     setConnectionError('');
     try {
       const current = await gateway.session();
       if (token !== identity.current) return;
       setSession(current);
       setRepo(current.selected ?? '');
+      setRepositories([]);
     } catch (reason) {
-      if (token === identity.current) setConnectionError(String(reason));
+      if (token === identity.current) {
+        const error = String(reason);
+        if (/GH_(AUTH_REQUIRED|ACCOUNT_CHANGED)/.test(error)) {
+          setSession(null);
+          setRepo('');
+          setSnapshot(empty);
+          setRepositories([]);
+        }
+        setConnectionError(error);
+      }
     } finally {
       if (token === identity.current) {
         setConnecting(false);
