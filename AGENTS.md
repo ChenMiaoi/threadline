@@ -9,6 +9,7 @@
 - Common types are `feat`, `fix`, `refactor`, `docs`, `test`, `build`, `ci`, `chore`, `perf`, and `style`.
 - Write commit messages in English. Keep the description concise and specific, for example `docs: clarify contributor guidelines` or `fix(translation-core): discard stale translation results`.
 - Give each commit one clear purpose. Do not mix unrelated refactoring, formatting, or temporary files into the same commit.
+- For larger changes, commit at appropriate milestones as cohesive, verified pieces of work are completed. Keep individual commits reasonably small and easy to review instead of accumulating one oversized commit.
 - Mark breaking changes with `!` and explain their impact and migration steps in a `BREAKING CHANGE:` footer.
 - Review the staged diff before committing. Exclude secrets, credentials, debug artifacts, and unintended changes.
 
