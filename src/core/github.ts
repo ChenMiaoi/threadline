@@ -22,6 +22,12 @@ export interface GitHubResponse<T> {
   stale: boolean;
   error: string | null;
 }
+export interface GitHubLoginState {
+  status: 'idle' | 'starting' | 'waiting' | 'complete' | 'error' | 'cancelled';
+  code: string | null;
+  verificationUrl: string | null;
+  error: string | null;
+}
 export type GitHubOperation =
   'repositories' | 'repository' | 'authored' | 'review' | 'issues' | 'inbox' | 'detail' | 'issue';
 export interface GitHubGateway {
@@ -33,7 +39,9 @@ export interface GitHubGateway {
     number?: number,
   ): Promise<GitHubResponse<T>>;
   select(repo: string, accountId: number): Promise<void>;
-  login(): Promise<void>;
+  login(): Promise<GitHubLoginState>;
+  loginStatus(): Promise<GitHubLoginState>;
+  cancelLogin(): Promise<GitHubLoginState>;
   open(url: string): Promise<void>;
 }
 interface Author {

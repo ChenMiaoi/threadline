@@ -13,8 +13,6 @@ enum Command {
     Request,
     #[serde(rename = "github_select_repository")]
     SelectRepository,
-    #[serde(rename = "github_login")]
-    Login,
     #[serde(rename = "github_open")]
     Open,
 }
@@ -64,10 +62,6 @@ pub fn run() -> Result<Value, String> {
         ),
         Command::SelectRepository => {
             github_workspace::select(&database, &request.args.repo, request.args.account_id)?;
-            Ok(Value::Null)
-        }
-        Command::Login => {
-            github::login()?;
             Ok(Value::Null)
         }
         Command::Open => {

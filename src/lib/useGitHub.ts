@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { githubGateway } from './github';
+import { useGitHubLogin } from './useGitHubLogin';
 import {
   issueFromGitHub,
   notificationFromGitHub,
@@ -230,9 +231,11 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
     }
   }
   const current = snapshot.key === key ? snapshot : empty;
+  const auth = useGitHubLogin(gateway, connect);
   return {
     ...current,
     gateway,
+    auth,
     session,
     repo,
     connecting,

@@ -32,6 +32,12 @@ export const githubGateway: GitHubGateway = {
   async login() {
     return command('github_login');
   },
+  async loginStatus() {
+    return command('github_login_status');
+  },
+  async cancelLogin() {
+    return command('github_login_cancel');
+  },
   async open(url) {
     return command('github_open', { url });
   },

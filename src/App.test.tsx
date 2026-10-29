@@ -88,8 +88,26 @@ describe('workspace interactions', () => {
     render(<App gateway={gateway} />);
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'GH_NOT_FOUND');
     expect(screen.queryByRole('textbox', { name: '搜索 PR' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '通过 gh 登录 ↗' }));
+    fireEvent.click(screen.getByRole('button', { name: '登录 GitHub' }));
     await waitFor(() => expect(gateway.login).toHaveBeenCalledOnce());
+  });
+  it('opens repository selection automatically after in-app authorization succeeds', async () => {
+    const gateway = createGateway();
+    vi.mocked(gateway.session)
+      .mockRejectedValueOnce('GH_AUTH_REQUIRED')
+      .mockResolvedValue({ user, selected: null });
+    vi.mocked(gateway.login).mockResolvedValue({
+      status: 'complete',
+      code: null,
+      verificationUrl: null,
+      error: null,
+    });
+    render(<App gateway={gateway} />);
+    await screen.findByRole('alert');
+    fireEvent.click(screen.getByRole('button', { name: '登录 GitHub' }));
+    expect(await screen.findByRole('dialog', { name: '选择仓库' })).toBeTruthy();
+    expect(gateway.session).toHaveBeenCalledTimes(2);
+    expect(gateway.request).toHaveBeenCalledWith('repositories', '', user.id);
   });
   it('validates a real repository choice before opening its workspace', async () => {
     const gateway = createGateway();

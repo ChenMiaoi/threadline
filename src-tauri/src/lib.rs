@@ -1,5 +1,6 @@
 mod db;
 mod github;
+mod github_auth;
 mod github_workspace;
 #[cfg(feature = "browser-preview")]
 pub mod preview;
@@ -52,11 +53,17 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir)?;
             let path = data_dir.join("threadline.db");
             let database = Database::open(&path)?;
+            app.manage(github_auth::AuthManager::default());
             app.manage(Workspace {
                 database: Mutex::new(database),
                 database_path: path.to_string_lossy().into_owned(),
             });
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                window.state::<github_auth::AuthManager>().cancel();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             get_app_state,
@@ -66,6 +73,8 @@ pub fn run() {
             github_session,
             github_request,
             github_login,
+            github_login_status,
+            github_login_cancel,
             github_open,
             github_select_repository
         ])
@@ -115,8 +124,20 @@ async fn github_select_repository(
 }
 
 #[tauri::command]
-fn github_login() -> Result<(), String> {
-    github::login()
+fn github_login(auth: State<'_, github_auth::AuthManager>) -> serde_json::Value {
+    auth.start()
+}
+#[tauri::command]
+fn github_login_status(auth: State<'_, github_auth::AuthManager>) -> serde_json::Value {
+    auth.status()
+}
+#[tauri::command]
+fn github_login_cancel(auth: State<'_, github_auth::AuthManager>) -> serde_json::Value {
+    auth.cancel()
+}
+#[cfg(feature = "browser-preview")]
+pub fn run_auth_bridge() {
+    github_auth::run_bridge();
 }
 
 #[tauri::command]

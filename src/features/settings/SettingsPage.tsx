@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import type { Preferences } from '../../core/workspace';
 import type { AppState } from '../../lib/desktop';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
+import { GitHubLoginButton } from '../states/GitHubLogin';
 
 const sections = [
   ['account', '账号与连接'],
@@ -74,7 +75,7 @@ export function SettingsPage({
 
   const title = sections.find(([id]) => id === section)![1];
   const descriptions: Record<Section, string> = {
-    account: '通过 GitHub CLI 管理账号与连接状态。',
+    account: '管理 GitHub 账号与连接状态。',
     repositories: '控制工作区展示的仓库与同步偏好。',
     notifications: '仅管理 ThreadLine 的本地提醒偏好，不改变 GitHub 通知订阅。',
     appearance: '选择主题、信息密度与界面语言。当前主题会立即应用到工作区。',
@@ -116,6 +117,7 @@ export function SettingsPage({
                   {github.session ? '重新检查连接' : '连接 GitHub ↗'}
                 </button>
               </SettingRow>
+              <GitHubLoginButton github={github} />
               <SettingRow
                 title="权限范围"
                 description="读取 PR、Issue、评论、正式评审和通知元数据。"
@@ -130,8 +132,7 @@ export function SettingsPage({
                 <span className="muted">{github.session?.user.login ?? '未连接'}</span>
               </SettingRow>
               <p className="settings-note">
-                ThreadLine 不读取或保存令牌。登录凭据和退出登录由 gh 管理；退出可在终端运行 gh auth
-                logout。
+                ThreadLine 不读取或保存令牌。授权由 GitHub 确认，登录凭据由 GitHub CLI 管理。
               </p>
               <details className="storage-details">
                 <summary>本地数据存储</summary>

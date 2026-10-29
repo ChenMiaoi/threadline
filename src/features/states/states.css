@@ -75,6 +75,32 @@
   gap: 20px;
   min-height: 324px;
 }
+.github-device-login {
+  min-width: 0;
+  padding: 4px;
+}
+.github-device-login h3 {
+  margin-top: 0;
+  font-size: 18px;
+}
+.github-device-login p {
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.device-code {
+  width: fit-content;
+  max-width: 100%;
+  padding: 14px 20px;
+  margin-block: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--raised);
+  font-family: ui-monospace, monospace;
+  font-size: clamp(20px, 4vw, 30px);
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  user-select: text;
+}
 .connection-explanation h2 {
   font-size: 20px;
   line-height: 28px;

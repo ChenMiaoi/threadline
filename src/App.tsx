@@ -10,6 +10,7 @@ import type { PullRequest } from './features/pulls/model';
 import { useGitHub } from './lib/useGitHub';
 import type { GitHubGateway } from './core/github';
 import { GitHubConnection, RepositoryPicker } from './features/states/GitHubConnection';
+import { GitHubLoginDialog } from './features/states/GitHubLogin';
 import { IssuePreview } from './features/activity/IssuePreview';
 import { ActivityPage } from './features/activity/ActivityPage';
 import type { Activity } from './features/activity/model';
@@ -41,6 +42,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   const { data, update } = workspace;
   const github = useGitHub(data.preferences.refreshMinutes, gateway);
   const [repositoryPicker, setRepositoryPicker] = useState(false);
+  const completedLogin = useRef(false);
   const writeQueue = useRef(Promise.resolve());
   const inbox = workspaceInbox(
     github.inbox,
@@ -63,6 +65,21 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
     setRepositoryPicker(true);
     void github.listRepositories();
   }
+
+  useEffect(() => {
+    if (github.auth.state.status !== 'complete') {
+      completedLogin.current = false;
+      return;
+    }
+    if (github.connecting || !github.session || github.connectionError || completedLogin.current)
+      return;
+    const timer = window.setTimeout(() => {
+      completedLogin.current = true;
+      setRepositoryPicker(true);
+      void github.listRepositories();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [github]);
 
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: light)');
@@ -333,6 +350,9 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
             setRecordPreview(null);
           }}
         />
+      )}
+      {(github.auth.busy || github.auth.state.status === 'error') && (
+        <GitHubLoginDialog github={github} />
       )}
       {repositoryPicker && (
         <RepositoryPicker

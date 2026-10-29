@@ -38,7 +38,7 @@ The interface includes Inbox, Authored Pull Requests, Review Requests, Issues, a
 Collaboration data comes from GitHub through the locally installed GitHub CLI. ThreadLine uses the active `github.com` account; credentials remain managed by `gh` and are never returned to React or stored in the ThreadLine database. No OAuth application registration is needed.
 
 1. Open the desktop application. Existing `gh` authentication is detected automatically.
-2. If needed, choose **Log in through gh** and complete verification in the separate login window, then recheck the connection. Alternatively, run `gh auth login --hostname github.com --web --scopes notifications` in a terminal.
+2. If needed, choose **Log in to GitHub**. An application dialog shows a one-time code and automatically opens the official GitHub authorization page. Copy the code into that page and confirm authorization. The dialog updates automatically and opens repository selection when sign-in completes. Cancellation and retry are available in the dialog; GitHub CLI manages the credentials in the background.
 3. Select an accessible repository, or enter an accessible public repository as `owner/repository`. Selection is validated against GitHub and saved per account.
 4. Use Inbox, Authored, Reviewed, and Issues. Manual refresh and the configured automatic refresh interval request actual GitHub data.
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Modal } from '../../components/Modal';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
+import { GitHubLoginButton } from './GitHubLogin';
 
 export function GitHubConnection({
   github,
@@ -9,7 +10,6 @@ export function GitHubConnection({
   github: GitHubWorkspace;
   onChoose: () => void;
 }) {
-  const [message, setMessage] = useState('');
   const step = github.session ? (github.repo ? 3 : 2) : 1;
   return (
     <>
@@ -29,46 +29,26 @@ export function GitHubConnection({
           ))}
         </div>
         <section className="connection-explanation">
-          <h2>
-            {github.session ? `已连接 @${github.session.user.login}` : '使用 GitHub CLI 登录'}
-          </h2>
-          <p>ThreadLine 复用本机 gh 的活动账号，通过 GitHub API 读取协作信息。凭据由 gh 管理。</p>
+          <h2>{github.session ? `已连接 @${github.session.user.login}` : '登录 GitHub'}</h2>
+          <p>连接 GitHub 后，选择你关注的仓库并查看协作更新。</p>
           {github.connecting ? (
             <p role="status">正在检查 gh 登录状态…</p>
           ) : github.session ? (
             <button className="chip accent" onClick={onChoose}>
               {github.repo ? '切换仓库' : '选择仓库'}
             </button>
-          ) : (
-            <>
-              <p className="dim">
-                请先安装 GitHub CLI。点击登录会打开独立登录窗口，请在其中完成浏览器验证。
-              </p>
-              <code>gh auth login --hostname github.com --web --scopes notifications</code>
-              <div className="inline-group">
-                <button
-                  className="chip accent"
-                  onClick={() => {
-                    void github.gateway
-                      .login()
-                      .then(() => setMessage('请在登录窗口完成验证，然后重新检查连接。'))
-                      .catch((reason) => setMessage(String(reason)));
-                  }}
-                >
-                  通过 gh 登录 ↗
-                </button>
-                <button className="chip" onClick={() => void github.connect()}>
-                  重新检查连接
-                </button>
-              </div>
-            </>
+          ) : null}
+          <GitHubLoginButton github={github} />
+          {!github.session && !github.connecting && (
+            <button className="chip" onClick={() => void github.connect()}>
+              重新检查连接
+            </button>
           )}
           {github.connectionError && (
             <p role="alert" className="yellow">
               {github.connectionError}
             </p>
           )}
-          {message && <p role="status">{message}</p>}
         </section>
         <p className="footnote">仅使用读取接口；不会发送评论、提交评审、合并或修改 GitHub 订阅。</p>
       </section>

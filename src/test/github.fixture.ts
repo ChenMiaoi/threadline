@@ -83,7 +83,18 @@ export function createGateway(): GitHubGateway {
   return {
     session: vi.fn().mockResolvedValue({ user, selected: repo }),
     select: vi.fn().mockResolvedValue(undefined),
-    login: vi.fn().mockResolvedValue(undefined),
+    login: vi
+      .fn()
+      .mockResolvedValue({ status: 'starting', code: null, verificationUrl: null, error: null }),
+    loginStatus: vi.fn().mockResolvedValue({
+      status: 'waiting',
+      code: 'ABCD-1234',
+      verificationUrl: 'https://github.com/login/device',
+      error: null,
+    }),
+    cancelLogin: vi
+      .fn()
+      .mockResolvedValue({ status: 'cancelled', code: null, verificationUrl: null, error: null }),
     open: vi.fn().mockResolvedValue(undefined),
     request: vi.fn().mockImplementation(async (operation) => {
       if (operation === 'repositories')
