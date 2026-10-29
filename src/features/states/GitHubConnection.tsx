@@ -1,3 +1,4 @@
+import { githubErrorMessage } from '../../lib/github-errors';
 import { useState } from 'react';
 import { Modal } from '../../components/Modal';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
@@ -51,7 +52,7 @@ export function GitHubConnection({
           )}
           {github.connectionError && (
             <p role="alert" className="yellow">
-              {github.connectionError}
+              {githubErrorMessage(github.connectionError)}
             </p>
           )}
           {/GH_(VAULT_INVALID|SECURE_STORAGE)/.test(github.connectionError) && (
@@ -119,7 +120,7 @@ export function RepositoryPicker({
         {github.picking && <p role="status">正在读取 GitHub 仓库…</p>}
         {(error || github.repositoryError) && (
           <p role="alert" className="yellow">
-            {error || github.repositoryError}
+            {githubErrorMessage(error || github.repositoryError)}
           </p>
         )}
         <div className="repository-options">

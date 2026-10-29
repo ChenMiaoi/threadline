@@ -1,3 +1,4 @@
+import { githubErrorMessage } from './lib/github-errors';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { isDesktop, loadAppState, saveLastView, type AppState, type View } from './lib/desktop';
 import { browserWorkspaceRepository, desktopWorkspaceRepository } from './lib/workspace-storage';
@@ -315,7 +316,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
         {syncError && (
           <div className="sync-error-banner" role="alert">
             <h2 className="yellow">暂时无法更新工作区</h2>
-            <p>{syncError}</p>
+            <p>{githubErrorMessage(syncError)}</p>
             {currentPage && github.times[currentPage] && (
               <p>
                 上次读取：{new Date(github.times[currentPage]!).toLocaleString('zh-CN')} ·

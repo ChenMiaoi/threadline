@@ -57,6 +57,7 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
   const [repositoryError, setRepositoryError] = useState('');
   const generation = useRef(0);
   const identity = useRef(0);
+  const hadSession = useRef(false);
   const inFlight = useRef<{ token: number; force: boolean; promise: Promise<void> } | null>(null);
   const key = session && repo ? `${session.user.id}:${repo}` : '';
 
@@ -74,6 +75,7 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
             const cached = await gateway.cachedSession();
             if (token !== identity.current) return;
             if (cached) {
+              hadSession.current = true;
               setSession(cached);
               setRepo(cached.selected ?? '');
             }
@@ -83,6 +85,7 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
         }
         const current = await gateway.session();
         if (token !== identity.current) return;
+        hadSession.current = true;
         setSession((previous) =>
           previous && JSON.stringify(previous) === JSON.stringify(current) ? previous : current,
         );
@@ -102,7 +105,12 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
             setSnapshot(empty);
             setRepositories([]);
           }
-          setConnectionError(error);
+          const signedOutNormally =
+            !hadSession.current &&
+            /^(?:Error: )?GH_AUTH_REQUIRED(?:: 请使用 ThreadLine 独立授权登录 GitHub。)?$/.test(
+              error.trim(),
+            );
+          setConnectionError(signedOutNormally ? '' : error);
         }
       } finally {
         if (token === identity.current) {
@@ -344,6 +352,7 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
       await auth.cancel();
       await gateway.logout();
       invalidate();
+      hadSession.current = false;
       setSession(null);
       setRepo('');
       setSnapshot(empty);

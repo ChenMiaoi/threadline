@@ -1,3 +1,4 @@
+import { githubErrorMessage } from '../../lib/github-errors';
 import { useEffect, useRef, useState } from 'react';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
 import { Modal } from '../../components/Modal';
@@ -14,7 +15,7 @@ export function GitHubLoginButton({ github }: { github: GitHubWorkspace }) {
       </button>
       {github.auth.state.status === 'cancelled' && github.auth.state.error && (
         <p role="alert" className="yellow">
-          {github.auth.state.error}
+          {githubErrorMessage(github.auth.state.error)}
         </p>
       )}
     </>
@@ -100,7 +101,7 @@ export function GitHubLoginDialog({ github }: { github: GitHubWorkspace }) {
         )}
         {state.error && (
           <p role="alert" className="yellow">
-            {state.error}
+            {githubErrorMessage(state.error)}
           </p>
         )}
         {openError && (

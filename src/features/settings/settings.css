@@ -363,3 +363,20 @@ select.setting-value:hover {
     grid-template-columns: 1fr;
   }
 }
+
+.settings-signout {
+  margin-block: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.chip.settings-danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.chip.settings-danger:hover {
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+}
+.settings-signout-actions {
+  margin-top: 24px;
+  justify-content: flex-end;
+}

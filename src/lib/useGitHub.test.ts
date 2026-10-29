@@ -320,6 +320,44 @@ describe('GitHub synchronization', () => {
     await act(() => result.current.connect());
     await waitFor(() => expect(result.current.connectionError).toBe(''));
   });
+  it.each([
+    'GH_AUTH_REQUIRED',
+    'GH_AUTH_REQUIRED: 请使用 ThreadLine 独立授权登录 GitHub。',
+    new Error('GH_AUTH_REQUIRED: 请使用 ThreadLine 独立授权登录 GitHub。'),
+  ])('does not warn for an expected initial missing credential: %s', async (error) => {
+    const gateway = createGateway();
+    vi.mocked(gateway.session).mockRejectedValue(error);
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.connecting).toBe(false));
+    expect(result.current.connectionError).toBe('');
+    expect(result.current.session).toBeNull();
+  });
+  it.each([
+    'GH_AUTH_REQUIRED: 凭据与 ThreadLine 独立应用不匹配，请重新登录。',
+    'GH_AUTH_REQUIRED: 登录存储已升级，请重新登录一次以启用软件管理的本机凭据。',
+  ])('keeps initial credential problems actionable: %s', async (error) => {
+    const gateway = createGateway();
+    vi.mocked(gateway.session).mockRejectedValue(error);
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.connecting).toBe(false));
+    expect(result.current.connectionError).toBe(error);
+  });
+  it('reports expiration when a previously cached login can no longer authenticate', async () => {
+    const gateway = createGateway();
+    gateway.cachedSession = vi.fn().mockResolvedValue({ user, selected: repo });
+    vi.mocked(gateway.session).mockRejectedValue('GH_AUTH_REQUIRED');
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.connecting).toBe(false));
+    expect(result.current.session).toBeNull();
+    expect(result.current.connectionError).toBe('GH_AUTH_REQUIRED');
+  });
+  it('keeps explicit expired-credential errors actionable even without cached session data', async () => {
+    const gateway = createGateway();
+    vi.mocked(gateway.session).mockRejectedValue('GH_AUTH_REQUIRED: 授权已过期');
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.connecting).toBe(false));
+    expect(result.current.connectionError).toContain('GH_AUTH_REQUIRED');
+  });
   it('clears the workspace when rechecking reveals lost authentication', async () => {
     const gateway = createGateway();
     const { result } = renderHook(() => useGitHub(0, gateway));
@@ -328,12 +366,14 @@ describe('GitHub synchronization', () => {
     await act(() => result.current.connect());
     expect(result.current.session).toBeNull();
     expect(result.current.pulls).toEqual([]);
+    expect(result.current.connectionError).toBe('GH_AUTH_REQUIRED');
   });
-  it('does not clear an earlier request error until a retry succeeds', async () => {
+  it('treats an initial missing login as normal and allows connecting afterward', async () => {
     const gateway = createGateway();
     vi.mocked(gateway.session).mockRejectedValueOnce('GH_AUTH_REQUIRED');
     const { result } = renderHook(() => useGitHub(0, gateway));
-    await waitFor(() => expect(result.current.connectionError).toBe('GH_AUTH_REQUIRED'));
+    await waitFor(() => expect(result.current.connecting).toBe(false));
+    expect(result.current.connectionError).toBe('');
     expect(result.current.session).toBeNull();
     await act(() => result.current.connect());
     await waitFor(() => expect(result.current.pulls).toHaveLength(2));

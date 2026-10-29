@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { IconButton } from './Icon';
 
 export function Modal({
@@ -6,17 +6,20 @@ export function Modal({
   children,
   onClose,
   className = '',
+  initialFocusRef,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   className?: string;
+  initialFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = ref.current!;
     const trigger = document.activeElement;
     dialog.showModal();
+    initialFocusRef?.current?.focus();
     return () => {
       dialog.close();
       if (
@@ -27,7 +30,7 @@ export function Modal({
       )
         trigger.focus();
     };
-  }, []);
+  }, [initialFocusRef]);
   return (
     <dialog
       className={`modal ${className}`}

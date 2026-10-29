@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react';
+import { Modal } from '../../components/Modal';
+import { useRef, useState, type ReactNode } from 'react';
 import type { Preferences } from '../../core/workspace';
 import type { AppState } from '../../lib/desktop';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
@@ -82,6 +83,8 @@ export function SettingsPage({
   const [notificationError, setNotificationError] = useState('');
   const [notificationResult, setNotificationResult] = useState('');
   const [requestingNotifications, setRequestingNotifications] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const cancelLogout = useRef<HTMLButtonElement>(null);
   const [section, setSection] = useState<Section>('account');
 
   const title = sections.find(([id]) => id === section)![1];
@@ -93,6 +96,32 @@ export function SettingsPage({
   };
   return (
     <>
+      {confirmLogout && (
+        <Modal
+          title="退出 ThreadLine 登录？"
+          onClose={() => setConfirmLogout(false)}
+          initialFocusRef={cancelLogout}
+        >
+          <p>
+            退出会删除本机保存的登录凭据和账号缓存，下次使用时需要重新授权 GitHub。你的 GitHub
+            数据不会被删除。
+          </p>
+          <div className="inline-group settings-signout-actions">
+            <button ref={cancelLogout} className="chip" onClick={() => setConfirmLogout(false)}>
+              取消
+            </button>
+            <button
+              className="chip settings-danger"
+              onClick={() => {
+                setConfirmLogout(false);
+                void github.disconnect();
+              }}
+            >
+              确认退出登录
+            </button>
+          </div>
+        </Modal>
+      )}
       <PageHeader title={title} description={descriptions[section]} />
       <div className="settings-layout">
         <nav className="settings-nav" aria-label="设置分类">
@@ -121,9 +150,11 @@ export function SettingsPage({
               </SettingRow>
               <GitHubLoginButton github={github} />
               {github.session && (
-                <button className="chip" onClick={() => void github.disconnect()}>
-                  退出 ThreadLine 登录
-                </button>
+                <div className="settings-signout">
+                  <button className="chip settings-danger" onClick={() => setConfirmLogout(true)}>
+                    退出 ThreadLine 登录
+                  </button>
+                </div>
               )}
               <SettingRow
                 title="权限范围"

@@ -134,7 +134,7 @@ describe('workspace interactions', () => {
       target: { value: 'owner/missing' },
     });
     fireEvent.click(screen.getByRole('button', { name: '打开仓库' }));
-    expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'GH_NOT_FOUND');
+    expect((await screen.findByRole('alert')).textContent).toContain('找不到此仓库或记录');
     expect(screen.getByRole('dialog', { name: '选择仓库' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '关闭弹窗' }));
     expect(screen.getByRole('heading', { name: '仓库与同步', level: 1 })).toBeTruthy();
@@ -152,7 +152,7 @@ describe('workspace interactions', () => {
     render(<App gateway={gateway} />);
     expect(await screen.findByRole('alert')).toHaveProperty(
       'textContent',
-      expect.stringContaining('GH_FORBIDDEN'),
+      expect.stringContaining('检查 GitHub App 的仓库授权'),
     );
     expect(screen.queryByRole('heading', { name: '当前筛选下没有 PR' })).toBeNull();
     gateway.request = request;
@@ -175,7 +175,7 @@ describe('workspace interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: /^收件箱/ }));
     expect(await screen.findByRole('alert')).toHaveProperty(
       'textContent',
-      expect.stringContaining('GH_AUTHORED_UNAVAILABLE'),
+      expect.stringContaining('GitHub 操作暂时未完成，请稍后重试。'),
     );
   });
   it('keeps the current settings section when repository selection is cancelled', async () => {
@@ -188,11 +188,36 @@ describe('workspace interactions', () => {
     expect(screen.getByRole('heading', { name: '仓库与同步', level: 1 })).toBeTruthy();
     expect(screen.queryByRole('textbox', { name: '搜索 PR' })).toBeNull();
   });
+  it.each(['rejection', 'stale response'])(
+    'explains sync failures from a %s and retries the failed read',
+    async (failure) => {
+      const gateway = createGateway();
+      render(<App gateway={gateway} />);
+      await screen.findByRole('textbox', { name: '搜索 PR' });
+      const request = gateway.request;
+      gateway.request = vi
+        .fn()
+        .mockImplementation((operation, repository, accountId, number) =>
+          operation === 'authored'
+            ? failure === 'rejection'
+              ? Promise.reject(new Error('GH_REQUEST_FAILED: internal detail'))
+              : Promise.resolve({ ...response([]), stale: true, error: 'GH_REQUEST_FAILED' })
+            : request(operation, repository, accountId, number),
+        );
+      fireEvent.click(screen.getByRole('button', { name: '刷新' }));
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).toContain('暂时无法连接 GitHub，请检查网络后重试。');
+      expect(alert.textContent).not.toMatch(/GH_|Error:|internal detail/);
+      gateway.request = request;
+      fireEvent.click(within(alert).getByRole('button', { name: '重试同步' }));
+      await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+    },
+  );
   it('shows actual login failures without displaying sample records', async () => {
     const gateway = createGateway();
     vi.mocked(gateway.session).mockRejectedValue('GH_NOT_FOUND');
     render(<App gateway={gateway} />);
-    expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'GH_NOT_FOUND');
+    expect((await screen.findByRole('alert')).textContent).toContain('找不到此仓库或记录');
     expect(screen.queryByRole('textbox', { name: '搜索 PR' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '登录 GitHub' }));
     await waitFor(() => expect(gateway.login).toHaveBeenCalledOnce());
@@ -209,7 +234,7 @@ describe('workspace interactions', () => {
       error: null,
     });
     render(<App gateway={gateway} />);
-    expect((await screen.findByRole('alert')).textContent).toContain('GH_VAULT_INVALID');
+    expect((await screen.findByRole('alert')).textContent).toContain('本机保存的登录信息无法读取');
     expect(gateway.logout).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: '清除本机登录并重新授权' }));
     await waitFor(() => expect(gateway.logout).toHaveBeenCalledOnce());
@@ -225,8 +250,11 @@ describe('workspace interactions', () => {
     render(<App gateway={gateway} />);
     const reset = await screen.findByRole('button', { name: '清除本机登录并重新授权' });
     fireEvent.click(reset);
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('GH_VAULT_IO'));
-    expect(screen.getByRole('alert').textContent).toContain('GH_SECURE_STORAGE');
+    await waitFor(() => expect(gateway.logout).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(screen.getByRole('alert').textContent).toContain('无法清除本机登录'),
+    );
+    expect(screen.getByRole('alert').textContent).not.toMatch(/GH_|Error:/);
     expect(screen.getByRole('button', { name: '清除本机登录并重新授权' })).toBeTruthy();
   });
   it('opens repository selection automatically after in-app authorization succeeds', async () => {
@@ -241,8 +269,10 @@ describe('workspace interactions', () => {
       error: null,
     });
     render(<App gateway={gateway} />);
-    await screen.findByRole('alert');
-    fireEvent.click(screen.getByRole('button', { name: '登录 GitHub' }));
+    const login = await screen.findByRole('button', { name: '登录 GitHub' });
+    await waitFor(() => expect((login as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.click(login);
     expect(await screen.findByRole('dialog', { name: '选择仓库' })).toBeTruthy();
     expect(gateway.session).toHaveBeenCalledTimes(2);
     expect(gateway.request).toHaveBeenCalledWith('repositories', '', user.id);
@@ -409,12 +439,12 @@ it('keeps the cached-session connection error visible on profile and settings un
   }));
   gateway.session = vi.fn().mockRejectedValue('GH_TIMEOUT');
   render(<App gateway={gateway} />);
-  await screen.findByText('GH_TIMEOUT');
+  await screen.findByText('GitHub 响应超时，请稍后重试。');
   fireEvent.click(screen.getByRole('button', { name: '个人主页' }));
   await screen.findByRole('heading', { name: '个人主页' });
-  expect(screen.getByText('GH_TIMEOUT')).toBeTruthy();
+  expect(screen.getByText('GitHub 响应超时，请稍后重试。')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: '设置' }));
-  expect(screen.getByText('GH_TIMEOUT')).toBeTruthy();
+  expect(screen.getByText('GitHub 响应超时，请稍后重试。')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: '重试同步' }));
-  await waitFor(() => expect(screen.queryByText('GH_TIMEOUT')).toBeNull());
+  await waitFor(() => expect(screen.queryByText('GitHub 响应超时，请稍后重试。')).toBeNull());
 });
