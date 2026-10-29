@@ -50,7 +50,8 @@
   display: flex;
   flex-direction: column;
 }
-.location {
+.location,
+.content > .error {
   flex-shrink: 0;
 }
 .location-tools {
@@ -219,7 +220,8 @@
 }
 .pr-preview {
   position: fixed;
-  inset: 80px 20px 24px auto;
+  inset: var(--preview-top, 80px) 20px var(--preview-bottom, auto) auto;
+  max-height: var(--preview-max-height, calc(100dvh - 104px));
   z-index: 5;
   display: flex;
   flex-direction: column;

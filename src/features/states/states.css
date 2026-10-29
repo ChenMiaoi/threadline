@@ -81,6 +81,7 @@
 }
 
 .sync-status {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -211,7 +212,8 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 20px 24px;
-  min-height: 148px;
+  min-height: 0;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -430,7 +432,6 @@
   flex-shrink: 0;
 }
 .sync-error-banner {
-  min-height: 0;
   overflow-wrap: anywhere;
 }
 @media (max-width: 760px) {

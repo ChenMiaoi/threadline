@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useId, useMemo, useRef, useState } from 'react';
 import { TabList, TabPanel } from '../../components/Tabs';
 import { PageHeader } from '../../components/PageHeader';
 import { PullLifecycleIcon } from '../../components/PullLifecycleIcon';
@@ -44,7 +44,41 @@ export function AuthoredPage({
   const preview = useRef<HTMLElement>(null);
   const selectedRow = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    if (previewVisible) preview.current?.focus();
+    if (previewVisible) preview.current?.focus({ preventScroll: true });
+  }, [previewVisible, selectedNumber]);
+  useLayoutEffect(() => {
+    if (!previewVisible) return;
+    function positionPreview() {
+      const row = selectedRow.current;
+      const panel = preview.current;
+      if (!row || !panel) return;
+      // Floating previews occupy the roomier side of the source row, keeping
+      // its pointer target stationary through the browser's double-click sequence.
+      const bounds = row.getBoundingClientRect();
+      const edge = 16;
+      const gap = 8;
+      const rowTop = Math.max(edge, Math.min(window.innerHeight - edge, bounds.top));
+      const rowBottom = Math.max(edge, Math.min(window.innerHeight - edge, bounds.bottom));
+      const above = Math.max(0, rowTop - edge - gap);
+      const below = Math.max(0, window.innerHeight - rowBottom - edge - gap);
+      const useBelow = below >= above;
+      panel.style.setProperty(
+        '--preview-top',
+        useBelow ? `${Math.max(edge, rowBottom + gap)}px` : 'auto',
+      );
+      panel.style.setProperty(
+        '--preview-bottom',
+        useBelow ? 'auto' : `${Math.max(edge, window.innerHeight - rowTop + gap)}px`,
+      );
+      panel.style.setProperty('--preview-max-height', `${Math.max(above, below)}px`);
+    }
+    positionPreview();
+    window.addEventListener('resize', positionPreview);
+    window.addEventListener('scroll', positionPreview, true);
+    return () => {
+      window.removeEventListener('resize', positionPreview);
+      window.removeEventListener('scroll', positionPreview, true);
+    };
   }, [previewVisible, selectedNumber]);
   function clearSelection() {
     setSelectedNumber(null);

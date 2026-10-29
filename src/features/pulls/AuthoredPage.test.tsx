@@ -132,3 +132,38 @@ it('switches status with keyboard tabs and clears the previous preview', () => {
   fireEvent.keyDown(merged, { key: 'Home' });
   expect(screen.getByRole('button', { name: /#1031/ })).toBeTruthy();
 });
+
+it.each([900, 1399])(
+  'positions the floating preview outside its source row at %ipx and tracks viewport changes',
+  (width) => {
+    const previousWidth = window.innerWidth;
+    const previousHeight = window.innerHeight;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 680 });
+    const onOpen = vi.fn();
+    render(<AuthoredPage pulls={pulls} repo={repo} onOpen={onOpen} read={[]} onRead={vi.fn()} />);
+    const row = screen.getByRole('button', { name: /#1042/ });
+    const bounds = vi
+      .spyOn(row, 'getBoundingClientRect')
+      .mockReturnValue({ top: 180, bottom: 240 } as DOMRect);
+    fireEvent.click(row, { detail: 1 });
+    const preview = screen.getByRole('complementary', { name: 'PR 预览' });
+    expect(preview.style.getPropertyValue('--preview-top')).toBe('248px');
+    expect(preview.style.getPropertyValue('--preview-bottom')).toBe('auto');
+    expect(preview.style.getPropertyValue('--preview-max-height')).toBe('416px');
+    fireEvent.click(row, { detail: 2 });
+    fireEvent.doubleClick(row);
+    expect(onOpen).toHaveBeenCalledWith(pulls[0]);
+    bounds.mockReturnValue({ top: 590, bottom: 650 } as DOMRect);
+    fireEvent.scroll(window);
+    expect(preview.style.getPropertyValue('--preview-top')).toBe('auto');
+    expect(preview.style.getPropertyValue('--preview-bottom')).toBe('98px');
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
+    fireEvent(window, new Event('resize'));
+    expect(preview.style.getPropertyValue('--preview-bottom')).toBe('318px');
+    fireEvent.keyDown(preview, { key: 'Escape' });
+    expect(document.activeElement).toBe(row);
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: previousWidth });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: previousHeight });
+  },
+);
