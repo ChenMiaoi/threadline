@@ -19,12 +19,11 @@ export default function MarkdownContent({ children }: { children: string }) {
           code: ({ className, children }) => {
             const hint = /(?:^|\s)language-([\w+-]+)/.exec(className ?? '')?.[1];
             const language = hint ? codeLanguage(hint) : undefined;
-            const source = String(children ?? '');
             return (
               <code className={className}>
-                {language ? (
-                  <Suspense fallback={source}>
-                    <SyntaxTokens source={source} language={language} />
+                {language && typeof children === 'string' ? (
+                  <Suspense fallback={children}>
+                    <SyntaxTokens source={children} language={language} />
                   </Suspense>
                 ) : (
                   children

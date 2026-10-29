@@ -74,3 +74,17 @@ it('leaves oversized fenced code readable without tokenizing it', async () => {
   await waitFor(() => expect(container.querySelector('pre code')?.textContent).toBe(source + '\n'));
   expect(container.querySelector('pre code span')).toBeNull();
 });
+
+it('preserves nested sanitized HTML inside code with a language class', async () => {
+  const { container } = render(
+    <GitHubMarkdown>
+      {'<pre><code class="language-js"><em onclick="alert(1)">const</em> value = 1;</code></pre>'}
+    </GitHubMarkdown>,
+  );
+  await waitFor(() =>
+    expect(container.querySelector('pre code')?.textContent).toBe('const value = 1;'),
+  );
+  expect(container.querySelector('pre code em')?.textContent).toBe('const');
+  expect(container.textContent).not.toContain('[object Object]');
+  expect(container.querySelector('[onclick], .hljs-keyword')).toBeNull();
+});
