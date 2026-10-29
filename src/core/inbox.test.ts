@@ -69,7 +69,25 @@ describe('unified activity inbox', () => {
     );
     expect(data.inboxSeen).toEqual({});
     expect(newUpdates([activity], data.inboxSeen[`7:${repo}`])).toEqual([]);
-    expect(data.inboxVersion).toBe(1);
+    expect(data.inboxVersion).toBe(2);
+  });
+  it('matches observations by kind and number and preserves the first prior match', () => {
+    const issue = {
+      ...activity,
+      kind: 'issue' as const,
+      id: 'issue',
+      updatedAt: '2026-10-28T10:00:00Z',
+    };
+    const duplicate = { ...activity, updatedAt: '2026-10-27T10:00:00Z' };
+    const fresh = { ...activity, number: activity.number + 1 };
+    const observed = observeUpdates(
+      [activity, issue, fresh],
+      [activity, duplicate, issue],
+      Date.now(),
+    );
+    expect(observed[0].updatedAt).toBe(activity.updatedAt);
+    expect(observed[1].updatedAt).toBe(issue.updatedAt);
+    expect(observed[2]).toBe(fresh);
   });
   it('applies quiet hours and reminder choices without filtering the inbox', () => {
     const prefs = defaultWorkspace().preferences;

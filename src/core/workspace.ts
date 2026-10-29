@@ -1,5 +1,9 @@
 import type { Activity } from '../features/activity/model';
 
+// Six GitHub searches (including three review queries) return at most 1,000 records each;
+// 200 additional snoozes can be restored into the inbox.
+export const MAX_INBOX_REVISIONS = 6200;
+
 export interface Preferences {
   theme: 'dark' | 'light' | 'system';
   density: 'comfortable' | 'compact';
@@ -21,7 +25,7 @@ export interface WorkspaceData {
   restored: string[];
   snoozeRecords: Record<string, Activity>;
   unread: string[];
-  inboxVersion: 1;
+  inboxVersion: 2;
   inboxSeen: Record<string, string[]>;
 }
 
@@ -58,7 +62,7 @@ export function defaultWorkspace(): WorkspaceData {
     restored: [],
     snoozeRecords: {},
     unread: [],
-    inboxVersion: 1,
+    inboxVersion: 2,
     inboxSeen: {},
   };
 }
@@ -67,7 +71,7 @@ function object(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function ids(value: unknown): string[] {
+function ids(value: unknown, limit = 2000): string[] {
   return Array.isArray(value)
     ? [
         ...new Set(
@@ -79,7 +83,7 @@ function ids(value: unknown): string[] {
               ),
           ),
         ),
-      ].slice(-2000)
+      ].slice(-limit)
     : [];
 }
 
@@ -146,18 +150,19 @@ export function normalizeWorkspace(value: unknown, now: number): WorkspaceData {
       snoozed: 'snoozed' in value ? snoozed : defaults.snoozed,
       restored: ids(value.restored),
       unread: ids(value.unread),
-      inboxVersion: 1,
+      inboxVersion: 2,
       inboxSeen:
-        value.inboxVersion === 1 && object(value.inboxSeen)
+        value.inboxVersion === 2 && object(value.inboxSeen)
           ? Object.fromEntries(
               Object.entries(value.inboxSeen)
                 .filter(
                   ([scope, revisions]) =>
                     /^\d+:[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(scope) &&
-                    Array.isArray(revisions),
+                    Array.isArray(revisions) &&
+                    revisions.length <= MAX_INBOX_REVISIONS,
                 )
                 .slice(-10)
-                .map(([scope, revisions]) => [scope, ids(revisions)]),
+                .map(([scope, revisions]) => [scope, ids(revisions, MAX_INBOX_REVISIONS)]),
             )
           : {},
       snoozeRecords: object(value.snoozeRecords)

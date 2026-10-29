@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useState } from 'react';
 import { newUpdates, quietHours, shouldNotify } from '../core/inbox';
+import { MAX_INBOX_REVISIONS } from '../core/workspace';
 import type { Activity } from '../features/activity/model';
 import type { GitHubWorkspace } from './useGitHub';
 import type { useWorkspace } from './useWorkspace';
@@ -18,22 +19,26 @@ export function useInboxNotifications(
       github.syncing ||
       !github.times.inbox ||
       github.errors.inbox ||
+      github.errors.authored ||
       github.errors.review ||
       github.errors.issues ||
       !workspace.loaded ||
-      workspace.error
+      workspace.error ||
+      records.length > MAX_INBOX_REVISIONS
     )
       return;
     const seen = workspace.data.inboxSeen[github.key];
     const changes = newUpdates(records, seen);
     const ids = records.map((record) => record.id);
-    if (seen && ids.length === seen.length && ids.every((id) => seen.includes(id))) return;
+    const known = new Set(seen);
+    if (seen && ids.length === seen.length && ids.every((id) => known.has(id))) return;
+    const changed = new Set(changes.map((record) => record.id));
     workspace.update((current) => ({
       ...current,
-      read: current.read.filter((id) => !changes.some((record) => record.id === id)),
+      read: current.read.filter((id) => !changed.has(id)),
       inboxSeen: {
         ...current.inboxSeen,
-        [github.key]: ids.slice(-2000),
+        [github.key]: ids,
       },
     }));
     const notify = changes.filter(
@@ -61,6 +66,7 @@ export function useInboxNotifications(
     github.times.inbox,
     github.times.review,
     github.errors.inbox,
+    github.errors.authored,
     github.errors.review,
     github.errors.issues,
     workspace.loaded,

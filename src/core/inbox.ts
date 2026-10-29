@@ -36,10 +36,13 @@ export function shouldNotify(record: Activity, preferences: Preferences) {
 // GitHub can change checks or HEAD without advancing the thread's updatedAt.
 // Keep the first observation time stable until the revision changes again.
 export function observeUpdates(records: Activity[], previous: Activity[], fetchedAt: number) {
+  const observed = new Map<string, Activity>();
+  for (const record of previous) {
+    const key = `${record.kind}:${record.number}`;
+    if (!observed.has(key)) observed.set(key, record);
+  }
   return records.map((record) => {
-    const before = previous.find(
-      (item) => item.kind === record.kind && item.number === record.number,
-    );
+    const before = observed.get(`${record.kind}:${record.number}`);
     if (!before?.updatedAt) return record;
     const updatedAt =
       before.id === record.id

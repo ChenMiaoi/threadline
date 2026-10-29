@@ -221,7 +221,9 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
     view === 'authored' || view === 'inbox' || view === 'review' || view === 'issues' ? view : null;
   const syncError = currentPage
     ? github.errors[currentPage] ||
-      (currentPage === 'inbox' ? github.errors.review || github.errors.issues : '')
+      (currentPage === 'inbox'
+        ? github.errors.authored || github.errors.review || github.errors.issues
+        : '')
     : '';
   const className = `${light ? 'theme-light' : ''} density-${data.preferences.density} ${data.preferences.reducedMotion ? 'reduced-motion' : ''}`;
 

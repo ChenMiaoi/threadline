@@ -160,6 +160,24 @@ describe('workspace interactions', () => {
     await screen.findByRole('textbox', { name: '搜索 PR' });
     expect(screen.queryByRole('alert')).toBeNull();
   });
+  it('shows authored synchronization failures in the unified inbox', async () => {
+    const gateway = createGateway();
+    const request = gateway.request;
+    gateway.request = vi
+      .fn()
+      .mockImplementation((operation, repository, accountId, number) =>
+        operation === 'authored'
+          ? Promise.reject('GH_AUTHORED_UNAVAILABLE')
+          : request(operation, repository, accountId, number),
+      );
+    render(<App gateway={gateway} />);
+    await screen.findByRole('alert');
+    fireEvent.click(screen.getByRole('button', { name: /^收件箱/ }));
+    expect(await screen.findByRole('alert')).toHaveProperty(
+      'textContent',
+      expect.stringContaining('GH_AUTHORED_UNAVAILABLE'),
+    );
+  });
   it('keeps the current settings section when repository selection is cancelled', async () => {
     render(<App gateway={createGateway()} />);
     await screen.findByRole('textbox', { name: '搜索 PR' });

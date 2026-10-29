@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   defaultWorkspace,
+  MAX_INBOX_REVISIONS,
   nextMorning,
   normalizeWorkspace,
   releaseDue,
@@ -47,6 +48,20 @@ describe('local workspace data', () => {
     expect(data.read).toEqual(['inbox-1042']);
     expect(() => normalizeWorkspace([], now)).toThrow();
     expect(() => normalizeWorkspace({ version: 2 }, now)).toThrow();
+  });
+  it('restores all supported inbox revisions without accepting truncated or oversized baselines', () => {
+    const revisions = Array.from({ length: MAX_INBOX_REVISIONS }, (_, index) => `inbox-${index}`);
+    const data = { ...defaultWorkspace(), inboxSeen: { [`7:${repo}`]: revisions } };
+    expect(
+      normalizeWorkspace(JSON.parse(JSON.stringify(data)), now).inboxSeen[`7:${repo}`],
+    ).toEqual(revisions);
+    expect(normalizeWorkspace({ ...data, inboxVersion: 1 }, now).inboxSeen).toEqual({});
+    expect(
+      normalizeWorkspace(
+        { ...data, inboxSeen: { [`7:${repo}`]: [...revisions, 'inbox-9999'] } },
+        now,
+      ).inboxSeen,
+    ).toEqual({});
   });
   it('restores due snoozes exactly once without modifying the input', () => {
     const data = {
