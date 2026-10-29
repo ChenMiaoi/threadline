@@ -1,10 +1,17 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
+import { filenameLanguage } from '../lib/syntaxLanguage';
+import { DiffLines } from './DiffLines';
+import './syntax.css';
+
+const HighlightedDiffLines = lazy(() => import('./HighlightedDiffLines'));
 import { parseDiff } from '../core/diff';
 
 export function CodeDiff({ patch, filename }: { patch: string; filename: string }) {
   const [limit, setLimit] = useState(400);
   const [wrap, setWrap] = useState(false);
   const lines = useMemo(() => parseDiff(patch), [patch]);
+  const visibleLines = useMemo(() => lines.slice(0, limit), [lines, limit]);
+  const language = filenameLanguage(filename);
   return (
     <>
       <div className="diff-toolbar">
@@ -33,20 +40,13 @@ export function CodeDiff({ patch, filename }: { patch: string; filename: string 
         }}
       >
         <code>
-          {lines.slice(0, limit).map((line, index) => (
-            <span className={`diff-line diff-${line.kind}`} key={index}>
-              <span className="diff-number" aria-hidden="true">
-                {line.oldLine}
-              </span>
-              <span className="diff-number" aria-hidden="true">
-                {line.newLine}
-              </span>
-              <span className="diff-source">
-                {line.text}
-                {'\n'}
-              </span>
-            </span>
-          ))}
+          {language ? (
+            <Suspense fallback={<DiffLines lines={visibleLines} />}>
+              <HighlightedDiffLines lines={visibleLines} language={language} />
+            </Suspense>
+          ) : (
+            <DiffLines lines={visibleLines} />
+          )}
         </code>
       </pre>
       {lines.length > limit && (

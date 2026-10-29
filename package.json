@@ -29,6 +29,8 @@
     "@fontsource-variable/noto-sans-sc": "^5.3.1",
     "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-notification": "^2.8.0",
+    "highlight.js": "~11.11.1",
+    "lowlight": "^3.3.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-markdown": "^10.1.0",

@@ -49,3 +49,28 @@ describe('GitHub discussion rendering', () => {
     expect(screen.getByRole('link', { name: 'GitHub' }).getAttribute('rel')).toContain('noopener');
   });
 });
+
+it('highlights explicit fenced languages while preserving literal unsafe code and plain fallbacks', async () => {
+  const { container } = render(
+    <GitHubMarkdown>
+      {
+        '```ts\nconst message = "<img src=x onerror=alert(1)>";\n```\n\n```unknown-lang\nconst untouched = true;\n```\n\n`const inline = true`'
+      }
+    </GitHubMarkdown>,
+  );
+  await waitFor(() =>
+    expect(container.querySelector('pre .hljs-keyword')?.textContent).toBe('const'),
+  );
+  const blocks = container.querySelectorAll('pre code');
+  expect(blocks[0].textContent).toBe('const message = "<img src=x onerror=alert(1)>";\n');
+  expect(container.querySelector('img,script,[onerror]')).toBeNull();
+  expect(blocks[1].querySelector('span')).toBeNull();
+  expect(container.querySelector('p code')?.querySelector('span')).toBeNull();
+});
+
+it('leaves oversized fenced code readable without tokenizing it', async () => {
+  const source = 'const long = "' + 'x'.repeat(32_000) + '";';
+  const { container } = render(<GitHubMarkdown>{'```js\n' + source + '\n```'}</GitHubMarkdown>);
+  await waitFor(() => expect(container.querySelector('pre code')?.textContent).toBe(source + '\n'));
+  expect(container.querySelector('pre code span')).toBeNull();
+});

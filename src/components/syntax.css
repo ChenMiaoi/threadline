@@ -1,0 +1,32 @@
+/* Theme variables already adapt to the app's light and dark palettes. */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-deletion {
+  color: var(--danger);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-template-tag {
+  color: var(--green);
+}
+.hljs-title,
+.hljs-section,
+.hljs-selector-class,
+.hljs-selector-id {
+  color: var(--accent);
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-attr,
+.hljs-attribute,
+.hljs-built_in,
+.hljs-type,
+.hljs-meta {
+  color: var(--blue);
+}
+.hljs-comment,
+.hljs-quote {
+  color: var(--dim);
+}
