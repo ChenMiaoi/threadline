@@ -1,6 +1,7 @@
 mod db;
 mod github;
 mod github_workspace;
+#[cfg(feature = "browser-preview")]
 pub mod preview;
 
 use db::{Database, SCHEMA_VERSION};

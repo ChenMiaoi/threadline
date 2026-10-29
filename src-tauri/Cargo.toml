@@ -6,6 +6,14 @@ license = "GPL-3.0-only"
 edition = "2021"
 default-run = "threadline"
 
+[features]
+browser-preview = []
+
+[[bin]]
+name = "github-preview"
+path = "src/bin/github-preview.rs"
+required-features = ["browser-preview"]
+
 [lib]
 name = "threadline_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
