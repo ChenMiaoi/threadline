@@ -448,3 +448,49 @@ it('keeps the cached-session connection error visible on profile and settings un
   fireEvent.click(screen.getByRole('button', { name: '重试同步' }));
   await waitFor(() => expect(screen.queryByText('GitHub 响应超时，请稍后重试。')).toBeNull());
 });
+
+it('recovers a local read failure in place without writing defaults over saved preferences', async () => {
+  window.localStorage.setItem(
+    'threadline.workspace.v1',
+    JSON.stringify({ preferences: { density: 'compact' } }),
+  );
+  const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementationOnce(() => {
+    throw new Error('temporary read failure');
+  });
+  try {
+    render(<App gateway={createGateway()} />);
+    const retry = await screen.findByRole('button', { name: '重试读取' });
+    expect(screen.getByRole('alert').textContent).toContain('无法读取本地数据');
+    fireEvent.click(retry);
+    await waitFor(() => expect(screen.queryByRole('button', { name: '重试读取' })).toBeNull());
+    expect(document.querySelector('.density-compact')).not.toBeNull();
+  } finally {
+    get.mockRestore();
+  }
+});
+
+it('retains edited preferences after save failure and saves them on retry', async () => {
+  render(<App gateway={createGateway()} />);
+  await screen.findByRole('textbox', { name: '搜索 PR' });
+  fireEvent.click(screen.getByRole('button', { name: '设置' }));
+  fireEvent.click(screen.getByRole('button', { name: '外观' }));
+  const save = vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+    throw new Error('disk full');
+  });
+  try {
+    fireEvent.change(screen.getByRole('combobox', { name: '信息密度' }), {
+      target: { value: 'compact' },
+    });
+    const retry = await screen.findByRole('button', { name: '重试保存' });
+    expect((screen.getByRole('combobox', { name: '信息密度' }) as HTMLSelectElement).value).toBe(
+      'compact',
+    );
+    fireEvent.click(retry);
+    await waitFor(() => expect(screen.queryByRole('button', { name: '重试保存' })).toBeNull());
+    expect(
+      JSON.parse(window.localStorage.getItem('threadline.workspace.v1')!).preferences.density,
+    ).toBe('compact');
+  } finally {
+    save.mockRestore();
+  }
+});

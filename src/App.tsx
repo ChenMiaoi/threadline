@@ -225,7 +225,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
 
   const light =
     data.preferences.theme === 'light' || (data.preferences.theme === 'system' && systemLight);
-  const busy = loading || !workspace.loaded;
+  const busy = loading || (!workspace.loaded && !workspace.error);
   const unread = useMemo(
     () =>
       inbox.filter((item) => !effectiveReadIds.has(item.id) && !(item.id in data.snoozed)).length,
@@ -299,7 +299,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
         unread={unread}
         notificationsAvailable={Boolean(github.session)}
         onNavigate={navigate}
-        loading={busy}
+        loading={busy || !workspace.loaded}
         className={className}
         onSearch={() => {
           navigate('authored');
@@ -310,7 +310,24 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
       >
         {(error || workspace.error) && (
           <div role="alert" className="error">
-            本地数据访问失败：{error || workspace.error}。请重新打开工作区后重试。
+            {error
+              ? `本地数据访问失败：${error}`
+              : workspace.errorKind === 'save'
+                ? '更改尚未保存。请重试保存后再退出。'
+                : '无法读取本地数据。请重试。'}
+            {workspace.error && (
+              <button
+                className="chip"
+                disabled={workspace.saving}
+                onClick={() => void workspace.retry().catch(() => undefined)}
+              >
+                {workspace.saving
+                  ? '正在保存…'
+                  : workspace.errorKind === 'save'
+                    ? '重试保存'
+                    : '重试读取'}
+              </button>
+            )}
           </div>
         )}
         {syncError && (
@@ -361,103 +378,105 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
             </button>
           </div>
         )}
-        {busy ? (
-          <div className="empty-state" role="status">
-            正在打开本地工作区…
-          </div>
-        ) : (
-          <>
-            <div className="page-view" hidden={Boolean(openedPull)}>
-              {view === 'profile' && github.session && github.repo ? (
-                <ProfilePage
-                  key={github.session.user.id}
-                  user={github.session.user}
-                  repo={github.repo}
-                  gateway={github.gateway}
-                  cache={profileCache}
-                />
-              ) : view !== 'settings' &&
-                (!github.session || !github.repo || view === 'onboarding') ? (
-                <GitHubConnection github={github} onChoose={chooseRepository} />
-              ) : currentPage && !github.times[currentPage] ? (
-                <div className="list-empty" role="status">
-                  {github.syncing ? '正在读取 GitHub 数据…' : '本次读取未成功，请重试。'}
-                </div>
-              ) : view === 'authored' ? (
-                <AuthoredPage
-                  key={github.key}
-                  pulls={github.pulls}
-                  repo={github.repo}
-                  onOpen={openPull}
-                  read={effectiveRead}
-                  onRead={toggleRead}
-                />
-              ) : view === 'settings' ? (
-                <SettingsPage
-                  performanceSamples={resourceCache.samples}
-                  preferences={data.preferences}
-                  onChange={changePreferences}
-                  onConnect={() => {
-                    navigate('onboarding');
-                    void github.connect();
-                  }}
-                  onSync={() => void github.refresh()}
-                  github={github}
-                  onChooseRepository={chooseRepository}
-                  appState={appState}
-                />
-              ) : view === 'snoozed' ? (
-                <SnoozedPage
-                  data={{
-                    ...data,
-                    snoozed: Object.fromEntries(
-                      Object.entries(data.snoozed).filter(([id]) =>
+        <fieldset className="workspace-body" disabled={!workspace.loaded}>
+          {busy ? (
+            <div className="empty-state" role="status">
+              正在打开本地工作区…
+            </div>
+          ) : (
+            <>
+              <div className="page-view" hidden={Boolean(openedPull)}>
+                {view === 'profile' && github.session && github.repo ? (
+                  <ProfilePage
+                    key={github.session.user.id}
+                    user={github.session.user}
+                    repo={github.repo}
+                    gateway={github.gateway}
+                    cache={profileCache}
+                  />
+                ) : view !== 'settings' &&
+                  (!github.session || !github.repo || view === 'onboarding') ? (
+                  <GitHubConnection github={github} onChoose={chooseRepository} />
+                ) : currentPage && !github.times[currentPage] ? (
+                  <div className="list-empty" role="status">
+                    {github.syncing ? '正在读取 GitHub 数据…' : '本次读取未成功，请重试。'}
+                  </div>
+                ) : view === 'authored' ? (
+                  <AuthoredPage
+                    key={github.key}
+                    pulls={github.pulls}
+                    repo={github.repo}
+                    onOpen={openPull}
+                    read={effectiveRead}
+                    onRead={toggleRead}
+                  />
+                ) : view === 'settings' ? (
+                  <SettingsPage
+                    performanceSamples={resourceCache.samples}
+                    preferences={data.preferences}
+                    onChange={changePreferences}
+                    onConnect={() => {
+                      navigate('onboarding');
+                      void github.connect();
+                    }}
+                    onSync={() => void github.refresh()}
+                    github={github}
+                    onChooseRepository={chooseRepository}
+                    appState={appState}
+                  />
+                ) : view === 'snoozed' ? (
+                  <SnoozedPage
+                    data={{
+                      ...data,
+                      snoozed: Object.fromEntries(
+                        Object.entries(data.snoozed).filter(([id]) =>
+                          id.startsWith(`github:${github.session?.user.id}:${github.repo}:`),
+                        ),
+                      ),
+                      restored: data.restored.filter((id) =>
                         id.startsWith(`github:${github.session?.user.id}:${github.repo}:`),
                       ),
-                    ),
-                    restored: data.restored.filter((id) =>
-                      id.startsWith(`github:${github.session?.user.id}:${github.repo}:`),
-                    ),
-                  }}
-                  records={records}
-                  onRestore={(ids) => update((current) => restoreSnoozes(current, ids))}
-                  onAdjust={setSnoozeIds}
-                  onOpen={openActivity}
-                />
-              ) : (
-                <ActivityPage
-                  key={`${github.key}:${view}-${inboxFilter}`}
-                  view={view === 'review' || view === 'issues' ? view : 'inbox'}
+                    }}
+                    records={records}
+                    onRestore={(ids) => update((current) => restoreSnoozes(current, ids))}
+                    onAdjust={setSnoozeIds}
+                    onOpen={openActivity}
+                  />
+                ) : (
+                  <ActivityPage
+                    key={`${github.key}:${view}-${inboxFilter}`}
+                    view={view === 'review' || view === 'issues' ? view : 'inbox'}
+                    repo={github.repo}
+                    items={
+                      view === 'review' ? github.review : view === 'issues' ? github.issues : inbox
+                    }
+                    read={effectiveRead}
+                    snoozed={snoozedIds}
+                    onRead={toggleRead}
+                    onSnooze={(id) => setSnoozeIds([id])}
+                    onOpen={openActivity}
+                    initialFilter={view === 'inbox' ? inboxFilter : undefined}
+                  />
+                )}
+              </div>
+              {openedPull && github.session && (
+                <PullDetailPage
+                  key={`${github.key}:${openedPull.number}`}
                   repo={github.repo}
-                  items={
-                    view === 'review' ? github.review : view === 'issues' ? github.issues : inbox
-                  }
-                  read={effectiveRead}
-                  snoozed={snoozedIds}
-                  onRead={toggleRead}
-                  onSnooze={(id) => setSnoozeIds([id])}
-                  onOpen={openActivity}
-                  initialFilter={view === 'inbox' ? inboxFilter : undefined}
+                  accountId={github.session.user.id}
+                  gateway={github.gateway}
+                  cache={resourceCache}
+                  pull={{
+                    ...openedPull,
+                    updatedAt: latestPull?.updatedAt,
+                    headSha: latestPull?.headSha,
+                  }}
+                  onBack={() => setOpenedPull(null)}
                 />
               )}
-            </div>
-            {openedPull && github.session && (
-              <PullDetailPage
-                key={`${github.key}:${openedPull.number}`}
-                repo={github.repo}
-                accountId={github.session.user.id}
-                gateway={github.gateway}
-                cache={resourceCache}
-                pull={{
-                  ...openedPull,
-                  updatedAt: latestPull?.updatedAt,
-                  headSha: latestPull?.headSha,
-                }}
-                onBack={() => setOpenedPull(null)}
-              />
-            )}
-          </>
-        )}
+            </>
+          )}
+        </fieldset>
       </WorkspaceShell>
       {recordPreview && github.session && (
         <IssuePreview

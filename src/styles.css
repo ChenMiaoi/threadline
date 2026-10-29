@@ -634,3 +634,7 @@ select {
   transition: none !important;
   scroll-behavior: auto !important;
 }
+
+.workspace-body {
+  display: contents;
+}
