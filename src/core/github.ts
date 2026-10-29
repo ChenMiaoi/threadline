@@ -83,6 +83,7 @@ export interface GitHubGateway {
 }
 interface Author {
   login: string;
+  avatar_url?: string | null;
 }
 export interface GitHubReview {
   state: string;

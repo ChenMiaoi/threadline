@@ -23,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' asset: http://asset.localhost https://avatars.githubusercontent.com; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: asset: http://asset.localhost https://avatars.githubusercontent.com; connect-src ipc: http://ipc.localhost https://avatars.githubusercontent.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
     }
   },
   "bundle": { "active": true, "targets": ["nsis"], "icon": ["icons/icon.ico"] }

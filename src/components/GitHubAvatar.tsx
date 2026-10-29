@@ -1,30 +1,35 @@
 import { useI18n } from '../i18n/I18n';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { loadGitHubAvatar, trustedAvatarUrl } from '../lib/avatar-cache';
 
 export function GitHubAvatar({ login, url }: { login?: string; url?: string | null }) {
   const { t } = useI18n();
-
+  const trusted = trustedAvatarUrl(url);
+  const [image, setImage] = useState<{ url: string; src: string } | null>(null);
   const [failed, setFailed] = useState('');
-  let trusted = false;
-  try {
-    const parsed = new URL(url ?? '');
-    trusted =
-      parsed.protocol === 'https:' &&
-      parsed.hostname === 'avatars.githubusercontent.com' &&
-      !parsed.username &&
-      !parsed.password &&
-      !parsed.port;
-  } catch {
-    /* Missing or invalid avatar URLs use the account initials. */
-  }
+  useEffect(() => {
+    if (!trusted) return;
+    let active = true;
+    let objectUrl: string | undefined;
+    void loadGitHubAvatar(trusted).then((blob) => {
+      if (!active) return;
+      if (blob && typeof URL.createObjectURL === 'function') objectUrl = URL.createObjectURL(blob);
+      setImage({ url: trusted, src: objectUrl ?? trusted });
+    });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [trusted]);
+  const src = image?.url === trusted ? image.src : null;
   return (
     <span className="avatar">
-      {trusted && url && failed !== url ? (
+      {src && failed !== src ? (
         <img
-          src={url}
+          src={src}
           alt={t('{0} 的头像', [login ?? 'GitHub'])}
           referrerPolicy="no-referrer"
-          onError={() => setFailed(url)}
+          onError={() => setFailed(src)}
         />
       ) : (
         (login?.slice(0, 1).toUpperCase() ?? '?')

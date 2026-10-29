@@ -1,3 +1,4 @@
+import { GitHubAvatar } from '../../components/GitHubAvatar';
 import { reviewThreads } from './reviewThreads';
 import { useI18n } from '../../i18n/I18n';
 import { useId, useMemo, useState, type ReactNode } from 'react';
@@ -107,6 +108,7 @@ function DiscussionSection({
           ...data.comments.flat().map((c) => ({
             id: `comment-${c.id}`,
             author: c.user?.login,
+            avatar: c.user?.avatar_url,
             body: c.body,
             date: c.created_at,
             label: '普通评论',
@@ -117,6 +119,7 @@ function DiscussionSection({
           ...reviewThreads(data.reviewComments.flat()).map(({ comment: c, replies }) => ({
             id: `inline-${c.id}`,
             author: c.user?.login,
+            avatar: c.user?.avatar_url,
             body: c.body,
             date: c.created_at,
             label: t('代码评论 · {0}', [c.path ?? '']),
@@ -132,6 +135,7 @@ function DiscussionSection({
               replies: [],
               replyTo: undefined,
               author: r.user?.login,
+              avatar: r.user?.avatar_url,
               body: r.body,
               date: r.submitted_at ?? '',
               label: t('{0} · 正式评审', [t(reviewLabels[r.state] ?? r.state)]),
@@ -167,9 +171,7 @@ function DiscussionSection({
               <ul className="review-decisions">
                 {latestReviews.map((review) => (
                   <li key={review.id} className="review-decision">
-                    <span className="reviewer-initial" aria-hidden="true">
-                      {review.user?.login?.slice(0, 1).toUpperCase() ?? '?'}
-                    </span>
+                    <GitHubAvatar login={review.user?.login} url={review.user?.avatar_url} />
                     <div className="reviewer-info">
                       <strong>{review.user?.login ?? t('已删除用户')}</strong>
                       <span
@@ -223,7 +225,8 @@ function DiscussionSection({
               key={event.id}
             >
               <div className="inline-group">
-                <h2>{event.author ?? '已删除用户'}</h2>
+                <GitHubAvatar login={event.author} url={event.avatar} />
+                <h2>{event.author ?? t('已删除用户')}</h2>
                 <span className="muted">{t(event.label)}</span>
                 <time className="dim">{event.date && shortTime(event.date)}</time>
               </div>
@@ -240,6 +243,7 @@ function DiscussionSection({
                     return (
                       <article className="review-reply" key={reply.id}>
                         <div className="inline-group">
+                          <GitHubAvatar login={reply.user?.login} url={reply.user?.avatar_url} />
                           <h3>{reply.user?.login ?? t('已删除用户')}</h3>
                           <span className="reply-context">{t('回复 @{0}', [author])}</span>
                           <time className="dim">{shortTime(reply.created_at)}</time>

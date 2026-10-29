@@ -666,7 +666,8 @@
 .review-decision + .review-decision {
   border-top: 1px solid var(--border);
 }
-.reviewer-initial {
+.review-decision .avatar,
+.detail-card .inline-group .avatar {
   display: grid;
   place-items: center;
   width: 34px;

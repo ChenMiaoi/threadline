@@ -1,3 +1,7 @@
+vi.mock('../../lib/avatar-cache', async (original) => ({
+  ...(await original<typeof import('../../lib/avatar-cache')>()),
+  loadGitHubAvatar: vi.fn(async () => null),
+}));
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -60,9 +64,9 @@ it('reads repository-year contribution shape and supports keyboard day and year 
     '',
   );
   expect(screen.getByText(`当前仓库 · ${repo}`)).toBeTruthy();
-  expect(screen.getByRole('img', { name: `${user.login} 的头像` }).getAttribute('src')).toBe(
-    profile.avatarUrl,
-  );
+  expect(
+    (await screen.findByRole('img', { name: `${user.login} 的头像` })).getAttribute('src'),
+  ).toBe(profile.avatarUrl);
   const calendar = screen.getByLabelText(/使用方向键选择日期/);
   fireEvent.keyDown(calendar, { key: 'ArrowDown' });
   expect(document.getElementById('contribution-selected-day')?.textContent).toBe(
@@ -109,13 +113,13 @@ it('retries a failed request and never publishes a previous account response', a
   });
   await waitFor(() => expect(screen.queryByText('Old account secret')).toBeNull());
 });
-it('uses initials for untrusted URLs and failed GitHub image loads', () => {
+it('uses initials for untrusted URLs and failed GitHub image loads', async () => {
   const { rerender } = render(
     <GitHubAvatar login="contributor" url="https://avatars.githubusercontent.com.evil.test/u/7" />,
   );
   expect(screen.queryByRole('img')).toBeNull();
   rerender(<GitHubAvatar login="contributor" url="https://avatars.githubusercontent.com/u/7" />);
-  fireEvent.error(screen.getByRole('img'));
+  fireEvent.error(await screen.findByRole('img'));
   expect(screen.queryByRole('img')).toBeNull();
   expect(screen.getByText('C')).toBeTruthy();
 });
