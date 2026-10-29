@@ -1,6 +1,77 @@
 # UI Verification
 
-## Current Software-owned Storage and Performance
+## Staged Detail Loading and UI Follow-up
+
+The next iteration added per-operation timing with `Instant` around credential access, live access checks, data reads, final session recheck, and cache writes. Individual HTTP request spans include transport, response reading, and JSON decoding. The desktop interface also records client waiting time and the interval from receiving data to React's layout commit; these are different intervals and should not be added as independent network costs. Screen refresh, later lazy/Suspense work, and Computer Use observation overhead are not measured by the commit value.
+
+Two direct Rust-service baseline probes, using the current account and public LLVM repository, measured the previous aggregate detail path before this iteration's changes:
+
+| Stage                    | PR #229328 | PR #230927 |
+| ------------------------ | ---------: | ---------: |
+| Local credential read    |     0.4 ms |     0.6 ms |
+| Initial account identity |     320 ms |     412 ms |
+| App audit                |     301 ms |     373 ms |
+| Repository access        |     461 ms |     601 ms |
+| Aggregate detail data    |   3,084 ms |   3,606 ms |
+| Second remote identity   |     323 ms |     684 ms |
+| SQLite write             |      13 ms |      15 ms |
+| Total                    |   4,506 ms |   5,696 ms |
+
+The two REST pull metadata reads alone cost about 1.8–2.0 seconds along the critical path. The update uses a standalone GraphQL overview and a small HEAD query for section consistency, runs independent access checks concurrently, and replaces the redundant second remote identity request with a locked local credential check. Live identity, app, and repository validation still gate new data and persisted-cache reads. Tests cover logout and account replacement during a data request, and denial while private cached data exists.
+
+Direct probes after the change returned these independently requested sections:
+
+| Operation                  | PR #229328 | PR #230927 |
+| -------------------------- | ---------: | ---------: |
+| Overview                   |   2,040 ms |   1,906 ms |
+| Discussion, after overview |   2,050 ms |   2,186 ms |
+| Files, when selected       |   1,824 ms |   2,062 ms |
+| Checks, when selected      |   1,863 ms |   2,044 ms |
+
+Each probe used a newly created HTTP client process and an in-memory SQLite database. These are individual samples affected by live GitHub/network conditions, not percentiles or a controlled speedup ratio. First useful content is the overview; a complete first discussion takes the overview plus its discussion request. Loading all tabs is deliberately different from the old aggregate request, so the overview duration must not be represented as full-detail completion.
+
+UI changes include explicit back/refresh controls, independent tab progress/errors/retry, preserved list search and scroll position, Enter to open a selected PR, always-visible activity search, scoped memory reuse with live revalidation, memoized/preloaded Markdown, recent discussion batches, and file patches mounted only when expanded. Previously hidden search constraints, misleading first-row selection styling, missing Issue retry controls, and oversized detail sidebars were corrected. Settings exposes the recent diagnostic samples for native verification. A regression test prevents manual refresh from being mislabeled as initial cached-render time.
+
+A GPT-6.1 Terra xhigh subagent exercised the rebuilt native app. In-app diagnostic samples from two PRs produced the following measurements (the operation sequence identifies the PR; diagnostic entries intentionally contain no record identifiers):
+
+| Native operation      | Client wait | UI commit |  Backend |
+| --------------------- | ----------: | --------: | -------: |
+| PR #230927 overview   |    1,297 ms |      4 ms | 1,295 ms |
+| PR #230927 discussion |    1,921 ms |     16 ms | 1,913 ms |
+| PR #230927 files      |    1,800 ms |      1 ms | 1,796 ms |
+| PR #230927 checks     |    1,839 ms |      1 ms | 1,834 ms |
+| PR #229328 overview   |    1,165 ms |      3 ms | 1,163 ms |
+| PR #229328 files      |    1,468 ms |     <1 ms | 1,464 ms |
+| PR #229328 checks     |    1,651 ms |      1 ms | 1,647 ms |
+
+For PR #229328, the overview's backend stages were credentials <1 ms, live access 502 ms, GraphQL data 659 ms, local session recheck 1 ms, and SQLite 1 ms. For PR #230927 on a subsequent revalidation, they were 1, 515, 657, <1, and 1 ms respectively (backend total 1,174 ms). UI work is small compared with network waiting in these samples. An overview and a first discussion are separate sequential operations; for the first row's PR, useful description/metadata appears after about 1.3 seconds and the full discussion after a further 1.9 seconds.
+
+Reopening already-read content showed cached overview, discussion, files, and checks with zero additional network wait before initial display. Observed cached commit samples were 1–22 ms (including 18 ms for discussion and 22 ms for overview on one PR, and 7/8 ms on another). Live revalidation still followed; these numbers do not mean fresh GitHub data can be fetched in milliseconds.
+
+Functional native checks passed for:
+
+- Authored PR states, number search, selection/preview, Enter to open, and the explicit back button. Opening a draft from the bottom of the list showed the detail from the top; returning restored the original draft/scroll position. The search term was preserved.
+- Review search (`235313`), attention filtering, and empty filtered results.
+- Issue label and number filters (`good first issue` / `229300`), body/comments, last-read timestamp, close, and cached reopen with an update notice.
+- PR discussion, file expansion, checks, manual refresh, repeated open, and independent tab loading for PRs #229328 and #230927.
+- All four Settings sections, repository picker cancel, the Inbox limitation, and the empty Snoozed page.
+
+Regression found a diagnostic bug: a manual refresh could incorrectly label the component's lifetime as cached-render time. The fix only records an initial cached commit and never records a failed retry using an old response timestamp; both paths have regression tests. A minor empty-state message was also made neutral to the selected filter, and the client metric was renamed to explain remaining wait when an in-flight request is reused. The final rebuilt package was then rechecked after quitting the earlier process and reopening the bundle from its full path. Manual refresh no longer generated an incorrect cached-render sample, the updated empty-filter message appeared, and the metric label was **客户端等待**. Final PR #229328 samples were:
+
+| Final-package operation    | Client wait | UI commit |  Backend |
+| -------------------------- | ----------: | --------: | -------: |
+| Overview                   |    1,173 ms |      4 ms | 1,171 ms |
+| Discussion, after overview |    1,723 ms |     26 ms | 1,715 ms |
+| Files                      |    1,372 ms |      2 ms | 1,368 ms |
+| Checks                     |    1,606 ms |      1 ms | 1,601 ms |
+| Explicit overview refresh  |      971 ms |      2 ms |   969 ms |
+| Cached overview on reopen  |        0 ms |      1 ms |        — |
+
+A further Cmd-Q and reopening of this final bundle automatically restored the account, LLVM repository, and 11 open authored PRs without a keychain/master-password prompt. The app was left signed in with the LLVM list available. All native regression findings were resolved and specifically rechecked. Different window widths and deliberate physical network failures were not tested. ScreenCaptureKit temporarily failed during the run; resetting the Computer Use session restored access without changing system permissions.
+
+This iteration passed `npm run check`: 110 frontend tests, 39 Rust tests, lint/format/types, and frontend/native builds. Live private-repository checks, Windows, physical offline transitions, and large-data native rendering have not been exercised. Automated failure/revision/cache tests cover paths that would be unsafe or unreliable to reproduce by revoking the real user's access.
+
+## First Performance Iteration and Software-owned Storage
 
 On October 29, 2026, `npm run check` passed after connection reuse, concurrent review searches and PR detail reads, progressive workspace results, refresh coalescing, and version 3 software-owned credential storage were implemented. This included 100 frontend tests, 33 Rust tests, lint, formatting, type checks, and frontend/native build checks. The debug app and DMG were also rebuilt.
 
