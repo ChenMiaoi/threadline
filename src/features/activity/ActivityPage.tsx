@@ -72,7 +72,7 @@ export function ActivityRecord({
           <span className="record-detail">{record.detail}</span>
         </span>
         <span className="record-status">
-          <span className={record.tone}>{record.status}</span>
+          <span className={record.tone}>{onRead ? (isRead ? '已读' : '未读') : record.status}</span>
           <time>{record.updated}</time>
         </span>
       </button>

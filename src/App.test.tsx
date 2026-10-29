@@ -71,6 +71,9 @@ describe('workspace interactions', () => {
     fireEvent.click(screen.getAllByRole('button', { name: '标记未读' })[0]);
     fireEvent.click(screen.getByRole('tab', { name: '未读 1' }));
     expect(screen.getByRole('button', { name: /未读\s*#\s*1042/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /未读\s*#\s*1042/ }).textContent).not.toContain(
+      '已读',
+    );
     await waitFor(() =>
       expect(JSON.parse(window.localStorage.getItem('threadline.workspace.v1')!).unread).toContain(
         recordId(user.id, repo, 'notification', notifications[0].id, updated),
