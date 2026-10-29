@@ -1,3 +1,5 @@
+import { describePull } from './pull-status';
+import type { StatusBadge } from './pull-status';
 import type { Activity } from '../features/activity/model';
 import type { PullRequest } from '../features/pulls/model';
 
@@ -86,6 +88,8 @@ export interface SearchRecord {
   isDraft?: boolean;
   headRefOid?: string;
   reviewDecision?: string | null;
+  mergeStateStatus?: string | null;
+  mergeable?: string | null;
   reviews?: { totalCount: number; nodes: GitHubReview[] };
   reviewRequests?: { nodes: { requestedReviewer: { login?: string; name?: string } | null }[] };
   commits?: { nodes: { commit: { statusCheckRollup: { state: string } | null } }[] };
@@ -155,20 +159,13 @@ function compactTime(time: string, now = Date.now()) {
           : new Date(time).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
 }
 export function pullFromGitHub(record: SearchRecord, account: number, repo: string): PullRequest {
-  const state = record.state.toLowerCase() as PullRequest['state'];
-  const decision = record.reviewDecision;
-  const status = record.isDraft
-    ? '草稿'
-    : state === 'merged'
-      ? '已合并'
-      : state === 'closed'
-        ? '已关闭'
-        : decision === 'CHANGES_REQUESTED'
-          ? '请求修改'
-          : decision === 'APPROVED'
-            ? '已批准'
-            : '等待评审';
   const check = record.commits?.nodes[0]?.commit.statusCheckRollup?.state;
+  const presentation = describePull({ ...record, checkState: check });
+  const { state } = presentation;
+  const status =
+    state !== 'open' || presentation.draft
+      ? presentation.lifecycle.label
+      : presentation.review.label;
   const reviewer = record.reviewRequests?.nodes[0]?.requestedReviewer;
   const comment = record.comments.nodes[0];
   return {
@@ -177,15 +174,10 @@ export function pullFromGitHub(record: SearchRecord, account: number, repo: stri
     number: record.number,
     title: record.title,
     state,
-    group: record.isDraft
-      ? '草稿'
-      : decision === 'CHANGES_REQUESTED'
-        ? '需要我的处理'
-        : state === 'open'
-          ? '等待评审'
-          : status,
+    presentation,
+    group: presentation.group,
     status,
-    tone: decision === 'CHANGES_REQUESTED' ? 'yellow' : state === 'open' ? 'blue' : 'muted',
+    tone: presentation.needsAuthorAction ? 'yellow' : state === 'open' ? 'blue' : 'muted',
     check:
       check === 'SUCCESS'
         ? 'passed'
@@ -238,39 +230,97 @@ export function reviewFromGitHub(
         r.author?.login === login &&
         ['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(r.state),
     ) ?? [];
-  const latest = reviews.at(-1);
+  const latest = reviews
+    .sort((left, right) => left.submittedAt.localeCompare(right.submittedAt))
+    .at(-1);
   const review = latest?.state === 'DISMISSED' ? undefined : latest;
   const requested = record.reviewRequests?.nodes.some((r) => r.requestedReviewer?.login === login);
   // The last 100 reviews are explicit; do not infer an absent formal review when truncated.
   const truncated = (record.reviews?.totalCount ?? 0) > (record.reviews?.nodes.length ?? 0);
-  const changed = review?.commit?.oid !== record.headRefOid;
-  const category = review
-    ? changed
-      ? 'updated'
-      : review.state === 'CHANGES_REQUESTED'
-        ? 'waiting'
-        : 'reviewed'
-    : requested
-      ? 'updated'
-      : 'discussion';
-  const status = review
-    ? changed
-      ? '需要复查'
-      : review.state === 'CHANGES_REQUESTED'
-        ? '等待作者'
-        : '已评审'
-    : requested
-      ? '待评审'
-      : truncated
-        ? '评审历史未完整加载'
-        : '仅参与讨论';
+  const presentation = describePull({
+    ...record,
+    checkState: record.commits?.nodes[0]?.commit.statusCheckRollup?.state,
+  });
+  const knownVersion = Boolean(review?.commit?.oid && record.headRefOid);
+  const changed = knownVersion && review?.commit?.oid !== record.headRefOid;
+  const category =
+    presentation.state !== 'open'
+      ? 'finished'
+      : presentation.draft
+        ? 'draft'
+        : requested
+          ? 'requested'
+          : review
+            ? !knownVersion
+              ? 'unverified'
+              : changed
+                ? 'updated'
+                : review.state === 'CHANGES_REQUESTED'
+                  ? 'waiting'
+                  : 'reviewed'
+            : truncated
+              ? 'unverified'
+              : 'discussion';
+  const status = (
+    {
+      finished: presentation.lifecycle.label,
+      draft: '草稿',
+      requested: '待我评审',
+      updated: '评审后有新提交',
+      waiting: '等待作者修改',
+      reviewed: '我已批准',
+      unverified: review ? '评审版本待确认' : '评审历史不完整',
+      discussion: latest?.state === 'DISMISSED' ? '评审已撤销' : '仅参与讨论',
+    } as Record<string, string>
+  )[category];
+  const nextAction =
+    category === 'finished'
+      ? '流程已结束，无需继续评审'
+      : category === 'draft'
+        ? '等待作者将草稿标记为可评审'
+        : category === 'requested'
+          ? '作者已请求你评审'
+          : category === 'updated'
+            ? '查看新提交，确认是否需要重新评审'
+            : category === 'waiting'
+              ? '等待作者按你的评审意见修改'
+              : category === 'reviewed'
+                ? '你的批准对应当前 HEAD；合并还需满足仓库条件'
+                : category === 'unverified' || truncated
+                  ? '打开详情确认个人评审历史与版本'
+                  : latest?.state === 'DISMISSED'
+                    ? '你的正式评审已撤销；需要时重新提交评审'
+                    : '普通评论不代表已批准或要求变更';
+  const personalReview: StatusBadge =
+    latest?.state === 'DISMISSED'
+      ? {
+          label: '已撤销',
+          tone: 'neutral',
+          description: '你最近的正式评审已被撤销，不将之前的批准当作当前有效结论。',
+        }
+      : review
+        ? {
+            label: `${review.state === 'APPROVED' ? '已批准' : '要求变更'}${changed ? ' · 旧版本' : knownVersion ? ' · 当前版本' : ' · 版本待确认'}`,
+            tone: review.state === 'APPROVED' ? 'success' : 'warning',
+            description: '这是当前账号的个人评审，和 GitHub 汇总评审结论分别展示。',
+          }
+        : {
+            label: truncated ? '历史不完整' : '未提交正式结论',
+            tone: 'neutral',
+            description: truncated
+              ? '最近100条评审不足以确定你的完整评审历史。'
+              : '普通评论不表示正式批准或要求变更。',
+          };
   return {
     id: recordId(account, repo, 'review', record.number, record.updatedAt),
     kind: 'pull',
     number: record.number,
     title: record.title,
     url: record.url,
-    summary: status,
+    summary: nextAction,
+    pullStatus: presentation,
+    personalReview,
+    needsAttention: ['requested', 'updated', 'unverified'].includes(category),
     detail: review
       ? `评审版本 ${review.commit?.oid.slice(0, 7) ?? '未知'} · 当前 HEAD ${record.headRefOid?.slice(0, 7) ?? '未知'}${changed ? ' · 代码版本已变化' : ''}`
       : previewText(record.comments.nodes[0]?.body || record.body || '暂无说明'),
@@ -279,7 +329,7 @@ export function reviewFromGitHub(
     tone: category === 'updated' ? 'yellow' : category === 'waiting' ? 'blue' : 'muted',
     updated: compactTime(record.updatedAt),
     category,
-    state: record.state === 'OPEN' ? 'open' : 'closed',
+    state: presentation.state,
   };
 }
 export function notificationFromGitHub(record: GitHubNotification, account: number): Activity {
@@ -350,6 +400,10 @@ export interface CommitStatus {
 export interface PullDetail {
   pull: {
     number: number;
+    reviewDecision?: string | null;
+    mergeStateStatus?: string | null;
+    mergeable?: string | null;
+    checkState?: string | null;
     title: string;
     body: string | null;
     html_url: string;

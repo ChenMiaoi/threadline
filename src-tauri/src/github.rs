@@ -277,7 +277,7 @@ impl Client {
             return Err("GH_RESPONSE_ERROR".into());
         }
         Ok(
-            json!({"number":pull["number"],"title":pull["title"],"body":pull["body"],"html_url":pull["url"],"state":if pull["state"] == "OPEN" { "open" } else { "closed" },"merged":pull["merged"],"draft":pull["isDraft"],"user":pull["author"],"head":{"sha":sha,"ref":pull["headRefName"]},"base":{"ref":pull["baseRefName"]},"additions":pull["additions"],"deletions":pull["deletions"],"changed_files":pull["changedFiles"],"commits":pull["commits"]["totalCount"]}),
+            json!({"number":pull["number"],"title":pull["title"],"body":pull["body"],"html_url":pull["url"],"state":if pull["state"] == "OPEN" { "open" } else { "closed" },"merged":pull["merged"],"draft":pull["isDraft"],"reviewDecision":pull["reviewDecision"],"mergeStateStatus":pull["mergeStateStatus"],"mergeable":pull["mergeable"],"checkState":pull["commits"]["nodes"][0]["commit"]["statusCheckRollup"]["state"],"user":pull["author"],"head":{"sha":sha,"ref":pull["headRefName"]},"base":{"ref":pull["baseRefName"]},"additions":pull["additions"],"deletions":pull["deletions"],"changed_files":pull["changedFiles"],"commits":pull["commits"]["totalCount"]}),
         )
     }
     pub fn request(

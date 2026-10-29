@@ -8,6 +8,9 @@ query PullOverview($owner: String!, $name: String!, $number: Int!) {
       state
       merged
       isDraft
+      reviewDecision
+      mergeStateStatus
+      mergeable
       author {
         login
       }
@@ -17,8 +20,15 @@ query PullOverview($owner: String!, $name: String!, $number: Int!) {
       additions
       deletions
       changedFiles
-      commits {
+      commits(last: 1) {
         totalCount
+        nodes {
+          commit {
+            statusCheckRollup {
+              state
+            }
+          }
+        }
       }
     }
   }

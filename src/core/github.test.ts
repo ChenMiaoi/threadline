@@ -80,3 +80,80 @@ describe('GitHub records', () => {
     );
   });
 });
+
+describe('personal review and lifecycle separation', () => {
+  const formal = {
+    state: 'CHANGES_REQUESTED',
+    body: '',
+    submittedAt: updated,
+    author: { login: user.login },
+    commit: { oid: 'b'.repeat(40) },
+  };
+  it('retains the personal conclusion when new commits require inspection', () => {
+    const result = reviewFromGitHub(
+      { ...record, reviews: { totalCount: 1, nodes: [formal] } },
+      user.id,
+      repo,
+      user.login,
+    );
+    expect(result.category).toBe('updated');
+    expect(result.personalReview?.label).toBe('要求变更 · 旧版本');
+    expect(result.pullStatus?.lifecycle.label).toBe('开放');
+    expect(result.summary).toContain('查看新提交');
+  });
+  it('keeps merged/closed PRs out of re-review and author-waiting filters', () => {
+    for (const state of ['MERGED', 'CLOSED']) {
+      const result = reviewFromGitHub(
+        { ...record, state, reviews: { totalCount: 1, nodes: [formal] } },
+        user.id,
+        repo,
+        user.login,
+      );
+      expect(result.category).toBe('finished');
+      expect(result.needsAttention).toBe(false);
+      expect(result.summary).toContain('流程已结束');
+      expect(result.state).toBe(state.toLowerCase());
+    }
+  });
+  it('distinguishes a new request, a draft, and a missing version from a known code update', () => {
+    const requested = {
+      ...record,
+      reviewRequests: { nodes: [{ requestedReviewer: { login: user.login } }] },
+    };
+    expect(reviewFromGitHub(requested, user.id, repo, user.login).category).toBe('requested');
+    expect(
+      reviewFromGitHub({ ...requested, isDraft: true }, user.id, repo, user.login).category,
+    ).toBe('draft');
+    expect(
+      reviewFromGitHub(
+        { ...record, headRefOid: undefined, reviews: { totalCount: 1, nodes: [formal] } },
+        user.id,
+        repo,
+        user.login,
+      ).category,
+    ).toBe('unverified');
+  });
+  it('treats truncated personal history as unknown and chooses the latest formal conclusion by date', () => {
+    const unknown = reviewFromGitHub(
+      { ...record, reviews: { totalCount: 101, nodes: [] } },
+      user.id,
+      repo,
+      user.login,
+    );
+    expect(unknown.personalReview?.label).toBe('历史不完整');
+    const result = reviewFromGitHub(
+      {
+        ...record,
+        reviews: {
+          totalCount: 2,
+          nodes: [{ ...formal, state: 'DISMISSED', submittedAt: '2026-10-30T00:00:00Z' }, formal],
+        },
+      },
+      user.id,
+      repo,
+      user.login,
+    );
+    expect(result.personalReview?.label).toBe('已撤销');
+    expect(result.summary).toContain('已撤销');
+  });
+});

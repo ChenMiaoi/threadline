@@ -1,8 +1,12 @@
+import type { PullStatus, StatusBadge } from '../../core/pull-status';
 export type ActivityView = 'inbox' | 'review' | 'issues';
 export interface Activity {
+  pullStatus?: PullStatus;
+  personalReview?: StatusBadge;
+  needsAttention?: boolean;
   url?: string;
   labels?: string[];
-  state?: 'open' | 'closed';
+  state?: 'open' | 'closed' | 'merged';
   serverRead?: boolean;
   id: string;
   kind: 'pull' | 'issue';
@@ -48,6 +52,7 @@ export function groupActivities(records: readonly Activity[]) {
     groups.set(record.group, [...(groups.get(record.group) ?? []), record]);
   const priority: Record<string, number> = {
     attention: 0,
+    requested: 0,
     updated: 0,
     authored: 0,
     waiting: 1,
@@ -55,6 +60,9 @@ export function groupActivities(records: readonly Activity[]) {
     participated: 1,
     reviewed: 2,
     discussion: 3,
+    unverified: 3,
+    draft: 4,
+    finished: 5,
   };
   return [...groups].sort(
     ([, left], [, right]) =>
