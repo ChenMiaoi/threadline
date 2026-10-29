@@ -3,7 +3,7 @@ use std::io::Read;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-// All commands use fixed argument vectors, never a shell or a frontend-supplied command.
+// Requests use fixed argument vectors; login uses a fixed native command line, never a shell.
 fn command(args: &[String]) -> Result<Value, String> {
     let mut command = Command::new("gh");
     command
@@ -215,25 +215,62 @@ pub fn request(operation: &str, repo: &str, number: u64, login: &str) -> Result<
     }
 }
 
+#[cfg(windows)]
+const LOGIN_COMMAND: &str =
+    "gh auth login --hostname github.com --web --git-protocol https --scopes notifications";
+
+#[cfg(windows)]
+fn launch_console(command: &str) -> std::io::Result<std::os::windows::io::OwnedHandle> {
+    use std::os::windows::ffi::OsStrExt;
+    use std::os::windows::io::FromRawHandle;
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::Threading::{
+        CreateProcessW, CREATE_NEW_CONSOLE, PROCESS_INFORMATION, STARTUPINFOW,
+    };
+
+    let mut command: Vec<u16> = std::ffi::OsStr::new(command)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    // Zero initialization is the documented default for these Win32 structures.
+    let mut startup: STARTUPINFOW = unsafe { std::mem::zeroed() };
+    startup.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
+    let mut process: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
+    // The writable command buffer and output structures remain valid for the call.
+    // No inherited handles or STARTF_USESTDHANDLES: Windows supplies console handles.
+    let started = unsafe {
+        CreateProcessW(
+            std::ptr::null(),
+            command.as_mut_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            0,
+            CREATE_NEW_CONSOLE,
+            std::ptr::null(),
+            std::ptr::null(),
+            &startup,
+            &mut process,
+        )
+    };
+    if started == 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    // CreateProcessW returned owned handles; release the thread and transfer the process.
+    unsafe {
+        CloseHandle(process.hThread);
+        Ok(std::os::windows::io::OwnedHandle::from_raw_handle(
+            process.hProcess,
+        ))
+    }
+}
+
 pub fn login() -> Result<(), String> {
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
-        Command::new("gh")
-            .args([
-                "auth",
-                "login",
-                "--hostname",
-                "github.com",
-                "--web",
-                "--git-protocol",
-                "https",
-                "--scopes",
-                "notifications",
-            ])
-            .creation_flags(0x00000010)
-            .spawn()
-            .map_err(|_| "GH_NOT_FOUND: 请先安装 GitHub CLI。")?;
+        launch_console(LOGIN_COMMAND).map_err(|error| match error.kind() {
+            std::io::ErrorKind::NotFound => "GH_NOT_FOUND: 请先安装 GitHub CLI。".to_string(),
+            _ => "GH_LOGIN_FAILED: 无法打开 GitHub 登录窗口，请重试。".to_string(),
+        })?;
         Ok(())
     }
     #[cfg(not(windows))]
@@ -310,6 +347,49 @@ mod tests {
             "INVALID_OPERATION"
         );
         assert!(open("https://github.com.evil.test/a").is_err());
+    }
+    #[cfg(windows)]
+    #[test]
+    fn console_handle_probe() {
+        use windows_sys::Win32::Storage::FileSystem::{GetFileType, FILE_TYPE_CHAR};
+        use windows_sys::Win32::System::Console::{
+            GetStdHandle, STD_ERROR_HANDLE, STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
+        };
+        if !std::env::args().any(|arg| arg == "--exact") {
+            return;
+        }
+        // The handles belong to this test process and are only inspected here.
+        unsafe {
+            assert_eq!(GetFileType(GetStdHandle(STD_INPUT_HANDLE)), FILE_TYPE_CHAR);
+            assert_eq!(GetFileType(GetStdHandle(STD_OUTPUT_HANDLE)), FILE_TYPE_CHAR);
+            assert_eq!(GetFileType(GetStdHandle(STD_ERROR_HANDLE)), FILE_TYPE_CHAR);
+        }
+    }
+    #[cfg(windows)]
+    #[test]
+    fn login_console_uses_console_handles_even_when_parent_is_redirected() {
+        use std::os::windows::io::AsRawHandle;
+        use windows_sys::Win32::Foundation::WAIT_OBJECT_0;
+        use windows_sys::Win32::System::Threading::{GetExitCodeProcess, WaitForSingleObject};
+        let executable = std::env::current_exe().unwrap();
+        let command = format!(
+            "\"{}\" --exact github::tests::console_handle_probe --nocapture",
+            executable.display()
+        );
+        let process = launch_console(&command).expect("launch console probe");
+        // The owned process handle remains valid until after these calls.
+        unsafe {
+            assert_eq!(
+                WaitForSingleObject(process.as_raw_handle(), 30_000),
+                WAIT_OBJECT_0
+            );
+            let mut exit_code = 1;
+            assert_ne!(
+                GetExitCodeProcess(process.as_raw_handle(), &mut exit_code),
+                0
+            );
+            assert_eq!(exit_code, 0, "console probe failed");
+        }
     }
     #[test]
     fn errors_are_actionable_and_do_not_echo_subprocess_output() {
