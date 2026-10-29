@@ -1,0 +1,8 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Icon/profile" stroke="#AAAABD" stroke-width="1.46667" stroke-linecap="round" stroke-linejoin="round">
+<rect x="2.75" y="3.66667" width="16.5" height="14.6667" rx="2.75"/>
+<circle cx="7.79167" cy="8.70833" r="2.29167"/>
+<path d="M4.58333 15.5833V14.6667C4.58333 12.8948 6.01975 11.4583 7.79167 11.4583C9.56358 11.4583 11 12.8948 11 14.6667V15.5833H4.58333Z"/>
+<path d="M13.75 8.25H16.5M13.75 11.9167H16.5M13.75 15.5833H15.5833"/>
+</g>
+</svg>

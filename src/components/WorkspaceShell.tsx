@@ -10,7 +10,7 @@ const navigation: { id: View; label: string; icon: string; count?: number }[] = 
   { id: 'authored', label: '我发起的', icon: 'user' },
   { id: 'review', label: '我审阅的', icon: 'review' },
   { id: 'issues', label: 'Issues', icon: 'issues' },
-  { id: 'profile', label: '个人主页', icon: 'user' },
+  { id: 'profile', label: '个人主页', icon: 'profile' },
 ];
 
 export function WorkspaceShell({
