@@ -1,6 +1,7 @@
 import { useRef, type ReactNode } from 'react';
 import { Icon, IconButton } from './Icon';
-import type { View } from '../lib/desktop';
+import { isDesktop, type View } from '../lib/desktop';
+import { WindowControls } from './WindowControls';
 
 const navigation: { id: View; label: string; icon: string; count?: number }[] = [
   { id: 'inbox', label: '收件箱', icon: 'inbox' },
@@ -41,10 +42,12 @@ export function WorkspaceShell({
   }
   return (
     <div className={`app ${className}`}>
-      <header className="app-bar">
-        <div className="brand">
-          <Icon name="brand" />
-          <strong>ThreadLine</strong>
+      <header className={`app-bar${isDesktop ? ' desktop-app-bar' : ''}`} data-tauri-drag-region>
+        <div className="brand" data-tauri-drag-region>
+          <span data-tauri-drag-region>
+            <Icon name="brand" />
+          </span>
+          <strong data-tauri-drag-region>ThreadLine</strong>
         </div>
         <IconButton name="search" label="搜索工作区" onClick={onSearch} />
         <div className="workspace-switcher">
@@ -78,6 +81,7 @@ export function WorkspaceShell({
           </span>
           <Icon name="chev" />
         </button>
+        <WindowControls />
       </header>
       <div className="workspace">
         <aside className="sidebar">

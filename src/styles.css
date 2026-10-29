@@ -76,6 +76,59 @@ button:hover {
   font-size: 21px;
   font-weight: 600;
 }
+.desktop-app-bar {
+  padding-right: 0;
+  user-select: none;
+  gap: 12px;
+  app-region: drag;
+}
+.desktop-app-bar button,
+.desktop-app-bar details,
+.window-controls {
+  app-region: no-drag;
+}
+.desktop-app-bar .brand .icon {
+  pointer-events: none;
+}
+.desktop-app-bar .account {
+  padding-inline: 8px;
+}
+.window-controls {
+  position: relative;
+  display: flex;
+  align-self: stretch;
+  flex-shrink: 0;
+}
+.window-controls button {
+  width: 44px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: var(--muted);
+}
+.window-controls button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.window-controls .window-close:hover {
+  background: #c42b1c;
+  color: white;
+}
+.window-controls button:focus-visible {
+  outline-offset: -4px;
+}
+.window-error {
+  position: absolute;
+  right: 8px;
+  top: 100%;
+  width: 220px;
+  padding: 12px;
+  z-index: 20;
+  background: var(--raised);
+  color: var(--error);
+  border: 1px solid var(--error-border);
+  border-radius: 8px;
+}
 .workspace-switcher {
   border: 1px solid var(--border);
   border-radius: 8px;
