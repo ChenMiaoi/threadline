@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -10,6 +11,12 @@ import {
   within,
 } from '@testing-library/react';
 import { SettingsPage } from './SettingsPage';
+import { enableDesktopNotifications } from '../../lib/notifications';
+
+vi.mock('../../lib/notifications', () => ({
+  enableDesktopNotifications: vi.fn(),
+  notifyDesktop: vi.fn(),
+}));
 import { useGitHub } from '../../lib/useGitHub';
 import { createGateway } from '../../test/github.fixture';
 import { defaultWorkspace } from '../../core/workspace';
@@ -82,4 +89,58 @@ describe('sign-out confirmation', () => {
     expect(disconnect).toHaveBeenCalledOnce();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
+});
+
+it('disables connection checks while a connection request is pending', async () => {
+  const { result } = renderHook(() => useGitHub(0, createGateway()));
+  await waitFor(() => expect(result.current.session).not.toBeNull());
+  const onConnect = vi.fn();
+  render(
+    <SettingsPage
+      preferences={defaultWorkspace().preferences}
+      onChange={vi.fn()}
+      onConnect={onConnect}
+      onSync={vi.fn()}
+      appState={null}
+      github={{ ...result.current, connecting: true }}
+      onChooseRepository={vi.fn()}
+    />,
+  );
+  const check = screen.getByRole('button', { name: '正在检查…' }) as HTMLButtonElement;
+  expect(check.disabled).toBe(true);
+  fireEvent.click(check);
+  expect(onConnect).not.toHaveBeenCalled();
+});
+
+it('disables the notification switch until the permission request completes', async () => {
+  const { result } = renderHook(() => useGitHub(0, createGateway()));
+  await waitFor(() => expect(result.current.session).not.toBeNull());
+  let resolve!: () => void;
+  vi.mocked(enableDesktopNotifications).mockReturnValueOnce(
+    new Promise<void>((done) => {
+      resolve = done;
+    }),
+  );
+  const onChange = vi.fn();
+  render(
+    <SettingsPage
+      preferences={{ ...defaultWorkspace().preferences, desktopNotifications: false }}
+      onChange={onChange}
+      onConnect={vi.fn()}
+      onSync={vi.fn()}
+      appState={null}
+      github={result.current}
+      onChooseRepository={vi.fn()}
+    />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: '通知' }));
+  const toggle = screen.getByRole('switch', { name: '桌面通知' }) as HTMLButtonElement;
+  fireEvent.click(toggle);
+  expect(toggle.disabled).toBe(true);
+  fireEvent.click(toggle);
+  expect(enableDesktopNotifications).toHaveBeenCalledTimes(1);
+  expect(onChange).not.toHaveBeenCalled();
+  await act(async () => resolve());
+  expect(toggle.disabled).toBe(false);
+  expect(onChange).toHaveBeenCalledExactlyOnceWith({ desktopNotifications: true });
 });

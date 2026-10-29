@@ -22,14 +22,14 @@ function SettingRow({
   children,
 }: {
   title: string;
-  description: string;
+  description?: string;
   children: ReactNode;
 }) {
   return (
     <div className="setting-row">
       <div className="setting-text">
         <h3>{title}</h3>
-        <p>{description}</p>
+        {description && <p>{description}</p>}
       </div>
       <div className="setting-control">{children}</div>
     </div>
@@ -40,14 +40,17 @@ function Toggle({
   label,
   checked,
   onChange,
+  disabled = false,
 }: {
   label: string;
   checked: boolean;
+  disabled?: boolean;
   onChange: () => void;
 }) {
   return (
     <button
       className={`toggle-switch ${checked ? 'is-on' : ''}`}
+      disabled={disabled}
       role="switch"
       aria-label={label}
       aria-checked={checked}
@@ -88,12 +91,6 @@ export function SettingsPage({
   const [section, setSection] = useState<Section>('account');
 
   const title = sections.find(([id]) => id === section)![1];
-  const descriptions: Record<Section, string> = {
-    account: '管理 GitHub 账号与连接状态。',
-    repositories: '控制工作区展示的仓库与同步偏好。',
-    notifications: '仅管理 ThreadLine 的本地提醒偏好，不改变 GitHub 通知订阅。',
-    appearance: '选择主题、信息密度与界面语言。当前主题会立即应用到工作区。',
-  };
   return (
     <>
       {confirmLogout && (
@@ -122,7 +119,7 @@ export function SettingsPage({
           </div>
         </Modal>
       )}
-      <PageHeader title={title} description={descriptions[section]} />
+      <PageHeader title={title} />
       <div className="settings-layout">
         <nav className="settings-nav" aria-label="设置分类">
           {sections.map(([id, label]) => (
@@ -142,10 +139,13 @@ export function SettingsPage({
               <h2 className="settings-section-heading">GitHub 连接</h2>
               <SettingRow
                 title={github.session ? `@${github.session.user.login}` : '尚未连接 GitHub'}
-                description="使用 ThreadLine 独立 GitHub App，登录会安全保存在本机并在重启后恢复。"
               >
-                <button className="setting-value accent" onClick={onConnect}>
-                  {github.session ? '重新检查连接' : '连接 GitHub ↗'}
+                <button
+                  className="setting-value accent"
+                  disabled={github.connecting || github.auth.busy}
+                  onClick={onConnect}
+                >
+                  {github.connecting ? '正在检查…' : github.session ? '检查连接' : '连接 GitHub ↗'}
                 </button>
               </SettingRow>
               <GitHubLoginButton github={github} />
@@ -156,10 +156,7 @@ export function SettingsPage({
                   </button>
                 </div>
               )}
-              <SettingRow
-                title="权限范围"
-                description="PR、Issue、代码、检查、提交状态和仓库元数据均为只读；不包含写入、删除仓库或管理权限。"
-              >
+              <SettingRow title="权限范围" description="只读访问，不会修改 GitHub 数据。">
                 <span className="muted">独立只读授权</span>
               </SettingRow>
               <SettingRow
@@ -168,14 +165,6 @@ export function SettingsPage({
               >
                 <span className="muted">{github.repo || '尚未选择仓库'}</span>
               </SettingRow>
-              <h2 className="settings-section-heading">本地信息</h2>
-              <SettingRow title="显示身份" description="GitHub API 返回的真实账号身份。">
-                <span className="muted">{github.session?.user.login ?? '未连接'}</span>
-              </SettingRow>
-              <p className="settings-note">
-                登录凭据加密保存在本机，不会写入 SQLite 或发送到界面。退出登录会清除本机凭据；
-                授权失效后需要重新登录。收件箱会聚合与你有关的 PR 和 Issue 动态。
-              </p>
               <details className="storage-details">
                 <summary>本地数据存储</summary>
                 <p>
@@ -231,22 +220,16 @@ export function SettingsPage({
           ) : section === 'repositories' ? (
             <>
               <h2 className="settings-section-heading">仓库</h2>
-              <SettingRow
-                title={github.repo || '尚未选择仓库'}
-                description="当前账号的协作记录按所选仓库读取。"
-              >
+              <SettingRow title={github.repo || '尚未选择仓库'}>
                 <span className="muted">{github.repo ? '已选择' : '未选择'}</span>
               </SettingRow>
-              <SettingRow title="选择仓库" description="连接完成后，仅列出授权范围内可选择的仓库。">
+              <SettingRow title="选择仓库" description="仅显示已授权仓库。">
                 <button className="setting-value accent" onClick={onChooseRepository}>
                   选择仓库
                 </button>
               </SettingRow>
               <h2 className="settings-section-heading">同步偏好</h2>
-              <SettingRow
-                title="自动刷新"
-                description="保存工作区打开时的刷新频率；连接 GitHub 后生效。"
-              >
+              <SettingRow title="自动刷新">
                 <select
                   className="setting-value accent"
                   aria-label="自动刷新频率"
@@ -263,17 +246,14 @@ export function SettingsPage({
                   <option value={15}>每 15 分钟</option>
                 </select>
               </SettingRow>
-              <SettingRow title="最近同步" description="各页面的最后成功读取时间。">
+              <SettingRow title="最近同步">
                 <span className="muted">
                   {Object.values(github.times).length
                     ? new Date(Math.max(...Object.values(github.times))).toLocaleString('zh-CN')
                     : '尚未同步'}
                 </span>
               </SettingRow>
-              <SettingRow
-                title="手动刷新"
-                description="读取所选仓库的最新信息；失败时保留可用的本地缓存。"
-              >
+              <SettingRow title="手动刷新" description="刷新失败时保留本地缓存。">
                 <button
                   className="setting-value accent"
                   disabled={github.syncing || !github.session || !github.repo}
@@ -317,12 +297,10 @@ export function SettingsPage({
                 />
               </SettingRow>
               <h2 className="settings-section-heading">呈现方式</h2>
-              <SettingRow
-                title="桌面通知"
-                description="开启后向系统申请通知权限；应用运行并同步到新动态时提醒。"
-              >
+              <SettingRow title="桌面通知" description="应用运行时提醒，需要系统通知权限。">
                 <Toggle
                   label="桌面通知"
+                  disabled={requestingNotifications}
                   checked={preferences.desktopNotifications}
                   onChange={() => {
                     if (requestingNotifications) return;
@@ -340,10 +318,7 @@ export function SettingsPage({
                 />
               </SettingRow>
               {preferences.desktopNotifications && (
-                <SettingRow
-                  title="测试桌面通知"
-                  description="发送一条明确标注为测试的系统通知，确认当前系统是否展示提醒。"
-                >
+                <SettingRow title="测试桌面通知">
                   <button
                     className="setting-value"
                     onClick={() => {
@@ -427,7 +402,7 @@ export function SettingsPage({
                 ))}
               </div>
               <h2 className="settings-section-heading">界面偏好</h2>
-              <SettingRow title="信息密度" description="在清晰阅读与紧凑浏览之间选择。">
+              <SettingRow title="信息密度">
                 <select
                   className="setting-value accent"
                   aria-label="信息密度"
@@ -440,17 +415,14 @@ export function SettingsPage({
                   <option value="compact">紧凑</option>
                 </select>
               </SettingRow>
-              <SettingRow title="语言" description="界面文案语言；仓库内容保持原文。">
-                <span className="accent">简体中文</span>
-              </SettingRow>
-              <SettingRow title="减少动效" description="降低页面切换与状态变化的动效。">
+
+              <SettingRow title="减少动效">
                 <Toggle
                   label="减少动效"
                   checked={preferences.reducedMotion}
                   onChange={() => onChange({ reducedMotion: !preferences.reducedMotion })}
                 />
               </SettingRow>
-              <p className="settings-note">外观偏好只影响 ThreadLine，不会改变系统外观。</p>
             </>
           )}
         </section>

@@ -167,3 +167,11 @@ it.each([900, 1399])(
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: previousHeight });
   },
 );
+
+it('opens details directly without selecting a row or opening its preview', () => {
+  const onOpen = vi.fn();
+  render(<AuthoredPage pulls={pulls} repo={repo} onOpen={onOpen} read={[]} onRead={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button', { name: '打开 PR 1042 详情' }));
+  expect(onOpen).toHaveBeenCalledExactlyOnceWith(pulls[0]);
+  expect(screen.queryByRole('complementary', { name: 'PR 预览' })).toBeNull();
+});

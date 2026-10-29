@@ -161,49 +161,61 @@ export function AuthoredPage({
                 <span>{pulls.length}</span>
               </h2>
               {pulls.map((pull) => (
-                <button
-                  key={pull.number}
-                  className={`pull-row ${selected?.number === pull.number ? 'selected' : ''}`}
-                  aria-pressed={selected?.number === pull.number}
-                  onClick={(event) => {
-                    selectedRow.current = event.currentTarget;
-                    setSelectedNumber(pull.number);
-                    setPanelVisible(true);
-                  }}
-                  onDoubleClick={() => onOpen(pull)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault();
-                      onOpen(pull);
-                    }
-                  }}
-                >
-                  <PullLifecycleIcon
-                    status={
-                      pull.presentation ?? { state: pull.state, draft: pull.group === '草稿' }
-                    }
-                  />
-                  <span className="pull-number">#{pull.number}</span>
-                  <span className="pull-body">
-                    <span className="pull-title" title={pull.title}>
-                      {pull.title}
+                <div className="pull-list-entry" key={pull.number}>
+                  <button
+                    className={`pull-row ${selected?.number === pull.number ? 'selected' : ''}`}
+                    aria-pressed={selected?.number === pull.number}
+                    onClick={(event) => {
+                      selectedRow.current = event.currentTarget;
+                      setSelectedNumber(pull.number);
+                      setPanelVisible(true);
+                    }}
+                    onDoubleClick={() => onOpen(pull)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        onOpen(pull);
+                      }
+                    }}
+                  >
+                    <PullLifecycleIcon
+                      status={
+                        pull.presentation ?? { state: pull.state, draft: pull.group === '草稿' }
+                      }
+                    />
+                    <span className="pull-number">#{pull.number}</span>
+                    <span className="pull-body">
+                      <span className="pull-title" title={pull.title}>
+                        {pull.title}
+                      </span>
+                      {pull.presentation ? (
+                        <>
+                          <PullStatusBadges status={pull.presentation} compact />
+                          <span className="pull-next-action" title={pull.presentation.nextAction}>
+                            建议：{pull.presentation.nextAction}
+                            {pull.reviewer && (
+                              <span className="requested-reviewer">
+                                {' '}
+                                · 评审请求：{pull.reviewer}
+                              </span>
+                            )}
+                          </span>
+                        </>
+                      ) : (
+                        <span className={`pull-status ${pull.tone}`}>{pull.status}</span>
+                      )}
                     </span>
-                    {pull.presentation ? (
-                      <>
-                        <PullStatusBadges status={pull.presentation} compact />
-                        <span className="pull-next-action">
-                          下一步：{pull.presentation.nextAction}
-                          {pull.reviewer && (
-                            <span className="requested-reviewer"> · 评审请求：{pull.reviewer}</span>
-                          )}
-                        </span>
-                      </>
-                    ) : (
-                      <span className={`pull-status ${pull.tone}`}>{pull.status}</span>
-                    )}
-                  </span>
-                  <span className="row-time">{pull.updated}</span>
-                </button>
+                    <span className="row-time">{pull.updated}</span>
+                  </button>
+                  <button
+                    className="text-button pull-open-detail"
+                    aria-label={`打开 PR ${pull.number} 详情`}
+                    onClick={() => onOpen(pull)}
+                  >
+                    详情
+                    <Icon name="arrow" />
+                  </button>
+                </div>
               ))}
             </section>
           ))}

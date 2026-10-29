@@ -99,7 +99,7 @@ export function ActivityRecord({
             {record.pullStatus && !showKind
               ? ['discussion', 'finished', 'draft'].includes(record.category)
                 ? record.detail
-                : `下一步：${record.summary}`
+                : `建议：${record.summary}`
               : record.summary}
           </span>
           {(!record.pullStatus ||

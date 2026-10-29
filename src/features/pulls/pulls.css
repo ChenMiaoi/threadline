@@ -612,3 +612,18 @@
 .density-compact .pull-group-heading {
   height: 36px;
 }
+
+.pull-list-entry {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.pull-list-entry .pull-row {
+  flex: 1;
+  min-width: 0;
+}
+.pull-open-detail {
+  flex: 0 0 auto;
+  padding: 10px 8px;
+  font-size: 12px;
+}

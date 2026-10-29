@@ -392,7 +392,7 @@ export function PullDetailPage({
         {presentation && (
           <>
             <PullStatusBadges status={presentation} />
-            <p className="pull-next-action">下一步：{presentation.nextAction}</p>
+            <p className="pull-next-action">建议：{presentation.nextAction}</p>
           </>
         )}
         <div className="inline-group branch-summary">
