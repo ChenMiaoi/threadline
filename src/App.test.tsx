@@ -203,7 +203,7 @@ describe('workspace interactions', () => {
     expect(screen.queryByRole('button', { name: /Correct source location reporting/ })).toBeNull();
     const content = screen.getByRole('main');
     content.scrollTop = 320;
-    fireEvent.click(screen.getByRole('button', { name: '查看讨论' }));
+    fireEvent.doubleClick(screen.getByRole('button', { name: /#1042/ }));
     expect(content.scrollTop).toBe(0);
     await screen.findByRole('heading', { name: '讨论 1' });
     fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: '← 返回列表' }));
@@ -214,7 +214,8 @@ describe('workspace interactions', () => {
   });
   it('keeps the inbox badge and read filter consistent across pages', async () => {
     render(<App gateway={createGateway()} />);
-    fireEvent.click(await screen.findByRole('button', { name: '标记已读' }));
+    fireEvent.click(await screen.findByRole('button', { name: /#1042/ }));
+    fireEvent.click(screen.getByRole('button', { name: '标记已读' }));
     fireEvent.click(await screen.findByRole('button', { name: /收件箱\s*3/ }));
     expect(screen.getByRole('tab', { name: '未读 3' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /未读\s*#\s*1042/ })).toBeNull();
@@ -228,7 +229,7 @@ describe('workspace interactions', () => {
   });
   it('restores saved theme preferences after reopening the interface', async () => {
     const app = render(<App gateway={createGateway()} />);
-    await screen.findByRole('button', { name: '标记已读' });
+    await screen.findByRole('textbox', { name: '搜索 PR' });
     fireEvent.click(screen.getByRole('button', { name: '设置' }));
     fireEvent.click(screen.getByRole('button', { name: '外观' }));
     fireEvent.click(screen.getByRole('button', { name: '浅色' }));
@@ -239,7 +240,7 @@ describe('workspace interactions', () => {
     );
     app.unmount();
     render(<App gateway={createGateway()} />);
-    await screen.findByRole('button', { name: '标记已读' });
+    await screen.findByRole('textbox', { name: '搜索 PR' });
     fireEvent.click(screen.getByRole('button', { name: '设置' }));
     fireEvent.click(screen.getByRole('button', { name: '外观' }));
     expect(screen.getByRole('button', { name: '浅色 ✓' }).getAttribute('aria-pressed')).toBe(

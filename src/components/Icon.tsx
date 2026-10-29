@@ -7,15 +7,18 @@ export function IconButton({
   label,
   onClick,
   pressed,
+  disabled,
 }: {
   name: string;
   label: string;
   onClick: () => void;
   pressed?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       className="icon-button"
+      disabled={disabled}
       aria-label={label}
       title={label}
       aria-pressed={pressed}
