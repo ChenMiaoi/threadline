@@ -24,6 +24,7 @@ function workspace() {
   return {
     session: { user, selected: null },
     connecting: false,
+    vault: { exists: true, unlocked: true },
     gateway: createGateway(),
     auth: {
       state: {
@@ -44,6 +45,8 @@ describe('in-app GitHub authorization', () => {
     const github = workspace();
     const view = render(<GitHubLoginDialog github={github} />);
     expect(screen.getByRole('dialog', { name: '登录 GitHub' })).toBeTruthy();
+    expect(screen.getByText(/ThreadLine 独立 GitHub App 授权/)).toBeTruthy();
+    expect(screen.getByText(/不授予写入、删除仓库或管理公钥的权限/)).toBeTruthy();
     await waitFor(() => expect(github.gateway.open).toHaveBeenCalledOnce());
     view.rerender(
       <GitHubLoginDialog

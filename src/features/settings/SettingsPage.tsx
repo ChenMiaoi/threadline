@@ -3,6 +3,7 @@ import type { Preferences } from '../../core/workspace';
 import type { AppState } from '../../lib/desktop';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
 import { GitHubLoginButton } from '../states/GitHubLogin';
+import { VaultAccess } from '../states/VaultAccess';
 
 const sections = [
   ['account', '账号与连接'],
@@ -111,20 +112,29 @@ export function SettingsPage({
               <h2 className="settings-section-heading">GitHub 连接</h2>
               <SettingRow
                 title={github.session ? `@${github.session.user.login}` : '尚未连接 GitHub'}
-                description="复用 gh 的活动账号，切换 gh 账号后请重新检查连接。"
+                description="使用 ThreadLine 独立 GitHub App，凭据保存在软件自己的加密库中。"
               >
                 <button className="setting-value accent" onClick={onConnect}>
                   {github.session ? '重新检查连接' : '连接 GitHub ↗'}
                 </button>
               </SettingRow>
               <GitHubLoginButton github={github} />
+              <VaultAccess github={github} />
+              {github.session && (
+                <button className="chip" onClick={() => void github.disconnect()}>
+                  退出 ThreadLine 登录
+                </button>
+              )}
               <SettingRow
                 title="权限范围"
-                description="读取 PR、Issue、评论、正式评审和通知元数据。"
+                description="PR、Issue、代码、检查、提交状态和仓库元数据均为只读；不包含写入、删除仓库或管理权限。"
               >
-                <span className="muted">由 gh 当前凭据决定</span>
+                <span className="muted">独立只读授权</span>
               </SettingRow>
-              <SettingRow title="代码与仓库访问" description="仅访问 gh 账号有权限读取的仓库。">
+              <SettingRow
+                title="代码与仓库访问"
+                description="可读取公开仓库；私有仓库需要单独安装并选择授权范围。"
+              >
                 <span className="muted">{github.repo || '尚未选择仓库'}</span>
               </SettingRow>
               <h2 className="settings-section-heading">本地信息</h2>
@@ -132,7 +142,8 @@ export function SettingsPage({
                 <span className="muted">{github.session?.user.login ?? '未连接'}</span>
               </SettingRow>
               <p className="settings-note">
-                ThreadLine 不读取或保存令牌。授权由 GitHub 确认，登录凭据由 GitHub CLI 管理。
+                凭据使用主密码加密后保存在本机，不会写入 SQLite 或发送到界面。
+                退出登录会清除本机登录凭据并锁定加密库；GitHub 通知接口暂不支持这种只读授权。
               </p>
               <details className="storage-details">
                 <summary>本地数据存储</summary>

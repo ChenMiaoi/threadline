@@ -81,7 +81,11 @@ export function response<T>(payload: T): GitHubResponse<T> {
 }
 export function createGateway(): GitHubGateway {
   return {
-    session: vi.fn().mockResolvedValue({ user, selected: repo }),
+    session: vi.fn().mockResolvedValue({ user, selected: repo, notificationsAvailable: true }),
+    logout: vi.fn().mockResolvedValue(undefined),
+    vaultStatus: vi.fn().mockResolvedValue({ exists: true, unlocked: true }),
+    unlockVault: vi.fn().mockResolvedValue(undefined),
+    lockVault: vi.fn().mockResolvedValue(undefined),
     select: vi.fn().mockResolvedValue(undefined),
     login: vi
       .fn()

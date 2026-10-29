@@ -1,4 +1,4 @@
-import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
@@ -11,7 +11,41 @@ const binary = fileURLToPath(
     import.meta.url,
   ),
 );
-const authCommands = new Set(['github_login', 'github_login_status', 'github_login_cancel']);
+const commandFields: Record<string, Record<string, 'string' | 'number'>> = {
+  github_session: {},
+  github_login: {},
+  github_login_status: {},
+  github_login_cancel: {},
+  github_logout: {},
+  github_vault_status: {},
+  github_vault_unlock: { password: 'string' },
+  github_vault_lock: {},
+  github_open: { url: 'string' },
+  github_select_repository: { repo: 'string', accountId: 'number' },
+  github_request: { operation: 'string', repo: 'string', number: 'number', accountId: 'number' },
+};
+export function allowsCommand(command: string, args: unknown): args is Record<string, unknown> {
+  if (
+    !Object.hasOwn(commandFields, command) ||
+    typeof args !== 'object' ||
+    args === null ||
+    Array.isArray(args)
+  )
+    return false;
+  const fields = commandFields[command];
+  if (
+    !Object.entries(args).every(
+      ([key, value]) =>
+        Object.hasOwn(fields, key) &&
+        typeof value === fields[key] &&
+        (typeof value !== 'number' || (Number.isSafeInteger(value) && value >= 0)),
+    )
+  )
+    return false;
+  if (command === 'github_vault_unlock')
+    return 'password' in args && typeof args.password === 'string' && args.password.length <= 1024;
+  return true;
+}
 const unavailable = '本地 GitHub 连接不可用，请重新运行 npm run dev。';
 
 export function allowsPreviewRequest(
@@ -27,10 +61,10 @@ export function allowsPreviewRequest(
   );
 }
 
-export function createAuthBridge(
+export function createGitHubBridge(
   start: () => ChildProcessWithoutNullStreams = () =>
-    spawn(binary, ['--auth-bridge'], { windowsHide: true }),
-  timeout = 10000,
+    spawn(binary, ['--bridge'], { windowsHide: true }),
+  timeout = 130000,
 ) {
   let child: ChildProcessWithoutNullStreams | undefined;
   let closed = false;
@@ -60,6 +94,7 @@ export function createAuthBridge(
     lines.on('line', (line) => {
       if (child !== current) return;
       try {
+        if (line.length > 64 * 1024 * 1024) throw new Error('Response too large');
         const result: unknown = JSON.parse(line);
         if (
           !pending ||
@@ -91,7 +126,7 @@ export function createAuthBridge(
     return current;
   }
 
-  function request(command: string): Promise<string> {
+  function request(command: string, args: Record<string, unknown> = {}): Promise<string> {
     const result = tail.then(
       () =>
         new Promise<string>((resolve, reject) => {
@@ -113,7 +148,7 @@ export function createAuthBridge(
               reject(error);
             },
           };
-          current.stdin.write(`${JSON.stringify({ command })}\n`);
+          current.stdin.write(`${JSON.stringify({ command, args })}\n`);
         }),
     );
     tail = result.catch(() => undefined);
@@ -130,7 +165,7 @@ export function createAuthBridge(
 }
 
 export function githubPreview(): Plugin {
-  const auth = createAuthBridge();
+  const auth = createGitHubBridge();
   return {
     name: 'threadline-local-github',
     apply: 'serve',
@@ -163,56 +198,32 @@ export function githubPreview(): Plugin {
           try {
             parsed = JSON.parse(input);
           } catch {
-            /* Existing helper handles invalid JSON. */
+            /* Reject invalid JSON below without echoing request content. */
           }
           if (
-            typeof parsed === 'object' &&
-            parsed !== null &&
-            'command' in parsed &&
-            typeof parsed.command === 'string' &&
-            authCommands.has(parsed.command)
+            typeof parsed !== 'object' ||
+            parsed === null ||
+            !('command' in parsed) ||
+            typeof parsed.command !== 'string' ||
+            !('args' in parsed) ||
+            !allowsCommand(parsed.command, parsed.args)
           ) {
-            if (
-              !('args' in parsed) ||
-              typeof parsed.args !== 'object' ||
-              parsed.args === null ||
-              Array.isArray(parsed.args) ||
-              Object.keys(parsed.args).length !== 0
-            ) {
-              response.statusCode = 400;
-              response.end(
-                JSON.stringify({ ok: false, error: 'Invalid authentication arguments' }),
-              );
-              return;
-            }
-            void auth.request(parsed.command).then(
-              (output) => {
-                if (!response.writableEnded) response.end(output);
-              },
-              () => {
-                if (!response.writableEnded) {
-                  response.statusCode = 503;
-                  response.end(JSON.stringify({ ok: false, error: unavailable }));
-                }
-              },
-            );
+            response.statusCode = 400;
+            response.end(JSON.stringify({ ok: false, error: 'PREVIEW_INVALID_REQUEST' }));
             return;
           }
-          const child = execFile(
-            binary,
-            [],
-            { windowsHide: true, timeout: 210000, maxBuffer: 32 * 1024 * 1024 },
-            (error, stdout) => {
-              if (response.writableEnded) return;
-              if (error) {
+          input = '';
+          void auth.request(parsed.command, parsed.args).then(
+            (output) => {
+              if (!response.writableEnded) response.end(output);
+            },
+            () => {
+              if (!response.writableEnded) {
                 response.statusCode = 503;
                 response.end(JSON.stringify({ ok: false, error: unavailable }));
-                return;
               }
-              response.end(stdout);
             },
           );
-          child.stdin?.end(input);
         });
       });
     },

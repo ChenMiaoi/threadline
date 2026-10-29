@@ -6,18 +6,20 @@ A local-first desktop workspace for GitHub collaboration.
 
 - TypeScript + React + Vite for the interface.
 - Rust + Tauri 2 for desktop windows and application commands.
+- Direct HTTPS access to GitHub REST and GraphQL APIs.
+- An application-owned encrypted credential vault, unlocked with a local master password.
 - SQLite through rusqlite with bundled SQLite for local persistence, accessed exclusively by Rust.
 
 ## Development
 
-Requires Node.js 22.12+, stable Rust, Visual Studio C++ Build Tools, and WebView2 on Windows. Install GitHub CLI (`gh`) and ensure it is available on PATH before starting the desktop application.
+Requires Node.js 24.15+ and stable Rust. On macOS, install Xcode Command Line Tools (`xcode-select --install`). On Windows, install Visual Studio C++ Build Tools and WebView2. GitHub CLI is not required and its credentials are not used.
 
 ```sh
-npm install
+npm ci
 npm run desktop
 ```
 
-Run `npm run dev` to preview the interface in a browser. The local browser preview also reads real GitHub data through a development-only Vite adapter that calls the same Rust GitHub service. `npm run dev` builds its Rust helper automatically. Open `http://127.0.0.1:1420/`; other hosts and origins are rejected. Browser preferences use local storage; GitHub cache and repository selection use a separate SQLite database at `src-tauri/target/browser-preview.db`. The adapter is absent from production builds and `npm run preview`; it never returns GitHub credentials.
+Run `npm run dev` to preview the interface in a browser. The development-only Vite adapter calls the same Rust GitHub services, including the independent app's encrypted vault. Its Rust helper is built automatically. Open `http://127.0.0.1:1420/`; other hosts and origins are rejected. Browser preferences use local storage; GitHub cache and repository selection use a separate SQLite database at `src-tauri/target/browser-preview.db`. The adapter is absent from production builds and `npm run preview`; it never returns credentials to the browser.
 
 ```sh
 npm run build
@@ -27,49 +29,51 @@ npm run test:rust
 npm run desktop:build
 ```
 
-Desktop builds produce a Windows NSIS installer by default. Configure application signing before publishing a release.
+Desktop builds produce a Windows NSIS installer on Windows and an `.app` plus `.dmg` on macOS. macOS uses a native system titlebar and traffic-light controls. Local unsigned builds are for development. Configure signing and macOS notarization before publishing a release.
 
-Run `npm run check` before committing. It runs ESLint, Rust Clippy, Prettier, rustfmt, TypeScript checks, frontend command bridge tests, SQLite persistence tests, and frontend and desktop build checks. Use `npm run format` to format source files and `npm test -- src/lib/desktop.test.ts` to run a specific frontend test file. See [AGENTS.md](./AGENTS.md) for contribution rules.
+Run `npm run check` before committing. It runs ESLint, Rust Clippy, Prettier, rustfmt, TypeScript checks, frontend tests, Rust tests, and frontend/native build checks. Use `npm run format` to format source files and `npm test -- src/lib/desktop.test.ts` to run a specific frontend test file. See [AGENTS.md](./AGENTS.md) for contribution rules.
+
+## Independent Read-only Authorization
+
+ThreadLine uses the **ThreadLine Desktop** GitHub App. Its public client ID is distributed in [src-tauri/github-app.json](./src-tauri/github-app.json); ordinary users do not register an app or configure credentials.
+
+1. Create a local vault with a master password of at least 12 characters, or unlock an existing vault. Then choose **Log in to GitHub** in ThreadLine. The application displays a one-time device code and opens GitHub's official authorization page.
+2. Enter the code on GitHub and authorize ThreadLine Desktop. ThreadLine automatically completes sign-in and opens repository selection.
+3. Select or enter a public repository, for example `llvm/llvm-project`. Public repositories do not require an app installation.
+4. For private repositories, the repository-owning account or organization installs the app once and selects the permitted repositories. **Add private repository access** opens this optional GitHub installation flow. Organization members authorize their own user identity, but do not register separate apps.
+
+The app requests only these repository permissions, all **read-only**: Metadata, Contents, Issues, Pull requests, Checks, and Commit statuses. It requests no account, organization, administration, write, deletion, public-key, or workflow-management permissions. The backend audits the registered app and installation permissions and rejects unexpected or write permissions. Private repository access is checked against the app installation's selected repositories.
+
+Access and rotating refresh tokens are stored only in ThreadLine's encrypted vault, partitioned by client ID. Argon2id derives a key from the master password using a random salt (64 MiB, three iterations); XChaCha20-Poly1305 authenticates and encrypts the credentials with a fresh nonce for every atomic write. The password is not saved. The unlocked key remains in the backend process and is cleared when the vault is locked or the process exits. Each launch requires unlocking; unlocking restores the saved GitHub session without another authorization. They never enter React, SQLite, local storage, environment variables, logs, or GitHub CLI configuration. No private key or client secret is embedded in the desktop application. Access tokens expire after eight hours; device-flow refresh tokens renew them securely without a client secret. Expired or revoked authorization requires sign-in again. **Log out of ThreadLine** clears this app's encrypted credentials and locks the vault; GitHub account settings can revoke the server-side app authorization.
+
+Maintainers register and configure the shared GitHub App once. Fork maintainers who operate a separate app can change the public configuration or override `THREADLINE_GITHUB_CLIENT_ID` and `THREADLINE_GITHUB_APP_SLUG` at launch. See [GitHub App setup](./docs/github-app-setup.md) for the registration checklist and permission boundaries. There is no system-keychain or plaintext fallback. A forgotten master password cannot be recovered: remove only the app's vault file, create a new vault, and authorize again. This resets saved login credentials, not repository data or GitHub authorization. Keep a backup of the encrypted file if needed before resetting it.
+
+## GitHub Notifications Limitation
+
+GitHub's Notifications REST API does not accept GitHub App user or installation tokens. The Inbox page explicitly explains this limitation and links to the collaboration views. It does not report an unsupported notification feed as an empty success, and the app does not request broader legacy credentials to work around it. See [GitHub's notification API documentation](https://docs.github.com/en/rest/activity/notifications).
 
 ## Current Scope
 
-The interface includes Inbox, Authored Pull Requests, Review Requests, Issues, a pull request detail view, four settings sections, onboarding, snoozed items, and empty and synchronization error states. Search, filters, record previews, local read markers, theme and density changes, and snooze scheduling are interactive.
+The interface includes authored pull requests, review participation, issues, pull request details, settings, onboarding, snoozed items, and synchronization error states. Search, filters, record previews, local read markers, themes, density changes, and snooze scheduling are interactive.
 
-Collaboration data comes from GitHub through the locally installed GitHub CLI. ThreadLine uses the active `github.com` account; credentials remain managed by `gh` and are never returned to React or stored in the ThreadLine database. No OAuth application registration is needed.
+Authored pulls include states, review decisions, and HEAD check summaries. Reviewed pulls combine formal reviews, requested reviews, and comment participation, deduplicate results, and compare review commits with the current HEAD. Issues include records involving the current account. Details load descriptions, discussions, inline comments, reviews, file patches, check runs, and commit statuses. Content renders sanitized GitHub-flavored Markdown with foldable details, code blocks, tables, and task lists. Images are shown as links instead of automatically loading remote content.
 
-1. Open the desktop application. Existing `gh` authentication is detected automatically.
-2. If needed, choose **Log in to GitHub**. An application dialog shows a one-time code and automatically opens the official GitHub authorization page. Copy the code into that page and confirm authorization. The dialog updates automatically and opens repository selection when sign-in completes. Cancellation and retry are available in the dialog; GitHub CLI manages the credentials in the background.
-3. Select an accessible repository, or enter an accessible public repository as `owner/repository`. Selection is validated against GitHub and saved per account.
-4. Use Inbox, Authored, Reviewed, and Issues. Manual refresh and the configured automatic refresh interval request actual GitHub data.
+The application performs only read operations on collaboration data. Read markers and snoozes are local, scoped by account, repository, and record revision. Themes, density, refresh settings, and snooze deadlines persist locally. Operating system notification delivery is not implemented; notification preferences are retained locally.
 
-Authored pulls include actual states, review decisions, and HEAD check summaries. Reviewed pulls combine formal reviews, requested reviews, and comment participation, deduplicate results, and compare review commits with the current HEAD. Issues include records involving the current account. Inbox reads repository notifications for PRs and issues; GitHub limits notification history, so it is not a complete repository activity feed. Pull details load descriptions, discussion comments, inline code comments, reviews, file patches, check runs, and commit statuses. Issue previews load descriptions and comments. Descriptions and discussions render sanitized GitHub-flavored Markdown, including foldable details, code blocks, tables, and task lists. Images are shown as links; remote images are not automatically loaded. Links open the corresponding record on GitHub.
+REST and GraphQL requests follow pagination. GitHub search has a 1,000-result ceiling, which produces an explicit error when exceeded. Review summaries include the latest 100 reviews and flag truncated history where a personal review cannot be established. The detail page reads full paginated review history. GitHub may omit binary or large patches and limits PR file lists to 3,000 files; missing content is disclosed with a link to GitHub.
 
-The application only reads GitHub data. Read markers and snoozes affect ThreadLine locally. They are scoped by account, repository, and record revision, so a newer notification can become unread again. Themes, density, refresh settings, and snooze deadlines persist locally. Snoozed record summaries survive refreshes and restarts. Notification preferences are retained, but operating system notification delivery is not implemented.
+Successful API responses are cached in SQLite by independent app client ID, account, repository, operation, and record number. Old GitHub CLI cache and repository selection are not reused. Authentication, permission, and missing-record errors do not load cached private records. A live identity and repository access check is required before serving persisted cache; transient request failures can retain previously loaded records and show their timestamp. Repository changes discard pending results. Reconfirming the same selected repository preserves its loaded or pending workspace.
 
-REST and GraphQL list requests follow pagination. GitHub search has a 1,000-result ceiling; exceeding it produces an explicit error. Review summaries include the latest 100 reviews and flag truncated history when a personal review cannot be established; the detail page reads the full paginated review history. GitHub may omit binary or large patches and limits PR file lists to 3,000 files; missing content is disclosed with a link to GitHub. Unsupported notification types are excluded from this PR/issue workspace.
+Tests use isolated fixtures and injected network, clock, and credential interfaces. Production views have no sample-data fallback. Native UI verification and its remaining limits are recorded in [docs/ui-verification.md](./docs/ui-verification.md).
 
-Successful API responses are cached in SQLite by account, repository, operation, and record number. Network failures and rate limits can retain previously loaded records, with a visible error and last successful timestamp. Authentication, permission, and missing-record errors do not load cached private records. A live account check is required before displaying persisted cache. Repository changes discard pending results for the previous repository. Switching or logging out of `gh` requires rechecking the connection; ThreadLine does not log other CLI consumers out.
-
-Private repositories and notifications require suitable `gh` permissions. If needed, run `gh auth refresh --hostname github.com --scopes notifications` yourself. Missing CLI, authentication, permission, rate-limit, network, and timeout failures are shown separately from successful empty lists. GitHub CLI is an external prerequisite, not bundled in the installer.
-
-Tests use isolated fixtures; production views have no sample-data fallback. To run the optional live, read-only API contract test after authenticating `gh`:
-
-```powershell
-$env:THREADLINE_LIVE_REPO = 'owner/repository'
-$env:THREADLINE_LIVE_PR = '123'
-cargo test --locked --manifest-path src-tauri/Cargo.toml live_read_only_github_contract -- --ignored --nocapture
-```
-
-The network test is skipped by default and in CI because it requires a user account. Normal tests cover the frontend command contract, mapping, filtering, stale requests, repository access failures, account changes, read-state persistence, and SQLite storage.
-
-The database is stored in Tauri's application data directory as `io.chenmiaoi.threadline/threadline.db`, typically under `%APPDATA%` on Windows. The settings page shows the actual path. Do not commit databases or account credentials to Git.
+The database is stored in Tauri's application data directory as `io.chenmiaoi.threadline/threadline.db`, typically under `%APPDATA%` on Windows and `~/Library/Application Support/` on macOS. Settings shows the actual path. The encrypted vault is stored under the platform local-data directory at `io.chenmiaoi.threadline/vault/<client-id>.vault` (on macOS, `~/Library/Application Support/`). Vault transaction lock files contain no credentials. Do not commit databases or credentials to Git.
 
 ## Project Structure
 
 ```text
 src/                     React interface and desktop command bridge
 public/assets/figma/     Local design assets
-src-tauri/src/           Rust desktop layer and SQLite access
+src-tauri/src/           Rust HTTPS, independent authorization, secure storage, and SQLite
 src-tauri/migrations/    Versioned database migrations
 src-tauri/capabilities/  Window permissions
 ```
@@ -80,7 +84,7 @@ Documentation is written in English by default. Chinese translations must use a 
 
 ## Continuous Integration
 
-GitHub Actions runs the [CI workflow](./.github/workflows/ci.yml) on pushes, pull requests, and manual dispatches. The Windows job installs dependencies with `npm ci`, runs `npm run check`, and builds an unsigned debug NSIS installer using `npm run build:desktop:installer`. Installer artifacts include the license and are retained for seven days. These artifacts are intended for testing; production releases require a separate release build and signing.
+GitHub Actions runs the [CI workflow](./.github/workflows/ci.yml) on pushes, pull requests, and manual dispatches. Windows and macOS jobs install dependencies with `npm ci`, run `npm run check`, and build unsigned debug installers using `npm run build:desktop:installer`. The Windows artifact contains an NSIS installer; the macOS artifact contains a DMG. Artifacts include the license and are retained for seven days. Production releases require a separate release build and signing.
 
 CI uses Node.js 24.22.1 and Rust 1.98.1 with Clippy and rustfmt. Actions are pinned to commit hashes, permissions are read-only, and newer runs cancel superseded runs for the same branch or pull request.
 

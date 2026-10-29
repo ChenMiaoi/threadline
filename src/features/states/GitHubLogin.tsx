@@ -7,7 +7,7 @@ export function GitHubLoginButton({ github }: { github: GitHubWorkspace }) {
     <>
       <button
         className="chip accent"
-        disabled={github.connecting || github.auth.busy}
+        disabled={!github.vault.unlocked || github.connecting || github.auth.busy}
         onClick={() => void github.auth.start()}
       >
         {github.session ? '重新授权 GitHub' : '登录 GitHub'}
@@ -48,6 +48,10 @@ export function GitHubLoginDialog({ github }: { github: GitHubWorkspace }) {
   return (
     <Modal title="登录 GitHub" onClose={() => void cancel()}>
       <section className="github-device-login" aria-label="GitHub 授权">
+        <p className="dim">
+          使用 ThreadLine 独立 GitHub App 授权，可读取公开仓库和已单独授权的私有仓库。 权限包括
+          PR、Issue、代码、检查和提交状态；不授予写入、删除仓库或管理公钥的权限。
+        </p>
         {busy ? (
           <>
             {state.code ? (

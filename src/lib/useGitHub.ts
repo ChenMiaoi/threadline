@@ -12,6 +12,7 @@ import {
   type GitHubRepository,
   type GitHubSession,
   type SearchPage,
+  type GitHubVaultState,
 } from '../core/github';
 import type { Activity } from '../features/activity/model';
 import type { PullRequest } from '../features/pulls/model';
@@ -46,6 +47,9 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
   const [repositories, setRepositories] = useState<GitHubRepository[]>([]);
   const [picking, setPicking] = useState(false);
   const [repositoryError, setRepositoryError] = useState('');
+  const [vault, setVault] = useState<GitHubVaultState>({ exists: false, unlocked: false });
+  const [vaultBusy, setVaultBusy] = useState(false);
+  const [vaultError, setVaultError] = useState('');
   const generation = useRef(0);
   const identity = useRef(0);
   const key = session && repo ? `${session.user.id}:${repo}` : '';
@@ -58,6 +62,16 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
     setRepositoryError('');
     setConnectionError('');
     try {
+      const vault = await gateway.vaultStatus();
+      if (token !== identity.current) return;
+      setVault(vault);
+      if (!vault.unlocked) {
+        setSession(null);
+        setRepo('');
+        setSnapshot(empty);
+        setRepositories([]);
+        return;
+      }
       const current = await gateway.session();
       if (token !== identity.current) return;
       setSession(current);
@@ -66,11 +80,19 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
     } catch (reason) {
       if (token === identity.current) {
         const error = String(reason);
-        if (/GH_(AUTH_REQUIRED|ACCOUNT_CHANGED)/.test(error)) {
+        if (/GH_(AUTH_REQUIRED|ACCOUNT_CHANGED|VAULT_)/.test(error)) {
           setSession(null);
           setRepo('');
           setSnapshot(empty);
           setRepositories([]);
+        }
+        if (/GH_VAULT_/.test(error)) {
+          try {
+            const status = await gateway.vaultStatus();
+            if (token === identity.current) setVault(status);
+          } catch {
+            if (token === identity.current) setVault({ exists: true, unlocked: false });
+          }
         }
         setConnectionError(error);
       }
@@ -100,7 +122,9 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
     if (!session || !repo) return;
     const token = ++generation.current;
     setSyncing(true);
-    const pages = ['authored', 'inbox', 'review', 'issues'] as const;
+    const pages: Page[] = session.notificationsAvailable
+      ? ['authored', 'inbox', 'review', 'issues']
+      : ['authored', 'review', 'issues'];
     const results = await Promise.allSettled(
       pages.map(async (page) => {
         if (page === 'inbox') {
@@ -218,7 +242,7 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
     setPicking(true);
     try {
       await gateway.select(value, session.user.id);
-      if (token === identity.current) {
+      if (token === identity.current && value !== repo) {
         ++generation.current;
         setRepo(value);
         setSnapshot(empty);
@@ -232,10 +256,60 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
   }
   const current = snapshot.key === key ? snapshot : empty;
   const auth = useGitHubLogin(gateway, connect);
+  async function unlockVault(password: string) {
+    setVaultBusy(true);
+    setVaultError('');
+    try {
+      await gateway.unlockVault(password);
+      await connect();
+      return true;
+    } catch (reason) {
+      setVaultError(String(reason));
+      return false;
+    } finally {
+      setVaultBusy(false);
+    }
+  }
+  async function lockVault() {
+    setVaultBusy(true);
+    setVaultError('');
+    try {
+      await auth.cancel();
+      await gateway.lockVault();
+      await connect();
+    } catch (reason) {
+      setVaultError(String(reason));
+    } finally {
+      setVaultBusy(false);
+    }
+  }
+  async function disconnect() {
+    try {
+      await auth.cancel();
+      await gateway.logout();
+      invalidate();
+      setSession(null);
+      setRepo('');
+      setSnapshot(empty);
+      setRepositories([]);
+      setConnecting(false);
+      setSyncing(false);
+      setConnectionError('');
+      setVault(await gateway.vaultStatus());
+    } catch (reason) {
+      setConnectionError(String(reason));
+    }
+  }
   return {
     ...current,
     gateway,
     auth,
+    vault,
+    vaultBusy,
+    vaultError,
+    unlockVault,
+    lockVault,
+    disconnect,
     session,
     repo,
     connecting,

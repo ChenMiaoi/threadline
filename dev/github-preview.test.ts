@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Socket } from 'node:net';
-import { allowsPreviewRequest } from './github-preview';
+import { allowsCommand, allowsPreviewRequest } from './github-preview';
 describe('local preview boundary', () => {
   const socket = new Socket();
   Object.defineProperty(socket, 'remoteAddress', { value: '127.0.0.1' });
@@ -48,7 +48,7 @@ describe('local preview boundary', () => {
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
-import { createAuthBridge } from './github-preview';
+import { createGitHubBridge } from './github-preview';
 
 function fakeChild() {
   const process = new EventEmitter() as ChildProcessWithoutNullStreams & { stdout: PassThrough };
@@ -64,11 +64,11 @@ function fakeChild() {
   return process;
 }
 
-describe('authentication bridge', () => {
+describe('persistent GitHub bridge', () => {
   it('reuses one process and serializes concurrent requests', async () => {
     const child = fakeChild();
     let starts = 0;
-    const bridge = createAuthBridge(() => {
+    const bridge = createGitHubBridge(() => {
       starts++;
       return child;
     });
@@ -79,11 +79,11 @@ describe('authentication bridge', () => {
     const first = bridge.request('github_login');
     const second = bridge.request('github_login_status');
     await Promise.resolve();
-    expect(input).toBe('{"command":"github_login"}\n');
+    expect(input).toBe('{"command":"github_login","args":{}}\n');
     child.stdout.write('{"ok":true,"value":{"status":"starting"}}\n');
     await first;
     await Promise.resolve();
-    expect(input).toContain('{"command":"github_login_status"}\n');
+    expect(input).toContain('{"command":"github_login_status","args":{}}\n');
     child.stdout.write('{"ok":true,"value":{"status":"waiting"}}\n');
     await expect(second).resolves.toContain('waiting');
     expect(starts).toBe(1);
@@ -93,7 +93,7 @@ describe('authentication bridge', () => {
 
   it('rejects malformed output and starts a fresh process on the next request', async () => {
     const children = [fakeChild(), fakeChild()];
-    const bridge = createAuthBridge(() => children.shift()!);
+    const bridge = createGitHubBridge(() => children.shift()!);
     const firstChild = children[0];
     const nextChild = children[1];
     const first = bridge.request('github_login');
@@ -110,11 +110,38 @@ describe('authentication bridge', () => {
 
   it('rejects pending requests when the helper exits or times out', async () => {
     const child = fakeChild();
-    const bridge = createAuthBridge(() => child, 20);
+    const bridge = createGitHubBridge(() => child, 20);
     const request = bridge.request('github_login');
     await expect(request).rejects.toThrow();
     expect(child.stdin.writableEnded).toBe(true);
     bridge.close();
     await expect(bridge.request('github_login')).rejects.toThrow();
+  });
+});
+
+describe('preview command validation', () => {
+  it('accepts local vault unlock and data requests without token fields', () => {
+    expect(allowsCommand('github_vault_unlock', { password: 'test-only master password' })).toBe(
+      true,
+    );
+    expect(
+      allowsCommand('github_request', {
+        operation: 'authored',
+        repo: 'llvm/llvm-project',
+        accountId: 7,
+        number: 0,
+      }),
+    ).toBe(true);
+    expect(allowsCommand('github_vault_status', {})).toBe(true);
+  });
+  it('rejects unknown commands, injected fields, and malformed arguments', () => {
+    expect(allowsCommand('exec', { command: 'anything' })).toBe(false);
+    expect(allowsCommand('github_vault_unlock', {})).toBe(false);
+    expect(allowsCommand('github_vault_unlock', { password: 'x'.repeat(1025) })).toBe(false);
+    expect(allowsCommand('github_request', { accessToken: 'fixture' })).toBe(false);
+    expect(allowsCommand('github_request', { accountId: -1 })).toBe(false);
+    expect(allowsCommand('github_request', { number: NaN })).toBe(false);
+    expect(allowsCommand('github_login', [])).toBe(false);
+    expect(allowsCommand('github_vault_lock', { password: 'fixture' })).toBe(false);
   });
 });

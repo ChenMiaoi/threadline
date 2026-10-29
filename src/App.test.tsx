@@ -33,6 +33,23 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('workspace interactions', () => {
+  it('explains the GitHub App notification limitation while keeping pull requests usable', async () => {
+    const gateway = createGateway();
+    vi.mocked(gateway.session).mockResolvedValue({
+      user,
+      selected: repo,
+      notificationsAvailable: false,
+    });
+    render(<App gateway={gateway} />);
+    await screen.findByRole('textbox', { name: '搜索 PR' });
+    fireEvent.click(screen.getByRole('button', { name: /^收件箱/ }));
+    expect(
+      await screen.findByRole('heading', { name: 'GitHub 通知接口暂不支持独立只读授权' }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '查看我发起的 PR' }));
+    expect(await screen.findByRole('textbox', { name: '搜索 PR' })).toBeTruthy();
+  });
   it('keeps repository access failures in the picker without losing the current page', async () => {
     const gateway = createGateway();
     vi.mocked(gateway.select).mockRejectedValue('GH_NOT_FOUND');

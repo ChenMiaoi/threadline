@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal } from '../../components/Modal';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
 import { GitHubLoginButton } from './GitHubLogin';
+import { VaultAccess } from './VaultAccess';
 
 export function GitHubConnection({
   github,
@@ -31,13 +32,19 @@ export function GitHubConnection({
         <section className="connection-explanation">
           <h2>{github.session ? `已连接 @${github.session.user.login}` : '登录 GitHub'}</h2>
           <p>连接 GitHub 后，选择你关注的仓库并查看协作更新。</p>
+          <p className="dim">
+            使用 ThreadLine 独立 GitHub App
+            登录，权限全部为只读。公开仓库可直接读取，私有仓库需要所属账号或组织安装 App
+            并选择允许访问的仓库。 凭据由 ThreadLine 自己的本地加密库保存，与其他应用的授权分开。
+          </p>
           {github.connecting ? (
-            <p role="status">正在检查 gh 登录状态…</p>
+            <p role="status">正在检查 ThreadLine 登录状态…</p>
           ) : github.session ? (
             <button className="chip accent" onClick={onChoose}>
               {github.repo ? '切换仓库' : '选择仓库'}
             </button>
           ) : null}
+          <VaultAccess github={github} />
           <GitHubLoginButton github={github} />
           {!github.session && !github.connecting && (
             <button className="chip" onClick={() => void github.connect()}>
@@ -83,7 +90,20 @@ export function RepositoryPicker({
             .catch((reason) => setError(String(reason)));
         }}
       >
-        <p>当前账号 @{github.session?.user.login} · 仅显示可访问的仓库</p>
+        <p>当前账号 @{github.session?.user.login} · 公开仓库和已授权私有仓库</p>
+        {github.session?.installationUrl && (
+          <button
+            type="button"
+            className="chip"
+            onClick={() =>
+              void github.gateway
+                .open(github.session!.installationUrl!)
+                .catch((reason) => setError(String(reason)))
+            }
+          >
+            添加私有仓库权限 ↗
+          </button>
+        )}
         <input
           aria-label="搜索仓库"
           placeholder="搜索仓库"
@@ -111,7 +131,9 @@ export function RepositoryPicker({
             </label>
           ))}
         </div>
-        {!github.picking && !rows.length && <p>没有匹配的仓库。也可以输入公开仓库的完整名称。</p>}
+        {!github.picking && !rows.length && (
+          <p>没有匹配的仓库。可输入公开仓库完整名称，或为私有仓库添加授权后刷新列表。</p>
+        )}
         <label>
           仓库完整名称
           <input

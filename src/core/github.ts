@@ -15,6 +15,9 @@ export interface GitHubRepository {
 export interface GitHubSession {
   user: GitHubUser;
   selected: string | null;
+  notificationsAvailable?: boolean;
+  installationUrl?: string;
+  authProvider?: 'github-app';
 }
 export interface GitHubResponse<T> {
   payload: T;
@@ -27,6 +30,10 @@ export interface GitHubLoginState {
   code: string | null;
   verificationUrl: string | null;
   error: string | null;
+}
+export interface GitHubVaultState {
+  exists: boolean;
+  unlocked: boolean;
 }
 export type GitHubOperation =
   'repositories' | 'repository' | 'authored' | 'review' | 'issues' | 'inbox' | 'detail' | 'issue';
@@ -42,6 +49,10 @@ export interface GitHubGateway {
   login(): Promise<GitHubLoginState>;
   loginStatus(): Promise<GitHubLoginState>;
   cancelLogin(): Promise<GitHubLoginState>;
+  logout(): Promise<void>;
+  vaultStatus(): Promise<GitHubVaultState>;
+  unlockVault(password: string): Promise<void>;
+  lockVault(): Promise<void>;
   open(url: string): Promise<void>;
 }
 interface Author {

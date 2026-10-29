@@ -5,6 +5,78 @@ import { useGitHub } from './useGitHub';
 import { createGateway, record, repo, response, user } from '../test/github.fixture';
 afterEach(cleanup);
 describe('GitHub synchronization', () => {
+  it('does not contact the account or data API until the local vault is unlocked', async () => {
+    const gateway = createGateway();
+    let unlocked = false;
+    vi.mocked(gateway.vaultStatus).mockImplementation(async () => ({ exists: true, unlocked }));
+    vi.mocked(gateway.unlockVault).mockImplementation(async () => {
+      unlocked = true;
+    });
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.connecting).toBe(false));
+    expect(gateway.session).not.toHaveBeenCalled();
+    expect(gateway.request).not.toHaveBeenCalled();
+    await act(() => result.current.unlockVault('test-only master password'));
+    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+    expect(result.current.vault.unlocked).toBe(true);
+  });
+  it('clears visible account data when locking the decrypted vault key', async () => {
+    const gateway = createGateway();
+    let unlocked = true;
+    vi.mocked(gateway.vaultStatus).mockImplementation(async () => ({ exists: true, unlocked }));
+    vi.mocked(gateway.lockVault).mockImplementation(async () => {
+      unlocked = false;
+    });
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+    await act(() => result.current.lockVault());
+    expect(result.current.vault.unlocked).toBe(false);
+    expect(result.current.session).toBeNull();
+    expect(result.current.pulls).toEqual([]);
+  });
+  it('keeps the loaded workspace when confirming the same repository after login', async () => {
+    const gateway = createGateway();
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+    await act(() => result.current.selectRepository(repo));
+    expect(result.current.repo).toBe(repo);
+    expect(result.current.pulls).toHaveLength(2);
+    expect(result.current.times.authored).toBeDefined();
+  });
+  it('skips unsupported notifications without reporting a sync failure or an empty notification result', async () => {
+    const gateway = createGateway();
+    vi.mocked(gateway.session).mockResolvedValue({
+      user,
+      selected: repo,
+      notificationsAvailable: false,
+    });
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+    expect(vi.mocked(gateway.request).mock.calls.some(([operation]) => operation === 'inbox')).toBe(
+      false,
+    );
+    expect(result.current.errors.inbox).toBeUndefined();
+    expect(result.current.times.inbox).toBeUndefined();
+  });
+  it('clears account records when disconnecting only the independent app', async () => {
+    const gateway = createGateway();
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+    await act(() => result.current.disconnect());
+    expect(gateway.logout).toHaveBeenCalledOnce();
+    expect(result.current.session).toBeNull();
+    expect(result.current.pulls).toEqual([]);
+    expect(result.current.repo).toBe('');
+  });
+  it('keeps logout failures visible instead of claiming the credential was cleared', async () => {
+    const gateway = createGateway();
+    vi.mocked(gateway.logout).mockRejectedValue('GH_SECURE_STORAGE');
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+    await act(() => result.current.disconnect());
+    expect(result.current.session?.user.id).toBe(user.id);
+    expect(result.current.connectionError).toBe('GH_SECURE_STORAGE');
+  });
   it('keeps successful pages when notifications lack permission', async () => {
     const gateway = createGateway();
     const request = gateway.request;

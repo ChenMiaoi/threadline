@@ -1,7 +1,11 @@
 mod db;
 mod github;
 mod github_auth;
+mod github_credentials;
+mod github_http;
 mod github_workspace;
+#[cfg(target_os = "macos")]
+mod macos;
 #[cfg(feature = "browser-preview")]
 pub mod preview;
 
@@ -75,6 +79,10 @@ pub fn run() {
             github_login,
             github_login_status,
             github_login_cancel,
+            github_logout,
+            github_vault_status,
+            github_vault_unlock,
+            github_vault_lock,
             github_open,
             github_select_repository
         ])
@@ -85,7 +93,10 @@ pub fn run() {
 #[tauri::command]
 async fn github_session(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        github_workspace::session(&app.state::<Workspace>().database)
+        github_workspace::session(
+            &app.state::<Workspace>().database,
+            &app.state::<github_auth::AuthManager>(),
+        )
     })
     .await
     .map_err(|_| "GH_TASK_FAILED")?
@@ -101,6 +112,7 @@ async fn github_request(
     tauri::async_runtime::spawn_blocking(move || {
         github_workspace::request(
             &app.state::<Workspace>().database,
+            &app.state::<github_auth::AuthManager>(),
             &operation,
             &repo,
             number,
@@ -117,32 +129,44 @@ async fn github_select_repository(
     app: tauri::AppHandle,
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        github_workspace::select(&app.state::<Workspace>().database, &repo, account_id)
+        github_workspace::select(
+            &app.state::<Workspace>().database,
+            &app.state::<github_auth::AuthManager>(),
+            &repo,
+            account_id,
+        )
     })
     .await
     .map_err(|_| "GH_TASK_FAILED")?
 }
 
 #[tauri::command]
-fn github_login(auth: State<'_, github_auth::AuthManager>) -> serde_json::Value {
-    auth.start()
+async fn github_login(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<github_auth::AuthManager>().start())
+        .await
+        .map_err(|_| "GH_TASK_FAILED".into())
 }
 #[tauri::command]
-fn github_login_status(auth: State<'_, github_auth::AuthManager>) -> serde_json::Value {
-    auth.status()
+async fn github_login_status(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<github_auth::AuthManager>().status())
+        .await
+        .map_err(|_| "GH_TASK_FAILED".into())
 }
 #[tauri::command]
 fn github_login_cancel(auth: State<'_, github_auth::AuthManager>) -> serde_json::Value {
     auth.cancel()
 }
-#[cfg(feature = "browser-preview")]
-pub fn run_auth_bridge() {
-    github_auth::run_bridge();
-}
-
 #[tauri::command]
-fn github_open(url: String) -> Result<(), String> {
-    github::open(&url)
+async fn github_logout(app: tauri::AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<github_auth::AuthManager>().logout())
+        .await
+        .map_err(|_| "GH_TASK_FAILED")?
+}
+#[tauri::command]
+async fn github_open(url: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || github::open(&url))
+        .await
+        .map_err(|_| "GH_TASK_FAILED")?
 }
 
 #[tauri::command]
@@ -162,4 +186,33 @@ fn save_workspace_data(data: String, workspace: State<'_, Workspace>) -> Result<
         .lock()
         .map_err(|error| error.to_string())?
         .save_workspace_data(&data)
+}
+
+#[tauri::command]
+async fn github_vault_status(
+    app: tauri::AppHandle,
+) -> Result<github_credentials::VaultStatus, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<github_auth::AuthManager>().vault_status()
+    })
+    .await
+    .map_err(|_| "GH_TASK_FAILED")?
+}
+#[tauri::command]
+async fn github_vault_unlock(password: String, app: tauri::AppHandle) -> Result<(), String> {
+    let password = zeroize::Zeroizing::new(password);
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<github_auth::AuthManager>()
+            .unlock_vault(password)
+    })
+    .await
+    .map_err(|_| "GH_TASK_FAILED")?
+}
+#[tauri::command]
+async fn github_vault_lock(app: tauri::AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<github_auth::AuthManager>().lock_vault()
+    })
+    .await
+    .map_err(|_| "GH_TASK_FAILED")?
 }

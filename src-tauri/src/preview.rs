@@ -1,11 +1,14 @@
-//! Development-only stdio adapter. The HTTP boundary lives in the Vite development server.
-use crate::{db::Database, github, github_workspace};
+//! Development-only line-framed adapter. One process retains only its unlocked vault key.
+use crate::{db::Database, github, github_auth::AuthManager, github_workspace};
 use serde::Deserialize;
-use serde_json::Value;
-use std::{io::Read, sync::Mutex};
+use serde_json::{json, Value};
+use std::{
+    io::{BufRead, Write},
+    sync::Mutex,
+};
+use zeroize::Zeroizing;
 
 #[derive(Deserialize)]
-#[serde(rename_all = "snake_case")]
 enum Command {
     #[serde(rename = "github_session")]
     Session,
@@ -15,8 +18,21 @@ enum Command {
     SelectRepository,
     #[serde(rename = "github_open")]
     Open,
+    #[serde(rename = "github_login")]
+    Login,
+    #[serde(rename = "github_login_status")]
+    LoginStatus,
+    #[serde(rename = "github_login_cancel")]
+    LoginCancel,
+    #[serde(rename = "github_logout")]
+    Logout,
+    #[serde(rename = "github_vault_status")]
+    VaultStatus,
+    #[serde(rename = "github_vault_unlock")]
+    VaultUnlock,
+    #[serde(rename = "github_vault_lock")]
+    VaultLock,
 }
-
 #[derive(Default, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Args {
@@ -30,6 +46,8 @@ struct Args {
     account_id: u64,
     #[serde(default)]
     url: String,
+    #[serde(default)]
+    password: String,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -38,35 +56,81 @@ struct Request {
     #[serde(default)]
     args: Args,
 }
-
-pub fn run() -> Result<Value, String> {
-    let mut input = String::new();
-    std::io::stdin()
-        .take(16385)
-        .read_to_string(&mut input)
-        .map_err(|_| "PREVIEW_INPUT_ERROR")?;
-    if input.len() > 16384 {
-        return Err("PREVIEW_INPUT_TOO_LARGE".into());
-    }
-    let request: Request = serde_json::from_str(&input).map_err(|_| "PREVIEW_INVALID_REQUEST")?;
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("target/browser-preview.db");
-    let database = Mutex::new(Database::open(&path).map_err(|e| e.to_string())?);
+fn execute(
+    request: Request,
+    database: &Mutex<Database>,
+    auth: &AuthManager,
+) -> Result<Value, String> {
     match request.command {
-        Command::Session => github_workspace::session(&database),
+        Command::Session => github_workspace::session(database, auth),
         Command::Request => github_workspace::request(
-            &database,
+            database,
+            auth,
             &request.args.operation,
             &request.args.repo,
             request.args.number,
             request.args.account_id,
         ),
         Command::SelectRepository => {
-            github_workspace::select(&database, &request.args.repo, request.args.account_id)?;
+            github_workspace::select(database, auth, &request.args.repo, request.args.account_id)?;
             Ok(Value::Null)
         }
         Command::Open => {
             github::open(&request.args.url)?;
             Ok(Value::Null)
+        }
+        Command::Login => Ok(auth.start()),
+        Command::LoginStatus => Ok(auth.status()),
+        Command::LoginCancel => Ok(auth.cancel()),
+        Command::Logout => {
+            auth.logout()?;
+            Ok(Value::Null)
+        }
+        Command::VaultStatus => {
+            serde_json::to_value(auth.vault_status()?).map_err(|_| "GH_VAULT_ERROR".into())
+        }
+        Command::VaultUnlock => {
+            auth.unlock_vault(Zeroizing::new(request.args.password))?;
+            Ok(Value::Null)
+        }
+        Command::VaultLock => {
+            auth.lock_vault()?;
+            Ok(Value::Null)
+        }
+    }
+}
+pub fn run_bridge() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("target/browser-preview.db");
+    let database = Database::open(&path).map(Mutex::new);
+    let auth = AuthManager::default();
+    let mut stdout = std::io::stdout().lock();
+    for line in std::io::stdin().lock().lines() {
+        let response = match line {
+            Ok(line) => {
+                let line = Zeroizing::new(line);
+                let result = if line.len() > 16384 {
+                    Err("PREVIEW_INPUT_TOO_LARGE".into())
+                } else {
+                    serde_json::from_str::<Request>(&line)
+                        .map_err(|_| "PREVIEW_INVALID_REQUEST".to_string())
+                        .and_then(|request| {
+                            let database =
+                                database.as_ref().map_err(|_| "PREVIEW_DATABASE_ERROR")?;
+                            execute(request, database, &auth)
+                        })
+                };
+                match result {
+                    Ok(value) => json!({"ok":true,"value":value}),
+                    Err(error) => json!({"ok":false,"error":error}),
+                }
+            }
+            Err(_) => break,
+        };
+        if writeln!(stdout, "{response}")
+            .and_then(|_| stdout.flush())
+            .is_err()
+        {
+            break;
         }
     }
 }
@@ -74,14 +138,16 @@ pub fn run() -> Result<Value, String> {
 mod tests {
     use super::*;
     #[test]
-    fn rejects_shell_commands_and_unrecognized_fields() {
+    fn rejects_shell_commands_and_unrecognized_credential_fields() {
+        for input in [
+            r#"{"command":"exec","args":{"cmd":"gh auth token"}}"#,
+            r#"{"command":"github_session","args":{"token":"secret"}}"#,
+        ] {
+            assert!(serde_json::from_str::<Request>(input).is_err());
+        }
         assert!(serde_json::from_str::<Request>(
-            r#"{"command":"exec","args":{"cmd":"gh auth token"}}"#
+            r#"{"command":"github_vault_unlock","args":{"password":"test-only-passphrase"}}"#
         )
-        .is_err());
-        assert!(serde_json::from_str::<Request>(
-            r#"{"command":"github_session","args":{"token":"secret"}}"#
-        )
-        .is_err());
+        .is_ok());
     }
 }

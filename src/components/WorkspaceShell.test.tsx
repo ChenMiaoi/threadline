@@ -18,6 +18,7 @@ function renderShell() {
     <WorkspaceShell
       view="inbox"
       unread={0}
+      notificationsAvailable={true}
       onNavigate={vi.fn()}
       onSearch={vi.fn()}
       className=""

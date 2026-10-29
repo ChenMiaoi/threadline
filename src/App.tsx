@@ -189,6 +189,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
         onChooseRepository={chooseRepository}
         view={view}
         unread={unread}
+        notificationsAvailable={Boolean(github.session?.notificationsAvailable)}
         onNavigate={navigate}
         loading={busy}
         className={className}
@@ -261,6 +262,17 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
             <div className="page-view" hidden={Boolean(openedPull)}>
               {view !== 'settings' && (!github.session || !github.repo || view === 'onboarding') ? (
                 <GitHubConnection github={github} onChoose={chooseRepository} />
+              ) : view === 'inbox' && !github.session?.notificationsAvailable ? (
+                <section className="empty-state">
+                  <h1>GitHub 通知接口暂不支持独立只读授权</h1>
+                  <p className="muted">
+                    你可以在「我发起的」「我审阅的」和 Issues 中查看协作记录。 ThreadLine
+                    的本地已读和稍后处理功能仍可用于这些记录。
+                  </p>
+                  <button className="chip accent" onClick={() => navigate('authored')}>
+                    查看我发起的 PR
+                  </button>
+                </section>
               ) : currentPage && !github.times[currentPage] ? (
                 <div className="list-empty" role="status">
                   {github.syncing ? '正在读取 GitHub 数据…' : '本次读取未成功，请重试。'}

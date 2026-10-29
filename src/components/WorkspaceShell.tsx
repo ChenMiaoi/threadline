@@ -22,6 +22,7 @@ export function WorkspaceShell({
   login,
   counts,
   onChooseRepository,
+  notificationsAvailable,
 }: {
   view: View;
   unread: number;
@@ -34,6 +35,7 @@ export function WorkspaceShell({
   login?: string;
   counts: { review: number; issues: number };
   onChooseRepository: () => void;
+  notificationsAvailable: boolean;
 }) {
   const menu = useRef<HTMLDetailsElement>(null);
   const dragRegion = isDesktop && !isMacDesktop ? true : undefined;
@@ -104,7 +106,9 @@ export function WorkspaceShell({
                 {item.id !== 'authored' && (
                   <span className="nav-count">
                     {item.id === 'inbox'
-                      ? unread
+                      ? notificationsAvailable
+                        ? unread
+                        : '—'
                       : item.id === 'review'
                         ? counts.review
                         : counts.issues}

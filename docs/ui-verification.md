@@ -1,37 +1,39 @@
 # UI Verification
 
-Verified against live GitHub data in the local browser preview on October 29, 2026. Desktop layouts were checked at 1440 × 900 and 900 × 680, with narrow browser layouts checked at 648 × 680 and 360 pixels wide.
+## Current Authorization and Storage
 
-## Regression Coverage
+ThreadLine now uses its own read-only GitHub App and an application-owned encrypted credential vault. Historical checks using shared GitHub CLI credentials or system keychain storage do not validate the current vault implementation.
 
-| Area                   | Checks                                                                                                                                                      |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Navigation             | Sidebar pages, workspace menu, global search, repository picker cancellation preserving the current settings section                                        |
-| Repository selection   | Search, no matches, inaccessible repository errors, switching between populated and empty repositories without retaining the previous repository's records  |
-| Authored pull requests | Open/merged/closed states, attention filter, search, row selection, preview dismissal, selection staying within filtered rows, detail navigation and return |
-| Pull details           | Real discussion, sanitized Markdown, foldable details, file patches, check results, long titles and paths                                                   |
-| Inbox                  | All/unread/mentions, search, local read overrides, badge updates, snooze cancellation and restoration                                                       |
-| Issues and reviews     | State/category filters, search, actual repository labels, empty-filter recovery, readable titles and summaries                                              |
-| Appearance             | Dark/light/system themes, both densities, reduced motion, readable avatars and status colors, narrow navigation                                             |
-| Settings               | Refresh preferences, manual refresh, notification preferences, quiet hours, saved preferences surviving browser reload                                      |
-| Dialogs                | Bounded scrolling, reachable close controls, long issue content and repository lists                                                                        |
+On October 29, 2026, a GPT-6.1 Terra xhigh subagent exercised the actual macOS Tauri app through Computer Use with the independent GitHub App:
 
-Snooze verification includes the preset choices, a submitted custom future date, changing a saved deadline, selecting multiple records, restoring records, and reviewing recently restored entries. Automated form tests additionally verify rejection of a nonempty past date and the exact deadline produced by every preset. Entering a nonempty past date could not be reliably exercised through browser automation. Local test changes were restored before ending the verification session.
+- An initially empty ThreadLine credential store showed the logged-out screen even though GitHub CLI was authenticated.
+- Device authorization completed on GitHub's official page for ThreadLine Desktop. The app completed login automatically and opened repository selection.
+- `llvm/llvm-project` loaded without installing the app on that repository: 11 open authored PRs, 20 review entries, and 13 issues (nine open and four closed) were observed for the signed-in account.
+- PR #236597 loaded its discussion, 16 changed files, and ten checks. **View on GitHub** opened the matching GitHub URL in Chrome.
+- The Inbox displayed the explicit GitHub App token limitation.
+- Confirming the already-selected LLVM repository preserved the loaded workspace after fixing a request-invalidation bug. A regression test covers this behavior.
+- Logout, repeat login, and restart restoration were exercised using the previous app-owned keychain entry. Those persistence results are superseded by the master-password vault and must be repeated for it.
 
-## Automated Failure Checks
+The registered public GitHub App has only repository Metadata, Contents, Issues, Pull requests, Checks, and Commit statuses permissions, all read-only. No repository installation, signing key, client secret, or broad GitHub CLI authorization was created for public-repository testing. Private installation was not submitted or verified.
 
-Automated tests exercise missing CLI/authentication failures, inaccessible repository selection, synchronization failure and retry, stale requests after repository changes, account changes, read-state persistence, snooze restoration, and unsafe discussion HTML. CSS layout is verified in the actual browser rather than with simulated element geometry.
+## Encrypted Vault Verification
 
-The initial browser audit reused an existing authenticated GitHub CLI account. Authorization follow-up is recorded below. The application does not write comments, reviews, subscription changes, or read markers to GitHub. Operating system notification delivery is not implemented; its controls explicitly describe stored local preferences.
+`npm run check` passed after the vault migration: ESLint, Clippy, Prettier, rustfmt, TypeScript, 101 frontend tests, 26 Rust tests, and frontend/native build checks. The obsolete live test that depended on automatic system-credential access was removed; live data is verified through the user-unlocked native app instead.
 
-## Desktop and Recovery Follow-up
+Automated tests exercise creation, authenticated encryption, unique ciphertext on repeated writes, wrong passwords, corruption/tampering, lock/unlock, reopening through a fresh store, credential clearing, client-ID isolation, restrictive Unix file permissions, and cross-process transaction exclusion. The serialized vault is checked for absence of plaintext access tokens, refresh tokens, and the test master password. Frontend tests cover masked matching fields, locked-login prevention, failed unlock, clearing password inputs, locking, and clearing the visible workspace.
 
-The Windows debug desktop application was launched directly on October 29, 2026, using its bundled frontend and real Tauri commands rather than the browser preview bridge. Repository selection, live inbox/PR/review/issue loading, page navigation, settings, and reopening the selected repository were exercised. The native titlebar was replaced with controls integrated into the application header. Dragging, double-clicking to maximize, minimize, restore from minimized state, maximize, restore from maximized state, and close were checked separately from browser behavior.
+The development preview uses one persistent Rust helper so unlocking and subsequent API requests share the same in-memory vault key. Its loopback/origin boundary and command schema are tested. Credentials are never returned to the frontend; the master password crosses only the local command boundary for key derivation.
 
-Connection regression tests verify that a temporary connection recheck failure preserves the active account, repository, and loaded records. A later successful connection or refresh clears errors; refresh also replaces stale records and updates their timestamp. Authentication loss clears the workspace, and an old request cannot clear a newly reconnected session. Window-control tests cover desktop actions, maximize-state labels, action failures and retry, listener cleanup, and omission from browser previews.
+Actual vault creation requires the user to enter a master password in the native app. Current native first-login and restart-unlock results will be recorded after that step; automated coverage is not claimed as completed native interaction.
 
-GitHub sign-in uses an application dialog backed by a hidden GitHub CLI process. A live GitHub device code was obtained and displayed in the browser preview; the official authorization page opened automatically in a new browser tab. Authorization completed for the existing account, the login dialog closed automatically, and the live repository picker opened. The dialog supports copying the code, reopening the page, waiting, cancellation, and retry. Automated tests cover polling, completion, automatic repository selection, cancellation, retry, late responses, clipboard/browser failures, process cleanup, timeout, and the persistent preview bridge. The follow-up desktop login-dialog check was interrupted by the user stopping Computer Use; the earlier desktop navigation and custom titlebar checks were completed.
+## macOS Window Behavior
 
-Physical disconnection and reconnection were deferred during this session, so those live cases remain unverified. Failure and recovery are covered with injected gateway failures in automated tests, not claimed as a physical network test.
+macOS uses a visible native titlebar and system traffic lights. The web header omits custom drag markers and Windows-style window controls. The default window is centered at 1100 × 740 with a 900 × 680 minimum. The Apple Silicon application and DMG have been built locally; unsigned debug bundles are for development, not notarized releases.
 
-A fresh offline application launch currently cannot load the disk cache because the backend verifies the active account over the network before returning account-scoped records. An already-open workspace retains its loaded records on transient failures. No existing GitHub credentials were removed and no machine-wide proxy, firewall, or network settings were changed.
+Native minimize/restore, full-screen/exit, titlebar double-click, and opening external GitHub links were exercised. Native menu actions produced real window movement. Controlled synthetic titlebar drags did not produce attributable movement, so **titlebar dragging remains unverified**. ScreenCaptureKit intermittently returned `-3811`, `-3812`, or distorted multi-display frames. Temporary pointer/window-event probes were removed from source.
+
+The new macOS CI job has not run remotely. Windows was not rerun on this Mac. Physical network disconnection/reconnection was not exercised; injected failure tests cover request errors and recovery. A fresh offline launch requires a live identity/access check before persisted account-scoped records can be served.
+
+## Earlier Interface Audit
+
+An earlier browser audit covered navigation, repository selection, filters, search, PR discussions and file/check views, settings, appearance, narrow layouts, local read markers, and snoozing. Browser widths included 1440, 900, 648, and 360 pixels. Those checks used the earlier shared CLI integration and establish interface history only. Current Inbox capability and authentication behavior are covered separately above.
