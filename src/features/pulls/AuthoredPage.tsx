@@ -16,13 +16,20 @@ const checkLabels = {
   pending: '检查进行中',
 };
 
-export function AuthoredPage({ onOpen }: { onOpen: (pull: PullRequest) => void }) {
+export function AuthoredPage({
+  onOpen,
+  read,
+  onRead,
+}: {
+  onOpen: (pull: PullRequest) => void;
+  read: string[];
+  onRead: (id: string) => void;
+}) {
   const [state, setState] = useState<PullState>('open');
   const [query, setQuery] = useState('');
   const [attentionOnly, setAttentionOnly] = useState(false);
   const [panelVisible, setPanelVisible] = useState(true);
   const [selected, setSelected] = useState(demoPulls[0]);
-  const [read, setRead] = useState<number[]>([]);
   const rows = filterPullRequests(demoPulls, state, query, attentionOnly);
 
   return (
@@ -150,11 +157,11 @@ export function AuthoredPage({ onOpen }: { onOpen: (pull: PullRequest) => void }
             <span className="separator">│</span>
             <button
               className="text-button"
-              onClick={() => setRead([...read, selected.number])}
-              disabled={read.includes(selected.number)}
+              onClick={() => onRead(`inbox-${selected.number}`)}
+              disabled={read.includes(`inbox-${selected.number}`)}
             >
               <Icon name="mark-read" />
-              {read.includes(selected.number) ? '已读' : '标记已读'}
+              {read.includes(`inbox-${selected.number}`) ? '已读' : '标记已读'}
             </button>
           </div>
         </section>

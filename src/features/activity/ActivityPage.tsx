@@ -44,6 +44,7 @@ export function ActivityRecord({
   onRead,
   onSnooze,
   isRead,
+  showKind = false,
 }: {
   record: Activity;
   selected?: boolean;
@@ -51,6 +52,7 @@ export function ActivityRecord({
   onRead?: (id: string) => void;
   onSnooze?: (id: string) => void;
   isRead?: boolean;
+  showKind?: boolean;
 }) {
   return (
     <div className={`activity-record ${selected ? 'selected' : ''} ${isRead ? 'is-read' : ''}`}>
@@ -63,8 +65,8 @@ export function ActivityRecord({
         </span>
         <span className="record-body">
           <span className="record-title">
-            {record.kind === 'issue' && record.id.startsWith('inbox') ? 'Issue ' : ''}#
-            {record.number}&nbsp; {record.title}
+            {record.kind === 'issue' && (showKind || record.id.startsWith('inbox')) ? 'Issue ' : ''}
+            #{record.number}&nbsp; {record.title}
           </span>
           <span className="record-summary">{record.summary}</span>
           <span className="record-detail">{record.detail}</span>
@@ -99,7 +101,7 @@ export function ActivityPage({
   onRead,
   onSnooze,
   onOpen,
-  forceEmpty = false,
+  initialFilter,
 }: {
   view: ActivityView;
   read: string[];
@@ -107,11 +109,11 @@ export function ActivityPage({
   onRead: (id: string) => void;
   onSnooze: (id: string) => void;
   onOpen: (record: Activity) => void;
-  forceEmpty?: boolean;
+  initialFilter?: string;
 }) {
   const settings = config[view];
   const [filter, setFilter] = useState(
-    view === 'inbox' ? 'unread' : view === 'issues' ? 'open' : 'all',
+    initialFilter ?? (view === 'inbox' ? 'unread' : view === 'issues' ? 'open' : 'all'),
   );
   const [query, setQuery] = useState('');
   const [searchVisible, setSearchVisible] = useState(false);
@@ -120,16 +122,13 @@ export function ActivityPage({
   const unread = demoActivities.inbox.filter(
     (item) => !read.includes(item.id) && !snoozed.includes(item.id),
   ).length;
-  const records =
-    forceEmpty && filter === 'unread'
-      ? []
-      : filterActivities(demoActivities[view], filter, query, read, snoozed).filter(
-          (record) =>
-            !attention ||
-            record.category === 'attention' ||
-            record.category === 'updated' ||
-            record.tone === 'blue',
-        );
+  const records = filterActivities(demoActivities[view], filter, query, read, snoozed).filter(
+    (record) =>
+      !attention ||
+      record.category === 'attention' ||
+      record.category === 'updated' ||
+      record.tone === 'blue',
+  );
   return (
     <>
       <header className="location">
@@ -227,7 +226,13 @@ export function ActivityPage({
         {!records.length && (
           <section className="activity-empty">
             <div className="empty-symbol">✓</div>
-            <h1>当前筛选下没有未读更新</h1>
+            <h1>
+              {view === 'inbox'
+                ? '当前筛选下没有未读更新'
+                : view === 'issues'
+                  ? '当前筛选下没有 Issue'
+                  : '当前筛选下没有 PR'}
+            </h1>
             <p>没有条目需要你现在处理。你可以查看全部记录，或清除筛选。</p>
             <div className="inline-group">
               <button className="chip accent" onClick={() => setFilter('all')}>

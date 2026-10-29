@@ -17,7 +17,15 @@ export function Modal({
     return () => dialog.close();
   }, []);
   return (
-    <dialog className="modal" ref={ref} onCancel={onClose} onClose={onClose} aria-label={title}>
+    <dialog
+      className="modal"
+      ref={ref}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      aria-label={title}
+    >
       <header>
         <h2>{title}</h2>
         <IconButton name="close" label="关闭弹窗" onClick={onClose} />

@@ -1,6 +1,10 @@
 :root {
+  --text: #ececf4;
+  --app: #111216;
+  --hover: #2c2e3a;
+  --discussion-bg: linear-gradient(170.75deg, #22242c, #1a1c21 71.43%);
   font-family: 'Inter Variable', 'Noto Sans SC Variable', 'Microsoft YaHei', sans-serif;
-  color: #ececf4;
+  color: var(--text);
   background: #111216;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -35,7 +39,7 @@ button:disabled {
   cursor: wait;
 }
 button:hover {
-  background-color: #2c2e3a;
+  background-color: var(--hover);
 }
 .app {
   height: 100dvh;
@@ -74,11 +78,6 @@ button:hover {
   align-items: center;
   background: var(--surface);
 }
-.workspace-switcher span {
-  padding: 10px 27px;
-  color: var(--muted);
-  white-space: nowrap;
-}
 .workspace-switcher .workspace-current {
   color: var(--accent);
   background: var(--raised);
@@ -98,7 +97,7 @@ button:hover {
   height: 36px;
   background: var(--raised);
   border-radius: 50%;
-  color: #ececf4;
+  color: var(--text);
 }
 .workspace {
   display: flex;
@@ -221,17 +220,6 @@ h2 {
 p {
   line-height: 25px;
 }
-.empty-state > p {
-  color: var(--muted);
-}
-.primary-button {
-  padding: 8px 14px;
-  min-height: 36px;
-  background: var(--raised);
-  color: var(--accent);
-  border-radius: 7px;
-  font-size: 14px;
-}
 .context-card {
   text-align: left;
   max-width: 850px;
@@ -247,46 +235,6 @@ p {
   color: var(--muted);
   line-height: 23px;
 }
-.empty-state .footnote {
-  width: 100%;
-  max-width: 850px;
-  text-align: left;
-  font-size: 13px;
-  color: var(--dim);
-}
-.settings-page {
-  padding: 24px 32px 40px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.settings-card {
-  background: var(--raised);
-  border-radius: 10px;
-  padding: 24px;
-}
-.settings-card h2 {
-  margin-bottom: 16px;
-}
-dl {
-  display: grid;
-  grid-template-columns: 110px minmax(0, 1fr);
-  gap: 16px;
-  font-size: 14px;
-}
-dt {
-  color: var(--muted);
-}
-dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-.settings-card p {
-  font-size: 14px;
-}
-.database-path {
-  user-select: all;
-}
 .error {
   margin: 0 32px;
   padding: 16px;
@@ -301,9 +249,6 @@ dd {
   }
   .brand {
     min-width: 192px;
-  }
-  .workspace-switcher span {
-    padding: 10px 16px;
   }
   .account {
     gap: 10px;
@@ -328,5 +273,5 @@ dd {
   white-space: nowrap;
 }
 .repository-empty {
-  color: #ececf4;
+  color: var(--text);
 }

@@ -54,7 +54,31 @@ pub fn run() {
             });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_app_state, save_last_view])
+        .invoke_handler(tauri::generate_handler![
+            get_app_state,
+            save_last_view,
+            get_workspace_data,
+            save_workspace_data
+        ])
         .run(tauri::generate_context!())
         .expect("Unable to start ThreadLine");
+}
+
+#[tauri::command]
+fn get_workspace_data(workspace: State<'_, Workspace>) -> Result<String, String> {
+    workspace
+        .database
+        .lock()
+        .map_err(|error| error.to_string())?
+        .workspace_data()
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn save_workspace_data(data: String, workspace: State<'_, Workspace>) -> Result<(), String> {
+    workspace
+        .database
+        .lock()
+        .map_err(|error| error.to_string())?
+        .save_workspace_data(&data)
 }

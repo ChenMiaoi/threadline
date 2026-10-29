@@ -1,33 +1,57 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { isDesktop, loadAppState, saveLastView, type AppState, type View } from './lib/desktop';
-import { Icon, IconButton } from './components/Icon';
+import { browserWorkspaceRepository, desktopWorkspaceRepository } from './lib/workspace-storage';
+import { useWorkspace } from './lib/useWorkspace';
+import { restoreSnoozes, type Preferences } from './core/workspace';
+import { WorkspaceShell } from './components/WorkspaceShell';
+import { Modal } from './components/Modal';
 import { AuthoredPage } from './features/pulls/AuthoredPage';
 import { PullDetailPage } from './features/pulls/PullDetailPage';
 import type { PullRequest } from './features/pulls/model';
 import { demoPulls } from './features/pulls/demo';
 import { ActivityPage } from './features/activity/ActivityPage';
+import { demoActivities } from './features/activity/demo';
 import type { Activity } from './features/activity/model';
-import { Modal } from './components/Modal';
+import { SettingsPage } from './features/settings/SettingsPage';
+import {
+  EmptyInboxPage,
+  OnboardingPage,
+  SnoozeDialog,
+  SnoozedPage,
+  SyncErrorPage,
+} from './features/states/WorkspaceStates';
 import './features/pulls/pulls.css';
 import './features/activity/activity.css';
-
-const navigation: { id: View; label: string; icon: string }[] = [
-  { id: 'inbox', label: '收件箱', icon: 'inbox' },
-  { id: 'authored', label: '我发起的', icon: 'user' },
-  { id: 'review', label: '我审阅的', icon: 'review' },
-  { id: 'issues', label: 'Issues', icon: 'issues' },
-];
+import './features/settings/settings.css';
+import './features/states/states.css';
 
 export default function App() {
   const [view, setView] = useState<View>('authored');
   const [openedPull, setOpenedPull] = useState<PullRequest | null>(null);
   const [recordPreview, setRecordPreview] = useState<Activity | null>(null);
-  const [read, setRead] = useState<string[]>([]);
-  const [snoozed, setSnoozed] = useState<string[]>([]);
+  const [snoozeIds, setSnoozeIds] = useState<string[] | null>(null);
   const [appState, setAppState] = useState<AppState | null>(null);
   const [loading, setLoading] = useState(isDesktop);
   const [error, setError] = useState('');
+  const [inboxFilter, setInboxFilter] = useState('unread');
+  const [systemLight, setSystemLight] = useState(
+    () => window.matchMedia('(prefers-color-scheme: light)').matches,
+  );
+  const repository = useMemo(
+    () =>
+      isDesktop ? desktopWorkspaceRepository() : browserWorkspaceRepository(window.localStorage),
+    [],
+  );
+  const workspace = useWorkspace(repository);
+  const { data, update } = workspace;
   const writeQueue = useRef(Promise.resolve());
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: light)');
+    const listener = () => setSystemLight(media.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, []);
 
   useEffect(() => {
     if (!isDesktop) return;
@@ -52,18 +76,22 @@ export default function App() {
 
   function navigate(next: View) {
     setOpenedPull(null);
+    setRecordPreview(null);
     setView(next);
-    if (isDesktop && appState) {
+    if (next === 'inbox') setInboxFilter('unread');
+    if (isDesktop && appState)
       writeQueue.current = writeQueue.current
         .then(() => saveLastView(next))
         .catch((reason) => setError(String(reason)));
-    }
   }
 
   function toggleRead(id: string) {
-    setRead((current) =>
-      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
-    );
+    update((current) => ({
+      ...current,
+      read: current.read.includes(id)
+        ? current.read.filter((value) => value !== id)
+        : [...current.read, id],
+    }));
   }
 
   function openActivity(record: Activity) {
@@ -71,144 +99,107 @@ export default function App() {
     else setRecordPreview(record);
   }
 
-  const title = view === 'settings' ? '设置' : navigation.find((item) => item.id === view)!.label;
+  function openPull(pull: PullRequest) {
+    if (pull.number === 1042) {
+      setOpenedPull(pull);
+      return;
+    }
+    const record = Object.values(demoActivities)
+      .flat()
+      .find((item) => item.number === pull.number);
+    if (record) setRecordPreview(record);
+  }
+
+  function changePreferences(change: Partial<Preferences>) {
+    update((current) => ({ ...current, preferences: { ...current.preferences, ...change } }));
+  }
+
+  const light =
+    data.preferences.theme === 'light' || (data.preferences.theme === 'system' && systemLight);
+  const busy = loading || !workspace.loaded;
+  const unread = demoActivities.inbox.filter(
+    (item) => !data.read.includes(item.id) && !(item.id in data.snoozed),
+  ).length;
+  const className = `${light ? 'theme-light' : ''} density-${data.preferences.density} ${data.preferences.reducedMotion ? 'reduced-motion' : ''}`;
 
   return (
-    <div className="app">
-      <header className="app-bar">
-        <div className="brand">
-          <Icon name="brand" />
-          <strong>ThreadLine</strong>
-        </div>
-        <IconButton
-          name="search"
-          label="搜索工作区"
-          onClick={() => {
-            navigate('authored');
-            requestAnimationFrame(() =>
-              document.querySelector<HTMLInputElement>('[aria-label="搜索 PR"]')?.focus(),
-            );
-          }}
-        />
-        <div className="workspace-switcher">
-          <span>工作台</span>
-          <span className="workspace-current">llvm-project</span>
-        </div>
-        <div className="account">
-          <span className="avatar">C</span>
-          <span>示例数据</span>
-          <Icon name="chev" />
-        </div>
-      </header>
-      <div className="workspace">
-        <aside className="sidebar">
-          <div className="section-label">工作区</div>
-          <nav aria-label="工作区">
-            {navigation.map((item) => (
-              <button
-                key={item.id}
-                disabled={loading}
-                className={`nav-item ${view === item.id ? 'selected' : ''}`}
-                aria-current={view === item.id ? 'page' : undefined}
-                onClick={() => navigate(item.id)}
-              >
-                <Icon name={item.icon} />
-                {item.label}
-                {item.id !== 'authored' && (
-                  <span className="nav-count">
-                    {item.id === 'inbox' ? 4 : item.id === 'review' ? 15 : 8}
-                  </span>
-                )}
-              </button>
-            ))}
-          </nav>
-          <div className="repository-section">
-            <div className="section-label">仓库</div>
-            <div className="repository-empty">
-              <Icon name="repo" />
-              <span>llvm-project</span>
-            </div>
+    <div className={`workspace-root ${className}`}>
+      <WorkspaceShell
+        view={view}
+        unread={unread}
+        onNavigate={navigate}
+        loading={busy}
+        className={className}
+        onSearch={() => {
+          navigate('authored');
+          requestAnimationFrame(() =>
+            document.querySelector<HTMLInputElement>('[aria-label="搜索 PR"]')?.focus(),
+          );
+        }}
+      >
+        {(error || workspace.error) && (
+          <div role="alert" className="error">
+            本地数据访问失败：{error || workspace.error}。请重新打开工作区后重试。
           </div>
-          <button
-            disabled={loading}
-            className={`nav-item settings-link ${view === 'settings' ? 'selected' : ''}`}
-            aria-current={view === 'settings' ? 'page' : undefined}
-            onClick={() => navigate('settings')}
-          >
-            <Icon name="settings" />
-            设置
-          </button>
-        </aside>
-        <main className="content">
-          {view === 'settings' && !openedPull && (
-            <header className="location">
-              <span>ThreadLine</span>
-              <span className="separator">/</span>
-              <span className="muted">{title}</span>
-              <span className="connection-badge">未连接 GitHub</span>
-            </header>
-          )}
-          {error && (
-            <div role="alert" className="error">
-              本地数据访问失败：{error}
+        )}
+        {busy ? (
+          <div className="empty-state" role="status">
+            正在打开本地工作区…
+          </div>
+        ) : (
+          <>
+            <div className="page-view" hidden={Boolean(openedPull)}>
+              {view === 'authored' ? (
+                <AuthoredPage onOpen={openPull} read={data.read} onRead={toggleRead} />
+              ) : view === 'settings' ? (
+                <SettingsPage
+                  preferences={data.preferences}
+                  onChange={changePreferences}
+                  onConnect={() => navigate('onboarding')}
+                  onSync={() => navigate('sync-error')}
+                  appState={appState}
+                />
+              ) : view === 'onboarding' ? (
+                <OnboardingPage onExample={() => navigate('authored')} />
+              ) : view === 'empty' ? (
+                <EmptyInboxPage
+                  onShowAll={() => {
+                    navigate('inbox');
+                    setInboxFilter('all');
+                  }}
+                />
+              ) : view === 'sync-error' ? (
+                <SyncErrorPage onConnect={() => navigate('settings')} onOpen={openActivity} />
+              ) : view === 'snoozed' ? (
+                <SnoozedPage
+                  data={data}
+                  onRestore={(ids) => update((current) => restoreSnoozes(current, ids))}
+                  onAdjust={setSnoozeIds}
+                  onOpen={openActivity}
+                />
+              ) : (
+                <ActivityPage
+                  key={`${view}-${inboxFilter}`}
+                  view={view}
+                  read={data.read}
+                  snoozed={Object.keys(data.snoozed)}
+                  onRead={toggleRead}
+                  onSnooze={(id) => setSnoozeIds([id])}
+                  onOpen={openActivity}
+                  initialFilter={view === 'inbox' ? inboxFilter : undefined}
+                />
+              )}
             </div>
-          )}
-          {loading ? (
-            <div className="empty-state" role="status">
-              正在打开本地工作区…
-            </div>
-          ) : openedPull ? (
-            <PullDetailPage
-              key={openedPull.number}
-              pull={openedPull}
-              onBack={() => setOpenedPull(null)}
-            />
-          ) : view === 'authored' ? (
-            <AuthoredPage onOpen={setOpenedPull} />
-          ) : view === 'settings' ? (
-            <section className="settings-page">
-              <h1>设置</h1>
-              <p className="muted">管理 ThreadLine 的本地工作区。</p>
-              <section className="settings-card">
-                <h2>本地数据</h2>
-                <dl>
-                  <dt>运行环境</dt>
-                  <dd>{isDesktop ? 'Tauri 桌面应用' : '浏览器预览'}</dd>
-                  <dt>存储状态</dt>
-                  <dd>
-                    {appState
-                      ? `SQLite 已就绪 · v${appState.schemaVersion}`
-                      : isDesktop
-                        ? '无法读取数据库'
-                        : '请在桌面应用中使用 SQLite'}
-                  </dd>
-                  {appState && (
-                    <>
-                      <dt>数据库位置</dt>
-                      <dd className="database-path">{appState.databasePath}</dd>
-                    </>
-                  )}
-                </dl>
-                <p className="muted">桌面端自动保存上次打开的页面。</p>
-              </section>
-              <section className="settings-card">
-                <h2>GitHub</h2>
-                <p className="muted">尚未连接。账号授权与仓库同步将在后续实现。</p>
-              </section>
-            </section>
-          ) : (
-            <ActivityPage
-              key={view}
-              view={view}
-              read={read}
-              snoozed={snoozed}
-              onRead={toggleRead}
-              onSnooze={(id) => setSnoozed((current) => [...current, id])}
-              onOpen={openActivity}
-            />
-          )}
-        </main>
-      </div>
+            {openedPull && (
+              <PullDetailPage
+                key={openedPull.number}
+                pull={openedPull}
+                onBack={() => setOpenedPull(null)}
+              />
+            )}
+          </>
+        )}
+      </WorkspaceShell>
       {recordPreview && (
         <Modal
           title={`${recordPreview.kind === 'issue' ? 'Issue' : 'PR'} #${recordPreview.number}`}
@@ -220,12 +211,12 @@ export default function App() {
           <p className="dim">示例记录 · 未连接 GitHub</p>
           <div className="inline-group">
             <button className="chip" onClick={() => toggleRead(recordPreview.id)}>
-              {read.includes(recordPreview.id) ? '标记未读' : '标记已读'}
+              {data.read.includes(recordPreview.id) ? '标记未读' : '标记已读'}
             </button>
             <button
               className="chip"
               onClick={() => {
-                setSnoozed((current) => [...current, recordPreview.id]);
+                setSnoozeIds([recordPreview.id]);
                 setRecordPreview(null);
               }}
             >
@@ -233,6 +224,23 @@ export default function App() {
             </button>
           </div>
         </Modal>
+      )}
+      {snoozeIds && (
+        <SnoozeDialog
+          count={snoozeIds.length}
+          onClose={() => setSnoozeIds(null)}
+          onConfirm={(until) => {
+            update((current) => ({
+              ...current,
+              snoozed: {
+                ...current.snoozed,
+                ...Object.fromEntries(snoozeIds.map((id) => [id, until])),
+              },
+              restored: current.restored.filter((id) => !snoozeIds.includes(id)),
+            }));
+            setSnoozeIds(null);
+          }}
+        />
       )}
     </div>
   );

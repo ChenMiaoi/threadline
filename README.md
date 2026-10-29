@@ -17,7 +17,7 @@ npm install
 npm run desktop
 ```
 
-Run `npm run dev` to preview the interface in a browser. Browser previews do not access SQLite.
+Run `npm run dev` to preview the interface in a browser. Browser previews use local storage and do not access SQLite.
 
 ```sh
 npm run build
@@ -33,9 +33,11 @@ Run `npm run check` before committing. It runs ESLint, Rust Clippy, Prettier, ru
 
 ## Current Scope
 
-The initial scaffold includes the main branch, a dark application shell, navigation for Inbox, Authored Pull Requests, Review Requests, and Issues, a settings page, SQLite initialization and versioned migrations, and persistence of the last opened view.
+The interface includes Inbox, Authored Pull Requests, Review Requests, Issues, a pull request detail view, four settings sections, onboarding, snoozed items, and empty and synchronization error states. Search, filters, record previews, local read markers, theme and density changes, and snooze scheduling are interactive.
 
-GitHub authentication, repository synchronization, notifications, and pull request and issue workflows are not implemented yet. The interface displays a disconnected state without sample collaboration records.
+All collaboration records are clearly labeled sample data. GitHub authentication, repository synchronization, and desktop notification delivery are not implemented yet. The interface does not send comments, submit reviews, or modify GitHub records.
+
+Use the workspace menu in the top bar to open onboarding, snoozed items, and sample empty or error states. Local preferences, read markers, and snooze deadlines are stored in SQLite on desktop and browser local storage in previews. Due snoozes are restored when the workspace opens or its timer checks the current time; the application does not schedule background operating system notifications.
 
 The database is stored in Tauri's application data directory as `io.chenmiaoi.threadline/threadline.db`, typically under `%APPDATA%` on Windows. The settings page shows the actual path. Do not commit databases or account credentials to Git.
 
@@ -62,3 +64,5 @@ CI uses Node.js 24.22.1 and Rust 1.98.1 with Clippy and rustfmt. Actions are pin
 ## License
 
 ThreadLine is licensed under the GNU General Public License version 3.0 only (`GPL-3.0-only`). See [LICENSE](./LICENSE) for the full license text.
+
+The bundled Inter and Noto Sans SC fonts retain their SIL Open Font License notices in [public/licenses/inter-OFL.txt](./public/licenses/inter-OFL.txt) and [public/licenses/noto-sans-sc-OFL.txt](./public/licenses/noto-sans-sc-OFL.txt).

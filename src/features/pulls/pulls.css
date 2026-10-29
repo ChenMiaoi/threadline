@@ -116,7 +116,7 @@
 }
 .pull-tabs button.active {
   background: var(--raised);
-  color: #ececf4;
+  color: var(--text);
   border-bottom: 2px solid var(--accent);
 }
 .pull-tabs button.active span {
@@ -190,12 +190,12 @@
   flex-shrink: 0;
 }
 .discussion-preview {
-  min-height: 214px;
+  min-height: 213px;
   flex-shrink: 0;
   border: 1px solid var(--border);
   border-radius: 22px;
   padding: 20px 32px 24px;
-  background: linear-gradient(170.75deg, #22242c, #1a1c21 71.43%);
+  background: var(--discussion-bg);
   display: flex;
   flex-direction: column;
   gap: 14px;

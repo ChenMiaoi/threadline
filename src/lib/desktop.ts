@@ -1,6 +1,16 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 
-export const views = ['inbox', 'authored', 'review', 'issues', 'settings'] as const;
+export const views = [
+  'inbox',
+  'authored',
+  'review',
+  'issues',
+  'settings',
+  'onboarding',
+  'snoozed',
+  'empty',
+  'sync-error',
+] as const;
 export type View = (typeof views)[number];
 
 export interface AppState {
