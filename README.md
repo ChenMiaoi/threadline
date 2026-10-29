@@ -7,7 +7,7 @@ A local-first desktop workspace for GitHub collaboration.
 - TypeScript + React + Vite for the interface.
 - Rust + Tauri 2 for desktop windows and application commands.
 - Direct HTTPS access to GitHub REST and GraphQL APIs.
-- An application-owned encrypted credential vault, unlocked with a local master password.
+- An application-owned encrypted credential vault, with its random key protected by macOS Keychain or Windows Credential Manager.
 - SQLite through rusqlite with bundled SQLite for local persistence, accessed exclusively by Rust.
 
 ## Development
@@ -37,16 +37,20 @@ Run `npm run check` before committing. It runs ESLint, Rust Clippy, Prettier, ru
 
 ThreadLine uses the **ThreadLine Desktop** GitHub App. Its public client ID is distributed in [src-tauri/github-app.json](./src-tauri/github-app.json); ordinary users do not register an app or configure credentials.
 
-1. Create a local vault with a master password of at least 12 characters, or unlock an existing vault. Then choose **Log in to GitHub** in ThreadLine. The application displays a one-time device code and opens GitHub's official authorization page.
+1. Choose **Log in to GitHub** in ThreadLine. The application displays a one-time device code and opens GitHub's official authorization page.
 2. Enter the code on GitHub and authorize ThreadLine Desktop. ThreadLine automatically completes sign-in and opens repository selection.
 3. Select or enter a public repository, for example `llvm/llvm-project`. Public repositories do not require an app installation.
 4. For private repositories, the repository-owning account or organization installs the app once and selects the permitted repositories. **Add private repository access** opens this optional GitHub installation flow. Organization members authorize their own user identity, but do not register separate apps.
 
 The app requests only these repository permissions, all **read-only**: Metadata, Contents, Issues, Pull requests, Checks, and Commit statuses. It requests no account, organization, administration, write, deletion, public-key, or workflow-management permissions. The backend audits the registered app and installation permissions and rejects unexpected or write permissions. Private repository access is checked against the app installation's selected repositories.
 
-Access and rotating refresh tokens are stored only in ThreadLine's encrypted vault, partitioned by client ID. Argon2id derives a key from the master password using a random salt (64 MiB, three iterations); XChaCha20-Poly1305 authenticates and encrypts the credentials with a fresh nonce for every atomic write. The password is not saved. The unlocked key remains in the backend process and is cleared when the vault is locked or the process exits. Each launch requires unlocking; unlocking restores the saved GitHub session without another authorization. They never enter React, SQLite, local storage, environment variables, logs, or GitHub CLI configuration. No private key or client secret is embedded in the desktop application. Access tokens expire after eight hours; device-flow refresh tokens renew them securely without a client secret. Expired or revoked authorization requires sign-in again. **Log out of ThreadLine** clears this app's encrypted credentials and locks the vault; GitHub account settings can revoke the server-side app authorization.
+Access and rotating refresh tokens are stored in ThreadLine's encrypted vault, partitioned by client ID. XChaCha20-Poly1305 authenticates and encrypts credentials with a fresh nonce for every atomic write. A randomly generated 256-bit key is stored separately in this app's macOS Keychain or Windows Credential Manager entry. The app retrieves that key automatically: users do not create a master password or unlock a vault on every launch. No key is embedded in the executable or stored alongside the ciphertext.
 
-Maintainers register and configure the shared GitHub App once. Fork maintainers who operate a separate app can change the public configuration or override `THREADLINE_GITHUB_CLIENT_ID` and `THREADLINE_GITHUB_APP_SLUG` at launch. See [GitHub App setup](./docs/github-app-setup.md) for the registration checklist and permission boundaries. There is no system-keychain or plaintext fallback. A forgotten master password cannot be recovered: remove only the app's vault file, create a new vault, and authorize again. This resets saved login credentials, not repository data or GitHub authorization. Keep a backup of the encrypted file if needed before resetting it.
+Signing in once restores the account and selected repository on subsequent launches. Access tokens expire after eight hours and renew automatically using rotating refresh tokens, without a client secret. Revoked authorization or an expired refresh token requires sign-in again; a temporary network or system-store failure does not erase saved credentials. **Log out of ThreadLine** removes both the encrypted credential file and this app's key entry, so reopening does not sign in again. GitHub account settings can revoke the server-side authorization.
+
+Tokens and encryption keys never enter React, SQLite, browser storage, environment variables, logs, or GitHub CLI configuration. No private key or client secret is embedded in the desktop app. Native secure storage is implemented for macOS and Windows; unavailable storage returns an explicit error, with no plaintext or production in-memory fallback. macOS can request permission to access the app's keychain entry, especially when testing a rebuilt unsigned binary; stable release signing is required before distribution.
+
+Maintainers register and configure the shared GitHub App once. Fork maintainers can change the public configuration or override `THREADLINE_GITHUB_CLIENT_ID` and `THREADLINE_GITHUB_APP_SLUG` at launch. See [GitHub App setup](./docs/github-app-setup.md) for registration and permission boundaries.
 
 ## GitHub Notifications Limitation
 
@@ -66,7 +70,7 @@ Successful API responses are cached in SQLite by independent app client ID, acco
 
 Tests use isolated fixtures and injected network, clock, and credential interfaces. Production views have no sample-data fallback. Native UI verification and its remaining limits are recorded in [docs/ui-verification.md](./docs/ui-verification.md).
 
-The database is stored in Tauri's application data directory as `io.chenmiaoi.threadline/threadline.db`, typically under `%APPDATA%` on Windows and `~/Library/Application Support/` on macOS. Settings shows the actual path. The encrypted vault is stored under the platform local-data directory at `io.chenmiaoi.threadline/vault/<client-id>.vault` (on macOS, `~/Library/Application Support/`). Vault transaction lock files contain no credentials. Do not commit databases or credentials to Git.
+The database is stored in Tauri's application data directory as `io.chenmiaoi.threadline/threadline.db`, typically under `%APPDATA%` on Windows and `~/Library/Application Support/` on macOS. Settings shows the actual path. The encrypted vault is stored under the platform local-data directory at `io.chenmiaoi.threadline/vault/<client-id>.session.vault` (on macOS, `~/Library/Application Support/`). Vault transaction lock files contain no credentials. Do not commit databases or credentials to Git.
 
 ## Project Structure
 

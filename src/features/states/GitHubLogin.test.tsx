@@ -24,7 +24,6 @@ function workspace() {
   return {
     session: { user, selected: null },
     connecting: false,
-    vault: { exists: true, unlocked: true },
     gateway: createGateway(),
     auth: {
       state: {

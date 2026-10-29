@@ -120,10 +120,7 @@ describe('persistent GitHub bridge', () => {
 });
 
 describe('preview command validation', () => {
-  it('accepts local vault unlock and data requests without token fields', () => {
-    expect(allowsCommand('github_vault_unlock', { password: 'test-only master password' })).toBe(
-      true,
-    );
+  it('accepts data requests without token fields', () => {
     expect(
       allowsCommand('github_request', {
         operation: 'authored',
@@ -132,16 +129,15 @@ describe('preview command validation', () => {
         number: 0,
       }),
     ).toBe(true);
-    expect(allowsCommand('github_vault_status', {})).toBe(true);
+    expect(allowsCommand('github_session', {})).toBe(true);
   });
   it('rejects unknown commands, injected fields, and malformed arguments', () => {
     expect(allowsCommand('exec', { command: 'anything' })).toBe(false);
-    expect(allowsCommand('github_vault_unlock', {})).toBe(false);
-    expect(allowsCommand('github_vault_unlock', { password: 'x'.repeat(1025) })).toBe(false);
+    expect(allowsCommand('github_vault_unlock', { password: 'fixture' })).toBe(false);
     expect(allowsCommand('github_request', { accessToken: 'fixture' })).toBe(false);
     expect(allowsCommand('github_request', { accountId: -1 })).toBe(false);
     expect(allowsCommand('github_request', { number: NaN })).toBe(false);
     expect(allowsCommand('github_login', [])).toBe(false);
-    expect(allowsCommand('github_vault_lock', { password: 'fixture' })).toBe(false);
+    expect(allowsCommand('github_logout', { password: 'fixture' })).toBe(false);
   });
 });

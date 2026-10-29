@@ -17,9 +17,6 @@ const commandFields: Record<string, Record<string, 'string' | 'number'>> = {
   github_login_status: {},
   github_login_cancel: {},
   github_logout: {},
-  github_vault_status: {},
-  github_vault_unlock: { password: 'string' },
-  github_vault_lock: {},
   github_open: { url: 'string' },
   github_select_repository: { repo: 'string', accountId: 'number' },
   github_request: { operation: 'string', repo: 'string', number: 'number', accountId: 'number' },
@@ -42,8 +39,6 @@ export function allowsCommand(command: string, args: unknown): args is Record<st
     )
   )
     return false;
-  if (command === 'github_vault_unlock')
-    return 'password' in args && typeof args.password === 'string' && args.password.length <= 1024;
   return true;
 }
 const unavailable = '本地 GitHub 连接不可用，请重新运行 npm run dev。';

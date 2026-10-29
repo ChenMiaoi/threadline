@@ -41,15 +41,6 @@ export const githubGateway: GitHubGateway = {
   async logout() {
     return command('github_logout');
   },
-  async vaultStatus() {
-    return command('github_vault_status');
-  },
-  async unlockVault(password) {
-    return command('github_vault_unlock', { password });
-  },
-  async lockVault() {
-    return command('github_vault_lock');
-  },
   async open(url) {
     return command('github_open', { url });
   },

@@ -1,4 +1,3 @@
-use argon2::{Algorithm, Argon2, Params, Version};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use chacha20poly1305::{
     aead::{Aead, Payload},
@@ -9,12 +8,11 @@ use serde::{Deserialize, Serialize};
 use std::{
     io::{Read, Write},
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::Arc,
 };
 use zeroize::Zeroizing;
 
 const MAX_VAULT_BYTES: u64 = 64 * 1024;
-const KDF: &str = "argon2id-64m-3t-1p-v1";
 // Secrets are never Debug or returned through a command.
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Credential {
@@ -25,58 +23,95 @@ pub struct Credential {
     pub refresh_expires_at: u64,
     pub user_id: u64,
 }
-#[derive(Serialize)]
-pub struct VaultStatus {
-    pub exists: bool,
-    pub unlocked: bool,
-}
 pub trait CredentialGuard {}
 impl CredentialGuard for () {}
 impl CredentialGuard for std::fs::File {}
 pub trait CredentialStore: Send + Sync {
     fn lock(&self) -> Result<Box<dyn CredentialGuard>, String>;
-    fn status(&self) -> Result<VaultStatus, String>;
-    fn unlock(&self, password: &str) -> Result<(), String>;
-    fn seal(&self) -> Result<(), String>;
     fn read(&self) -> Result<Option<Credential>, String>;
     fn write(&self, credential: &Credential) -> Result<(), String>;
     fn clear(&self) -> Result<(), String>;
+}
+// The application owns the ciphertext; the OS protects its random encryption key.
+// Keeping this boundary injectable allows restart/failure tests without touching a user's keychain.
+trait VaultKeys: Send + Sync {
+    fn read(&self) -> Result<Option<Zeroizing<Vec<u8>>>, String>;
+    fn write(&self, key: &[u8]) -> Result<(), String>;
+    fn clear(&self) -> Result<(), String>;
+}
+struct NativeKeys {
+    client_id: String,
+}
+fn secure_error() -> String {
+    "GH_SECURE_STORAGE: 无法访问 ThreadLine 的系统安全存储，请允许本应用访问后重试。".into()
+}
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+impl NativeKeys {
+    fn entry(&self) -> Result<keyring::Entry, String> {
+        keyring::Entry::new("io.chenmiaoi.threadline.vault-key.v2", &self.client_id)
+            .map_err(|_| secure_error())
+    }
+}
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+impl VaultKeys for NativeKeys {
+    fn read(&self) -> Result<Option<Zeroizing<Vec<u8>>>, String> {
+        match self.entry()?.get_secret() {
+            Ok(key) => Ok(Some(Zeroizing::new(key))),
+            Err(keyring::Error::NoEntry) => Ok(None),
+            Err(_) => Err(secure_error()),
+        }
+    }
+    fn write(&self, key: &[u8]) -> Result<(), String> {
+        self.entry()?.set_secret(key).map_err(|_| secure_error())
+    }
+    fn clear(&self) -> Result<(), String> {
+        match self.entry()?.delete_credential() {
+            Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+            Err(_) => Err(secure_error()),
+        }
+    }
+}
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+impl VaultKeys for NativeKeys {
+    fn read(&self) -> Result<Option<Zeroizing<Vec<u8>>>, String> {
+        let _ = &self.client_id;
+        Err(secure_error())
+    }
+    fn write(&self, _: &[u8]) -> Result<(), String> {
+        Err(secure_error())
+    }
+    fn clear(&self) -> Result<(), String> {
+        Err(secure_error())
+    }
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Envelope {
     version: u8,
-    kdf: String,
     client_id: String,
-    salt: String,
     nonce: String,
     ciphertext: String,
-}
-struct SessionKey {
-    salt: [u8; 16],
-    key: Zeroizing<[u8; 32]>,
 }
 pub struct VaultStore {
     client_id: String,
     directory: Option<PathBuf>,
-    key: Mutex<Option<SessionKey>>,
+    keys: Arc<dyn VaultKeys>,
 }
 fn io_error() -> String {
     "GH_VAULT_IO: 无法读写 ThreadLine 加密凭据库。".into()
 }
 fn corrupt() -> String {
-    "GH_VAULT_INVALID: 主密码不正确或凭据库已损坏。".into()
-}
-fn locked() -> String {
-    "GH_VAULT_LOCKED: 请先解锁本地加密凭据库。".into()
+    "GH_VAULT_INVALID: 本地登录凭据已损坏，请退出登录后重新授权。".into()
 }
 impl VaultStore {
     pub fn new(client_id: String) -> Self {
         Self {
+            keys: Arc::new(NativeKeys {
+                client_id: client_id.clone(),
+            }),
             client_id,
             directory: dirs::data_local_dir()
                 .map(|p| p.join("io.chenmiaoi.threadline").join("vault")),
-            key: Mutex::new(None),
         }
     }
     fn directory(&self) -> Result<&Path, String> {
@@ -92,7 +127,9 @@ impl VaultStore {
         self.directory.as_deref().ok_or_else(io_error)
     }
     fn path(&self) -> Result<PathBuf, String> {
-        Ok(self.directory()?.join(format!("{}.vault", self.client_id)))
+        Ok(self
+            .directory()?
+            .join(format!("{}.session.vault", self.client_id)))
     }
     fn envelope(&self) -> Result<Envelope, String> {
         let file = std::fs::File::open(self.path()?).map_err(|_| io_error())?;
@@ -104,32 +141,21 @@ impl VaultStore {
             return Err(corrupt());
         }
         let envelope: Envelope = serde_json::from_slice(&bytes).map_err(|_| corrupt())?;
-        if envelope.version != 1 || envelope.kdf != KDF || envelope.client_id != self.client_id {
+        if envelope.version != 2 || envelope.client_id != self.client_id {
             return Err(corrupt());
         }
         Ok(envelope)
     }
-    fn derive(password: &str, salt: [u8; 16]) -> Result<SessionKey, String> {
-        if password.chars().count() < 12 || password.len() > 1024 {
-            return Err(
-                "GH_VAULT_PASSWORD: 主密码至少需要 12 个字符，且不能超过 1024 字节。".into(),
-            );
-        }
-        let params = Params::new(65536, 3, 1, Some(32)).map_err(|_| "GH_VAULT_CRYPTO")?;
-        let mut key = Zeroizing::new([0u8; 32]);
-        Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
-            .hash_password_into(password.as_bytes(), &salt, key.as_mut())
-            .map_err(|_| "GH_VAULT_CRYPTO")?;
-        Ok(SessionKey { salt, key })
+    fn aad(&self) -> String {
+        format!("ThreadLine:session-vault:2:{}", self.client_id)
     }
-    fn aad(&self, salt: &str) -> String {
-        format!("ThreadLine:vault:1:{KDF}:{}:{salt}", self.client_id)
+    fn key(&self) -> Result<Zeroizing<Vec<u8>>, String> {
+        self.keys
+            .read()?
+            .filter(|k| k.len() == 32)
+            .ok_or_else(secure_error)
     }
-    fn decrypt(&self, envelope: &Envelope, key: &SessionKey) -> Result<Option<Credential>, String> {
-        let salt = STANDARD.decode(&envelope.salt).map_err(|_| corrupt())?;
-        if salt.as_slice() != key.salt {
-            return Err(corrupt());
-        }
+    fn decrypt(&self, envelope: &Envelope, key: &[u8]) -> Result<Credential, String> {
         let nonce = STANDARD.decode(&envelope.nonce).map_err(|_| corrupt())?;
         let ciphertext = STANDARD
             .decode(&envelope.ciphertext)
@@ -137,86 +163,54 @@ impl VaultStore {
         if nonce.len() != 24 {
             return Err(corrupt());
         }
-        let cipher = XChaCha20Poly1305::new_from_slice(key.key.as_ref()).map_err(|_| corrupt())?;
+        let cipher = XChaCha20Poly1305::new_from_slice(key).map_err(|_| secure_error())?;
         let plaintext = Zeroizing::new(
             cipher
                 .decrypt(
                     XNonce::from_slice(&nonce),
                     Payload {
                         msg: &ciphertext,
-                        aad: self.aad(&envelope.salt).as_bytes(),
+                        aad: self.aad().as_bytes(),
                     },
                 )
                 .map_err(|_| corrupt())?,
         );
-        let credential: Option<Credential> =
-            serde_json::from_slice(&plaintext).map_err(|_| corrupt())?;
-        if credential
-            .as_ref()
-            .is_some_and(|c| c.client_id != self.client_id)
-        {
+        let credential: Credential = serde_json::from_slice(&plaintext).map_err(|_| corrupt())?;
+        if credential.client_id != self.client_id {
             return Err(corrupt());
         }
         Ok(credential)
     }
-    fn persist(&self, key: &SessionKey, credential: Option<&Credential>) -> Result<(), String> {
-        if credential.is_some_and(|c| c.client_id != self.client_id) {
-            return Err("GH_VAULT_IDENTITY".into());
-        }
+    fn persist(&self, key: &[u8], credential: &Credential) -> Result<(), String> {
         let mut nonce = [0u8; 24];
         OsRng
             .try_fill_bytes(&mut nonce)
             .map_err(|_| "GH_VAULT_CRYPTO")?;
-        let salt = STANDARD.encode(key.salt);
         let plaintext =
-            Zeroizing::new(serde_json::to_vec(&credential).map_err(|_| "GH_VAULT_CRYPTO")?);
-        let cipher =
-            XChaCha20Poly1305::new_from_slice(key.key.as_ref()).map_err(|_| "GH_VAULT_CRYPTO")?;
+            Zeroizing::new(serde_json::to_vec(credential).map_err(|_| "GH_VAULT_CRYPTO")?);
+        let cipher = XChaCha20Poly1305::new_from_slice(key).map_err(|_| secure_error())?;
         let ciphertext = cipher
             .encrypt(
                 XNonce::from_slice(&nonce),
                 Payload {
                     msg: &plaintext,
-                    aad: self.aad(&salt).as_bytes(),
+                    aad: self.aad().as_bytes(),
                 },
             )
             .map_err(|_| "GH_VAULT_CRYPTO")?;
         let envelope = Envelope {
-            version: 1,
-            kdf: KDF.into(),
+            version: 2,
             client_id: self.client_id.clone(),
-            salt,
             nonce: STANDARD.encode(nonce),
             ciphertext: STANDARD.encode(ciphertext),
         };
         let encoded = serde_json::to_vec(&envelope).map_err(|_| "GH_VAULT_CRYPTO")?;
-        let directory = self.directory()?;
-        std::fs::create_dir_all(directory).map_err(|_| io_error())?;
-        let mut file = tempfile::NamedTempFile::new_in(directory).map_err(|_| io_error())?;
+        let mut file =
+            tempfile::NamedTempFile::new_in(self.directory()?).map_err(|_| io_error())?;
         file.write_all(&encoded).map_err(|_| io_error())?;
         file.as_file().sync_all().map_err(|_| io_error())?;
         file.persist(self.path()?).map_err(|_| io_error())?;
         Ok(())
-    }
-    fn update(&self, credential: Option<&Credential>) -> Result<(), String> {
-        let mut session = self.key.lock().map_err(|_| locked())?;
-        let key = session.as_ref().ok_or_else(locked)?;
-        let envelope = self.envelope()?;
-        if STANDARD
-            .decode(&envelope.salt)
-            .map_err(|_| corrupt())?
-            .as_slice()
-            != key.salt
-        {
-            *session = None;
-            return Err(locked());
-        }
-        // Verify the existing authentication tag before replacing any ciphertext.
-        if let Err(error) = self.decrypt(&envelope, key) {
-            *session = None;
-            return Err(error);
-        }
-        self.persist(key, credential)
     }
 }
 impl CredentialStore for VaultStore {
@@ -243,77 +237,61 @@ impl CredentialStore for VaultStore {
         file.lock_exclusive().map_err(|_| io_error())?;
         Ok(Box::new(file))
     }
-    fn status(&self) -> Result<VaultStatus, String> {
-        Ok(VaultStatus {
-            exists: self.path()?.try_exists().map_err(|_| io_error())?,
-            unlocked: self.key.lock().map_err(|_| locked())?.is_some(),
-        })
-    }
-    fn unlock(&self, password: &str) -> Result<(), String> {
-        let existing = self.path()?.try_exists().map_err(|_| io_error())?;
-        let key = if existing {
-            let envelope = self.envelope()?;
-            let salt: [u8; 16] = STANDARD
-                .decode(&envelope.salt)
-                .map_err(|_| corrupt())?
-                .try_into()
-                .map_err(|_| corrupt())?;
-            let key = Self::derive(password, salt)?;
-            self.decrypt(&envelope, &key)?;
-            key
-        } else {
-            let mut salt = [0u8; 16];
-            OsRng
-                .try_fill_bytes(&mut salt)
-                .map_err(|_| "GH_VAULT_CRYPTO")?;
-            let key = Self::derive(password, salt)?;
-            self.persist(&key, None)?;
-            key
-        };
-        *self.key.lock().map_err(|_| locked())? = Some(key);
-        Ok(())
-    }
-    fn seal(&self) -> Result<(), String> {
-        *self.key.lock().map_err(|_| locked())? = None;
-        Ok(())
-    }
     fn read(&self) -> Result<Option<Credential>, String> {
-        let mut session = self.key.lock().map_err(|_| locked())?;
-        let key = session.as_ref().ok_or_else(locked)?;
-        let result = self.envelope().and_then(|e| self.decrypt(&e, key));
-        if result.is_err() {
-            *session = None;
+        // A fresh install never touches the keychain or asks for a password.
+        if !self.path()?.try_exists().map_err(|_| io_error())? {
+            return Ok(None);
+        }
+        let envelope = self.envelope()?;
+        self.decrypt(&envelope, &self.key()?).map(Some)
+    }
+    fn write(&self, credential: &Credential) -> Result<(), String> {
+        if credential.client_id != self.client_id {
+            return Err("GH_VAULT_IDENTITY".into());
+        }
+        if self.path()?.try_exists().map_err(|_| io_error())? {
+            let key = self.key()?;
+            // Do not overwrite a damaged vault or silently replace a missing key.
+            self.decrypt(&self.envelope()?, &key)?;
+            return self.persist(&key, credential);
+        }
+        let (key, created) = match self.keys.read()? {
+            Some(key) if key.len() == 32 => (key, false),
+            Some(_) => return Err(secure_error()),
+            None => {
+                let mut key = Zeroizing::new(vec![0u8; 32]);
+                OsRng
+                    .try_fill_bytes(&mut key)
+                    .map_err(|_| "GH_VAULT_CRYPTO")?;
+                self.keys.write(&key)?;
+                (key, true)
+            }
+        };
+        let result = self.persist(&key, credential);
+        if result.is_err() && created {
+            let _ = self.keys.clear();
         }
         result
     }
-    fn write(&self, credential: &Credential) -> Result<(), String> {
-        self.update(Some(credential))
-    }
     fn clear(&self) -> Result<(), String> {
-        self.update(None)
+        match std::fs::remove_file(self.path()?) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err(io_error()),
+        }
+        self.keys.clear()
     }
 }
 
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use std::sync::Mutex;
     #[derive(Default)]
     pub struct MemoryStore(pub Mutex<Option<Credential>>);
     impl CredentialStore for MemoryStore {
         fn lock(&self) -> Result<Box<dyn CredentialGuard>, String> {
             Ok(Box::new(()))
-        }
-        fn status(&self) -> Result<VaultStatus, String> {
-            Ok(VaultStatus {
-                exists: true,
-                unlocked: true,
-            })
-        }
-        fn unlock(&self, _: &str) -> Result<(), String> {
-            Ok(())
-        }
-        fn seal(&self) -> Result<(), String> {
-            Ok(())
         }
         fn read(&self) -> Result<Option<Credential>, String> {
             Ok(self.0.lock().unwrap().clone())
@@ -327,12 +305,35 @@ pub mod tests {
             Ok(())
         }
     }
-    const PASSWORD: &str = "test-only vault master password";
-    fn vault(directory: &Path, id: &str) -> VaultStore {
+    #[derive(Default)]
+    struct TestKeys {
+        key: Mutex<Option<Vec<u8>>>,
+        fail: Mutex<bool>,
+    }
+    impl VaultKeys for TestKeys {
+        fn read(&self) -> Result<Option<Zeroizing<Vec<u8>>>, String> {
+            if *self.fail.lock().unwrap() {
+                return Err(secure_error());
+            }
+            Ok(self.key.lock().unwrap().clone().map(Zeroizing::new))
+        }
+        fn write(&self, key: &[u8]) -> Result<(), String> {
+            if *self.fail.lock().unwrap() {
+                return Err(secure_error());
+            }
+            *self.key.lock().unwrap() = Some(key.to_vec());
+            Ok(())
+        }
+        fn clear(&self) -> Result<(), String> {
+            *self.key.lock().unwrap() = None;
+            Ok(())
+        }
+    }
+    fn vault(directory: &Path, id: &str, keys: Arc<TestKeys>) -> VaultStore {
         VaultStore {
             client_id: id.into(),
             directory: Some(directory.into()),
-            key: Mutex::new(None),
+            keys,
         }
     }
     fn credential() -> Credential {
@@ -346,46 +347,29 @@ pub mod tests {
         }
     }
     #[test]
-    fn encrypted_vault_roundtrip_wrong_password_lock_restart_clear_and_no_plaintext() {
+    fn remembers_login_after_restart_without_a_password_and_logout_removes_both_parts() {
         let directory = tempfile::tempdir().unwrap();
-        let store = vault(directory.path(), "Iv1.test");
-        assert!(!store.status().unwrap().exists);
-        assert!(store.read().is_err());
+        let keys = Arc::new(TestKeys::default());
+        let store = vault(directory.path(), "Iv1.test", keys.clone());
+        assert!(store.read().unwrap().is_none());
         {
             let _guard = store.lock().unwrap();
-            store.unlock(PASSWORD).unwrap();
             store.write(&credential()).unwrap();
         }
         let first = std::fs::read_to_string(store.path().unwrap()).unwrap();
         assert!(!first.contains("ghu_"));
         assert!(!first.contains("ghr_"));
-        assert!(!first.contains(PASSWORD));
+        assert!(!first.contains(&STANDARD.encode(keys.key.lock().unwrap().as_ref().unwrap())));
         {
             let _guard = store.lock().unwrap();
             store.write(&credential()).unwrap();
         }
-        let second = std::fs::read_to_string(store.path().unwrap()).unwrap();
-        assert_ne!(first, second);
-        store.seal().unwrap();
-        assert!(!store.status().unwrap().unlocked);
-        assert!(store.read().is_err());
-        assert!(store.unlock("wrong test master password").is_err());
-        assert!(!store.status().unwrap().unlocked);
-        assert_eq!(
-            std::fs::read_to_string(store.path().unwrap()).unwrap(),
-            second
+        assert_ne!(
+            first,
+            std::fs::read_to_string(store.path().unwrap()).unwrap()
         );
-        let restarted = vault(directory.path(), "Iv1.test");
-        restarted.unlock(PASSWORD).unwrap();
+        let restarted = vault(directory.path(), "Iv1.test", keys.clone());
         assert_eq!(restarted.read().unwrap().unwrap().user_id, 7);
-        {
-            let _guard = restarted.lock().unwrap();
-            restarted.clear().unwrap();
-        }
-        assert!(restarted.read().unwrap().is_none());
-        restarted.seal().unwrap();
-        restarted.unlock(PASSWORD).unwrap();
-        assert!(restarted.read().unwrap().is_none());
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -398,49 +382,79 @@ pub mod tests {
                 0o600
             );
         }
+        {
+            let _guard = restarted.lock().unwrap();
+            restarted.clear().unwrap();
+        }
+        assert!(keys.key.lock().unwrap().is_none());
+        assert!(store.read().unwrap().is_none());
+        assert!(vault(directory.path(), "Iv1.test", keys)
+            .read()
+            .unwrap()
+            .is_none());
     }
     #[test]
-    fn tampered_ciphertext_is_rejected_without_overwriting_or_revealing_credentials() {
+    fn unavailable_or_missing_key_never_erases_or_overwrites_saved_credentials() {
         let directory = tempfile::tempdir().unwrap();
-        let store = vault(directory.path(), "Iv1.test");
+        let keys = Arc::new(TestKeys::default());
+        let store = vault(directory.path(), "Iv1.test", keys.clone());
         {
             let _guard = store.lock().unwrap();
-            store.unlock(PASSWORD).unwrap();
             store.write(&credential()).unwrap();
         }
+        let bytes = std::fs::read(store.path().unwrap()).unwrap();
+        *keys.fail.lock().unwrap() = true;
+        assert!(store.read().is_err());
+        assert!(store.write(&credential()).is_err());
+        *keys.fail.lock().unwrap() = false;
+        assert_eq!(store.read().unwrap().unwrap().user_id, 7);
+        keys.clear().unwrap();
+        assert!(store.read().is_err());
+        assert!(store.write(&credential()).is_err());
+        assert!(keys.key.lock().unwrap().is_none());
+        assert_eq!(std::fs::read(store.path().unwrap()).unwrap(), bytes);
+    }
+    #[test]
+    fn cannot_create_a_plaintext_or_memory_fallback_when_key_storage_fails() {
+        let directory = tempfile::tempdir().unwrap();
+        let keys = Arc::new(TestKeys::default());
+        *keys.fail.lock().unwrap() = true;
+        let store = vault(directory.path(), "Iv1.test", keys);
+        assert!(store.read().unwrap().is_none());
+        let _guard = store.lock().unwrap();
+        assert!(store.write(&credential()).is_err());
+        assert!(!store.path().unwrap().exists());
+    }
+    #[test]
+    fn rejects_tampering_foreign_identity_and_unsafe_paths_without_overwriting() {
+        let directory = tempfile::tempdir().unwrap();
+        let keys = Arc::new(TestKeys::default());
+        let store = vault(directory.path(), "Iv1.test", keys.clone());
+        {
+            let _guard = store.lock().unwrap();
+            store.write(&credential()).unwrap();
+        }
+        let other = vault(directory.path(), "Iv1.other", keys.clone());
+        std::fs::copy(store.path().unwrap(), other.path().unwrap()).unwrap();
+        assert!(other.read().is_err());
         let mut envelope = store.envelope().unwrap();
         let mut ciphertext = STANDARD.decode(&envelope.ciphertext).unwrap();
         ciphertext[0] ^= 1;
         envelope.ciphertext = STANDARD.encode(ciphertext);
         let bytes = serde_json::to_vec(&envelope).unwrap();
         std::fs::write(store.path().unwrap(), &bytes).unwrap();
-        let error = store.read().err().unwrap();
-        assert!(error.starts_with("GH_VAULT_INVALID"));
-        assert!(!error.contains("ghu_"));
-        assert!(!store.status().unwrap().unlocked);
-        assert!(store.unlock(PASSWORD).is_err());
+        assert!(store.read().is_err());
+        assert!(store.write(&credential()).is_err());
         assert_eq!(std::fs::read(store.path().unwrap()).unwrap(), bytes);
-    }
-    #[test]
-    fn rejects_foreign_client_identity_and_unsafe_paths() {
-        let directory = tempfile::tempdir().unwrap();
-        let store = vault(directory.path(), "Iv1.test");
-        {
-            let _guard = store.lock().unwrap();
-            store.unlock(PASSWORD).unwrap();
-            store.write(&credential()).unwrap();
-        }
-        let other = vault(directory.path(), "Iv1.other");
-        std::fs::copy(store.path().unwrap(), other.path().unwrap()).unwrap();
-        assert!(other.unlock(PASSWORD).is_err());
-        let unsafe_store = vault(directory.path(), "Iv1../../outside");
-        assert!(unsafe_store.lock().is_err());
+        assert!(vault(directory.path(), "Iv1../../outside", keys)
+            .lock()
+            .is_err());
     }
     #[test]
     fn transaction_lock_excludes_other_handles_and_releases_on_drop() {
         use fs2::FileExt;
         let directory = tempfile::tempdir().unwrap();
-        let store = vault(directory.path(), "Iv1.test");
+        let store = vault(directory.path(), "Iv1.test", Arc::new(TestKeys::default()));
         let first = store.lock().unwrap();
         let second = std::fs::OpenOptions::new()
             .read(true)

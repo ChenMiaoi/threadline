@@ -1,7 +1,5 @@
 use crate::github::Client;
-use crate::github_credentials::{
-    Credential, CredentialGuard, CredentialStore, VaultStatus, VaultStore,
-};
+use crate::github_credentials::{Credential, CredentialGuard, CredentialStore, VaultStore};
 use crate::github_http::{Https, Request, Transport, DEVICE, TOKEN};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -122,19 +120,6 @@ fn fail(state: &mut State, error: String) {
     state.pending = None;
 }
 impl AuthManager {
-    pub fn vault_status(&self) -> Result<VaultStatus, String> {
-        self.store.status()
-    }
-    pub fn unlock_vault(&self, password: zeroize::Zeroizing<String>) -> Result<(), String> {
-        self.config.validate()?;
-        let _guard = self.credential_guard()?;
-        self.store.unlock(&password)
-    }
-    pub fn lock_vault(&self) -> Result<(), String> {
-        self.cancel();
-        let _guard = self.credential_guard()?;
-        self.store.seal()
-    }
     fn credential_guard(
         &self,
     ) -> Result<(std::sync::MutexGuard<'_, ()>, Box<dyn CredentialGuard>), String> {
@@ -172,9 +157,6 @@ impl AuthManager {
             state.generation
         };
         let result = self.config.validate().and_then(|_| {
-            if !self.store.status()?.unlocked {
-                return Err("GH_VAULT_LOCKED: 请先解锁本地加密凭据库。".into());
-            }
             let response = self.http.send(Request::oauth(
                 DEVICE,
                 &[
@@ -404,8 +386,7 @@ impl AuthManager {
     pub fn logout(&self) -> Result<(), String> {
         self.cancel();
         let _guard = self.credential_guard()?;
-        self.store.clear()?;
-        self.store.seal()
+        self.store.clear()
     }
 }
 fn oauth_error(body: &Value) -> String {
@@ -639,18 +620,6 @@ mod tests {
         impl CredentialStore for FailedStore {
             fn lock(&self) -> Result<Box<dyn CredentialGuard>, String> {
                 Ok(Box::new(()))
-            }
-            fn status(&self) -> Result<VaultStatus, String> {
-                Ok(VaultStatus {
-                    exists: true,
-                    unlocked: true,
-                })
-            }
-            fn unlock(&self, _: &str) -> Result<(), String> {
-                Ok(())
-            }
-            fn seal(&self) -> Result<(), String> {
-                Ok(())
             }
             fn read(&self) -> Result<Option<Credential>, String> {
                 Ok(None)

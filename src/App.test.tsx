@@ -108,6 +108,38 @@ describe('workspace interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: '登录 GitHub' }));
     await waitFor(() => expect(gateway.login).toHaveBeenCalledOnce());
   });
+  it('offers local recovery for a damaged credential and allows signing in afterward', async () => {
+    const gateway = createGateway();
+    vi.mocked(gateway.session)
+      .mockRejectedValueOnce('GH_VAULT_INVALID: damaged')
+      .mockResolvedValue({ user, selected: null });
+    vi.mocked(gateway.login).mockResolvedValue({
+      status: 'complete',
+      code: null,
+      verificationUrl: null,
+      error: null,
+    });
+    render(<App gateway={gateway} />);
+    expect((await screen.findByRole('alert')).textContent).toContain('GH_VAULT_INVALID');
+    expect(gateway.logout).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '清除本机登录并重新授权' }));
+    await waitFor(() => expect(gateway.logout).toHaveBeenCalledOnce());
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+    expect(screen.queryByRole('button', { name: '清除本机登录并重新授权' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '登录 GitHub' }));
+    expect(await screen.findByRole('dialog', { name: '选择仓库' })).toBeTruthy();
+  });
+  it('keeps recovery available and reports an error if clearing local credentials fails', async () => {
+    const gateway = createGateway();
+    vi.mocked(gateway.session).mockRejectedValue('GH_SECURE_STORAGE: unavailable');
+    vi.mocked(gateway.logout).mockRejectedValue('GH_VAULT_IO: cannot clear');
+    render(<App gateway={gateway} />);
+    const reset = await screen.findByRole('button', { name: '清除本机登录并重新授权' });
+    fireEvent.click(reset);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('GH_VAULT_IO'));
+    expect(screen.getByRole('alert').textContent).toContain('GH_SECURE_STORAGE');
+    expect(screen.getByRole('button', { name: '清除本机登录并重新授权' })).toBeTruthy();
+  });
   it('opens repository selection automatically after in-app authorization succeeds', async () => {
     const gateway = createGateway();
     vi.mocked(gateway.session)

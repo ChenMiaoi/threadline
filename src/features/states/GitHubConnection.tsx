@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Modal } from '../../components/Modal';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
 import { GitHubLoginButton } from './GitHubLogin';
-import { VaultAccess } from './VaultAccess';
 
 export function GitHubConnection({
   github,
@@ -35,7 +34,7 @@ export function GitHubConnection({
           <p className="dim">
             使用 ThreadLine 独立 GitHub App
             登录，权限全部为只读。公开仓库可直接读取，私有仓库需要所属账号或组织安装 App
-            并选择允许访问的仓库。 凭据由 ThreadLine 自己的本地加密库保存，与其他应用的授权分开。
+            并选择允许访问的仓库。登录凭据安全保存在本机，重启后自动恢复，直到退出登录或授权失效。
           </p>
           {github.connecting ? (
             <p role="status">正在检查 ThreadLine 登录状态…</p>
@@ -44,7 +43,6 @@ export function GitHubConnection({
               {github.repo ? '切换仓库' : '选择仓库'}
             </button>
           ) : null}
-          <VaultAccess github={github} />
           <GitHubLoginButton github={github} />
           {!github.session && !github.connecting && (
             <button className="chip" onClick={() => void github.connect()}>
@@ -55,6 +53,14 @@ export function GitHubConnection({
             <p role="alert" className="yellow">
               {github.connectionError}
             </p>
+          )}
+          {/GH_(VAULT_INVALID|SECURE_STORAGE)/.test(github.connectionError) && (
+            <div>
+              <p className="dim">这会清除本机保存的登录凭据，之后需要重新授权。</p>
+              <button className="chip" onClick={() => void github.disconnect()}>
+                清除本机登录并重新授权
+              </button>
+            </div>
           )}
         </section>
         <p className="footnote">仅使用读取接口；不会发送评论、提交评审、合并或修改 GitHub 订阅。</p>

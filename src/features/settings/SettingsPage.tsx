@@ -3,7 +3,6 @@ import type { Preferences } from '../../core/workspace';
 import type { AppState } from '../../lib/desktop';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
 import { GitHubLoginButton } from '../states/GitHubLogin';
-import { VaultAccess } from '../states/VaultAccess';
 
 const sections = [
   ['account', '账号与连接'],
@@ -112,14 +111,13 @@ export function SettingsPage({
               <h2 className="settings-section-heading">GitHub 连接</h2>
               <SettingRow
                 title={github.session ? `@${github.session.user.login}` : '尚未连接 GitHub'}
-                description="使用 ThreadLine 独立 GitHub App，凭据保存在软件自己的加密库中。"
+                description="使用 ThreadLine 独立 GitHub App，登录会安全保存在本机并在重启后恢复。"
               >
                 <button className="setting-value accent" onClick={onConnect}>
                   {github.session ? '重新检查连接' : '连接 GitHub ↗'}
                 </button>
               </SettingRow>
               <GitHubLoginButton github={github} />
-              <VaultAccess github={github} />
               {github.session && (
                 <button className="chip" onClick={() => void github.disconnect()}>
                   退出 ThreadLine 登录
@@ -142,8 +140,8 @@ export function SettingsPage({
                 <span className="muted">{github.session?.user.login ?? '未连接'}</span>
               </SettingRow>
               <p className="settings-note">
-                凭据使用主密码加密后保存在本机，不会写入 SQLite 或发送到界面。
-                退出登录会清除本机登录凭据并锁定加密库；GitHub 通知接口暂不支持这种只读授权。
+                登录凭据加密保存在本机，不会写入 SQLite 或发送到界面。退出登录会清除本机凭据；
+                授权失效后需要重新登录。GitHub 通知接口暂不支持这种只读授权。
               </p>
               <details className="storage-details">
                 <summary>本地数据存储</summary>

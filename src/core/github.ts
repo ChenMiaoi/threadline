@@ -31,10 +31,6 @@ export interface GitHubLoginState {
   verificationUrl: string | null;
   error: string | null;
 }
-export interface GitHubVaultState {
-  exists: boolean;
-  unlocked: boolean;
-}
 export type GitHubOperation =
   'repositories' | 'repository' | 'authored' | 'review' | 'issues' | 'inbox' | 'detail' | 'issue';
 export interface GitHubGateway {
@@ -50,9 +46,6 @@ export interface GitHubGateway {
   loginStatus(): Promise<GitHubLoginState>;
   cancelLogin(): Promise<GitHubLoginState>;
   logout(): Promise<void>;
-  vaultStatus(): Promise<GitHubVaultState>;
-  unlockVault(password: string): Promise<void>;
-  lockVault(): Promise<void>;
   open(url: string): Promise<void>;
 }
 interface Author {

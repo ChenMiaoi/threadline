@@ -258,28 +258,6 @@
   padding: 10px;
   border-radius: 6px;
 }
-.vault-access {
-  display: grid;
-  gap: 12px;
-  max-width: 640px;
-  margin-block: 16px;
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-}
-.vault-access label {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.vault-access input {
-  min-width: 0;
-  width: 100%;
-}
-.vault-access button {
-  justify-self: start;
-}
 .snooze-form > .inline-group {
   justify-content: flex-end;
 }

@@ -7,7 +7,7 @@ export function GitHubLoginButton({ github }: { github: GitHubWorkspace }) {
     <>
       <button
         className="chip accent"
-        disabled={!github.vault.unlocked || github.connecting || github.auth.busy}
+        disabled={github.connecting || github.auth.busy}
         onClick={() => void github.auth.start()}
       >
         {github.session ? '重新授权 GitHub' : '登录 GitHub'}

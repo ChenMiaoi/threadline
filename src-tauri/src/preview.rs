@@ -1,4 +1,4 @@
-//! Development-only line-framed adapter. One process retains only its unlocked vault key.
+//! Development-only line-framed adapter for the app-owned GitHub session.
 use crate::{db::Database, github, github_auth::AuthManager, github_workspace};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -26,12 +26,6 @@ enum Command {
     LoginCancel,
     #[serde(rename = "github_logout")]
     Logout,
-    #[serde(rename = "github_vault_status")]
-    VaultStatus,
-    #[serde(rename = "github_vault_unlock")]
-    VaultUnlock,
-    #[serde(rename = "github_vault_lock")]
-    VaultLock,
 }
 #[derive(Default, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -46,8 +40,6 @@ struct Args {
     account_id: u64,
     #[serde(default)]
     url: String,
-    #[serde(default)]
-    password: String,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -84,17 +76,6 @@ fn execute(
         Command::LoginCancel => Ok(auth.cancel()),
         Command::Logout => {
             auth.logout()?;
-            Ok(Value::Null)
-        }
-        Command::VaultStatus => {
-            serde_json::to_value(auth.vault_status()?).map_err(|_| "GH_VAULT_ERROR".into())
-        }
-        Command::VaultUnlock => {
-            auth.unlock_vault(Zeroizing::new(request.args.password))?;
-            Ok(Value::Null)
-        }
-        Command::VaultLock => {
-            auth.lock_vault()?;
             Ok(Value::Null)
         }
     }
@@ -142,12 +123,9 @@ mod tests {
         for input in [
             r#"{"command":"exec","args":{"cmd":"gh auth token"}}"#,
             r#"{"command":"github_session","args":{"token":"secret"}}"#,
+            r#"{"command":"github_vault_unlock","args":{"password":"fixture"}}"#,
         ] {
             assert!(serde_json::from_str::<Request>(input).is_err());
         }
-        assert!(serde_json::from_str::<Request>(
-            r#"{"command":"github_vault_unlock","args":{"password":"test-only-passphrase"}}"#
-        )
-        .is_ok());
     }
 }

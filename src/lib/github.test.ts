@@ -28,12 +28,4 @@ describe('GitHub desktop boundary', () => {
     await githubGateway.logout();
     expect(invoke).toHaveBeenCalledWith('github_logout', undefined);
   });
-  it('sends vault passwords only to the local unlock command', async () => {
-    vi.mocked(invoke).mockResolvedValue(undefined);
-    await githubGateway.unlockVault('test-only master password');
-    expect(invoke).toHaveBeenCalledWith('github_vault_unlock', {
-      password: 'test-only master password',
-    });
-    expect(invoke).toHaveBeenCalledOnce();
-  });
 });

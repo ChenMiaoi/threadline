@@ -2,7 +2,7 @@
 
 ## Current Authorization and Storage
 
-ThreadLine now uses its own read-only GitHub App and an application-owned encrypted credential vault. Historical checks using shared GitHub CLI credentials or system keychain storage do not validate the current vault implementation.
+ThreadLine now uses its own read-only GitHub App and an application-owned encrypted credential vault with an OS-protected random key. Historical checks using shared GitHub CLI credentials or system keychain storage do not validate the current split key/ciphertext implementation.
 
 On October 29, 2026, a GPT-6.1 Terra xhigh subagent exercised the actual macOS Tauri app through Computer Use with the independent GitHub App:
 
@@ -12,19 +12,19 @@ On October 29, 2026, a GPT-6.1 Terra xhigh subagent exercised the actual macOS T
 - PR #236597 loaded its discussion, 16 changed files, and ten checks. **View on GitHub** opened the matching GitHub URL in Chrome.
 - The Inbox displayed the explicit GitHub App token limitation.
 - Confirming the already-selected LLVM repository preserved the loaded workspace after fixing a request-invalidation bug. A regression test covers this behavior.
-- Logout, repeat login, and restart restoration were exercised using the previous app-owned keychain entry. Those persistence results are superseded by the master-password vault and must be repeated for it.
+- Logout, repeat login, and restart restoration were exercised using the previous app-owned keychain entry. Those persistence results must be repeated for the current encrypted-file and OS-protected-key implementation.
 
 The registered public GitHub App has only repository Metadata, Contents, Issues, Pull requests, Checks, and Commit statuses permissions, all read-only. No repository installation, signing key, client secret, or broad GitHub CLI authorization was created for public-repository testing. Private installation was not submitted or verified.
 
 ## Encrypted Vault Verification
 
-`npm run check` passed after the vault migration: ESLint, Clippy, Prettier, rustfmt, TypeScript, 101 frontend tests, 26 Rust tests, and frontend/native build checks. The obsolete live test that depended on automatic system-credential access was removed; live data is verified through the user-unlocked native app instead.
+`npm run check` passed for this implementation: lint, formatting, types, 98 frontend tests, 27 Rust tests, and frontend/native builds.
 
-Automated tests exercise creation, authenticated encryption, unique ciphertext on repeated writes, wrong passwords, corruption/tampering, lock/unlock, reopening through a fresh store, credential clearing, client-ID isolation, restrictive Unix file permissions, and cross-process transaction exclusion. The serialized vault is checked for absence of plaintext access tokens, refresh tokens, and the test master password. Frontend tests cover masked matching fields, locked-login prevention, failed unlock, clearing password inputs, locking, and clearing the visible workspace.
+The earlier master-password experiment was removed: normal launches must restore the saved login automatically. Current automated tests exercise restart restoration without a password, credential and key deletion on logout, unique ciphertext, tampering, foreign client IDs, missing/unavailable OS keys, file permissions, and cross-process locking. Key access failures do not erase or overwrite saved credentials, and failed key creation cannot fall back to plaintext or process memory. Frontend tests verify restore on remount and no restore after explicit logout.
 
-The development preview uses one persistent Rust helper so unlocking and subsequent API requests share the same in-memory vault key. Its loopback/origin boundary and command schema are tested. Credentials are never returned to the frontend; the master password crosses only the local command boundary for key derivation.
+The development preview uses the same Rust services through a persistent helper. Its loopback/origin boundary and command schema are tested; obsolete password/unlock commands are rejected. Credentials and encryption keys are never returned to the frontend.
 
-Actual vault creation requires the user to enter a master password in the native app. Current native first-login and restart-unlock results will be recorded after that step; automated coverage is not claimed as completed native interaction.
+Current native login and restart results will be recorded after rebuilding this version. Automated coverage is not claimed as completed native interaction.
 
 ## macOS Window Behavior
 

@@ -5,34 +5,33 @@ import { useGitHub } from './useGitHub';
 import { createGateway, record, repo, response, user } from '../test/github.fixture';
 afterEach(cleanup);
 describe('GitHub synchronization', () => {
-  it('does not contact the account or data API until the local vault is unlocked', async () => {
+  it('restores a remembered session on remount and stays signed out after logout', async () => {
     const gateway = createGateway();
-    let unlocked = false;
-    vi.mocked(gateway.vaultStatus).mockImplementation(async () => ({ exists: true, unlocked }));
-    vi.mocked(gateway.unlockVault).mockImplementation(async () => {
-      unlocked = true;
+    let signedIn = true;
+    vi.mocked(gateway.session).mockImplementation(async () => {
+      if (!signedIn) throw 'GH_AUTH_REQUIRED';
+      return { user, selected: repo, notificationsAvailable: true };
     });
-    const { result } = renderHook(() => useGitHub(0, gateway));
-    await waitFor(() => expect(result.current.connecting).toBe(false));
-    expect(gateway.session).not.toHaveBeenCalled();
-    expect(gateway.request).not.toHaveBeenCalled();
-    await act(() => result.current.unlockVault('test-only master password'));
-    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
-    expect(result.current.vault.unlocked).toBe(true);
-  });
-  it('clears visible account data when locking the decrypted vault key', async () => {
-    const gateway = createGateway();
-    let unlocked = true;
-    vi.mocked(gateway.vaultStatus).mockImplementation(async () => ({ exists: true, unlocked }));
-    vi.mocked(gateway.lockVault).mockImplementation(async () => {
-      unlocked = false;
+    vi.mocked(gateway.logout).mockImplementation(async () => {
+      signedIn = false;
     });
-    const { result } = renderHook(() => useGitHub(0, gateway));
-    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
-    await act(() => result.current.lockVault());
-    expect(result.current.vault.unlocked).toBe(false);
-    expect(result.current.session).toBeNull();
-    expect(result.current.pulls).toEqual([]);
+    const first = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(first.result.current.pulls).toHaveLength(2));
+    first.unmount();
+    const restored = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(restored.result.current.pulls).toHaveLength(2));
+    expect(restored.result.current.session?.user.id).toBe(user.id);
+    expect(restored.result.current.repo).toBe(repo);
+    expect(gateway.login).not.toHaveBeenCalled();
+    await act(() => restored.result.current.disconnect());
+    expect(restored.result.current.session).toBeNull();
+    expect(restored.result.current.pulls).toEqual([]);
+    expect(restored.result.current.repo).toBe('');
+    restored.unmount();
+    const signedOut = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(signedOut.result.current.connecting).toBe(false));
+    expect(signedOut.result.current.session).toBeNull();
+    expect(signedOut.result.current.pulls).toEqual([]);
   });
   it('keeps the loaded workspace when confirming the same repository after login', async () => {
     const gateway = createGateway();
@@ -133,7 +132,7 @@ describe('GitHub synchronization', () => {
     expect(result.current.repo).toBe(repo);
     expect(result.current.repositoryError).toBe('GH_FORBIDDEN');
   });
-  it('clears account data if gh switches users during synchronization', async () => {
+  it('clears account data if the authorized account changes during synchronization', async () => {
     const gateway = createGateway();
     const { result } = renderHook(() => useGitHub(0, gateway));
     await waitFor(() => expect(result.current.pulls).toHaveLength(2));
