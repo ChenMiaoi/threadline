@@ -186,8 +186,7 @@ export function pullFromGitHub(record: SearchRecord, account: number, repo: stri
           : check
             ? 'pending'
             : 'none',
-    reviewer:
-      reviewer?.login ?? reviewer?.name ?? record.reviews?.nodes.at(-1)?.author?.login ?? '',
+    reviewer: state === 'open' ? (reviewer?.login ?? reviewer?.name ?? '') : '',
     updated: compactTime(record.updatedAt),
     summary: previewText(comment?.body || record.body || '暂无说明'),
     author: record.author?.login ?? '已删除用户',

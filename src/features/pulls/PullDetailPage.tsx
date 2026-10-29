@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import { PullLifecycleIcon } from '../../components/PullLifecycleIcon';
 import { PullStatusBadges } from '../../components/PullStatusBadges';
 import { checkResultLabel, describePull } from '../../core/pull-status';
 import { GitHubMarkdown } from '../../components/GitHubMarkdown';
@@ -362,7 +363,10 @@ export function PullDetailPage({
         <span className="muted">PR #{pull.number}</span>
       </header>
       <section className="pr-summary">
-        <h1>{detail?.title ?? pull.title}</h1>
+        <div className="pr-title-row">
+          {presentation && <PullLifecycleIcon status={presentation} />}
+          <h1>{detail?.title ?? pull.title}</h1>
+        </div>
         <div className="inline-group">
           <span className="chip accent">#{pull.number}</span>
           {detail && (

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { PullLifecycleIcon } from '../../components/PullLifecycleIcon';
 import { PullStatusBadges } from '../../components/PullStatusBadges';
 import { Icon, IconButton } from '../../components/Icon';
 import { filterPullRequests, groupPullRequests, type PullRequest, type PullState } from './model';
@@ -132,7 +133,11 @@ export function AuthoredPage({
                     }
                   }}
                 >
-                  <Icon name="pr" />
+                  <PullLifecycleIcon
+                    status={
+                      pull.presentation ?? { state: pull.state, draft: pull.group === '草稿' }
+                    }
+                  />
                   <span className="pull-number">#{pull.number}</span>
                   <span className="pull-body">
                     <span className="pull-title" title={pull.title}>
@@ -143,14 +148,14 @@ export function AuthoredPage({
                         <PullStatusBadges status={pull.presentation} />
                         <span className="pull-next-action">
                           下一步：{pull.presentation.nextAction}
+                          {pull.reviewer && (
+                            <span className="requested-reviewer"> · 评审请求：{pull.reviewer}</span>
+                          )}
                         </span>
                       </>
                     ) : (
                       <span className={`pull-status ${pull.tone}`}>{pull.status}</span>
                     )}
-                  </span>
-                  <span className="avatar reviewer-avatar" title={pull.reviewer || '未指定评审人'}>
-                    {pull.reviewer.slice(0, 1).toUpperCase() || '—'}
                   </span>
                   <span className="row-time">{pull.updated}</span>
                 </button>

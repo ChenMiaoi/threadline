@@ -180,10 +180,7 @@
   font-size: 15px;
   flex-shrink: 0;
 }
-.pull-row .reviewer-avatar {
-  background: var(--avatar-bg);
-  flex-shrink: 0;
-}
+
 .row-time {
   width: 52px;
   font-size: 15px;
@@ -419,10 +416,7 @@
     width: 44px;
     font-size: 13px;
   }
-  .reviewer-avatar {
-    width: 30px;
-    height: 30px;
-  }
+
   .pull-location {
     gap: 14px;
   }
@@ -457,7 +451,7 @@
 .pull-tabs {
   flex-shrink: 0;
 }
-.pull-row > .icon,
+.pull-row > .pull-lifecycle-icon,
 .pull-row > span {
   flex-shrink: 0;
 }
@@ -517,13 +511,13 @@
   }
   .pull-row {
     display: grid;
-    grid-template-columns: 20px 56px minmax(0, 1fr) 28px 40px;
+    grid-template-columns: 20px 64px minmax(0, 1fr) 48px;
     gap: 4px 8px;
     height: auto;
     min-height: 76px;
     padding: 10px;
   }
-  .pull-row > .icon {
+  .pull-row > .pull-lifecycle-icon {
     grid-column: 1;
     grid-row: 1;
   }
@@ -543,19 +537,9 @@
     width: auto;
     font-size: 12px;
   }
-  .pull-row > span[title]:not(.pull-title):not(.reviewer-avatar) {
-    grid-column: 4;
-    grid-row: 1;
-  }
-  .pull-row .reviewer-avatar {
-    grid-column: 4;
-    grid-row: 2;
-    width: 24px;
-    height: 24px;
-    font-size: 12px;
-  }
+
   .row-time {
-    grid-column: 5;
+    grid-column: 4;
     grid-row: 1;
     width: auto;
     font-size: 12px;
@@ -662,9 +646,8 @@
   width: 100%;
   flex: initial;
 }
-.pull-row > .icon,
+.pull-row > .pull-lifecycle-icon,
 .pull-row > .pull-number,
-.pull-row > .reviewer-avatar,
 .pull-row > .row-time {
   margin-top: 3px;
 }
@@ -675,16 +658,13 @@
 }
 @media (max-width: 760px) {
   .pull-row {
-    grid-template-columns: 20px 56px minmax(0, 1fr) 28px 40px;
+    grid-template-columns: 20px 64px minmax(0, 1fr) 48px;
   }
   .pull-body {
     grid-column: 1 / -1;
     grid-row: 2;
   }
-  .pull-row .reviewer-avatar {
-    grid-column: 4;
-    grid-row: 1;
-  }
+
   .pull-next-action {
     white-space: normal;
   }

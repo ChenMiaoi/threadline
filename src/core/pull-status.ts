@@ -38,10 +38,10 @@ export function describePull(input: PullStatusInput): PullStatus {
     state === 'merged'
       ? badge('已合并', 'merged', '代码已经合入目标分支，PR 流程已结束。')
       : state === 'closed'
-        ? badge('已关闭（未合并）', 'neutral', 'PR 已关闭，代码没有通过此 PR 合入目标分支。')
+        ? badge('已关闭（未合并）', 'danger', 'PR 已关闭，代码没有通过此 PR 合入目标分支。')
         : draft
           ? badge('草稿', 'neutral', '作者尚未标记为可正式评审；草稿属于未结束的 PR。')
-          : badge('开放', 'info', 'PR 尚未结束，正在等待评审、修改或合并。');
+          : badge('开放', 'success', 'PR 尚未结束，正在等待评审、修改或合并。');
   const review =
     input.reviewDecision === 'CHANGES_REQUESTED'
       ? badge('要求变更', 'warning', '正式评审要求作者修改；这是一项评审结论。')

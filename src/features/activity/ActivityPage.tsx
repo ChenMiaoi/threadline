@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { PullLifecycleIcon } from '../../components/PullLifecycleIcon';
 import { PullStatusBadges } from '../../components/PullStatusBadges';
 import { Icon } from '../../components/Icon';
 import { filterActivities, groupActivities, type Activity, type ActivityView } from './model';
@@ -62,6 +63,7 @@ export function ActivityRecord({
   return (
     <div className={`activity-record ${selected ? 'selected' : ''} ${isRead ? 'is-read' : ''}`}>
       <button className="record-main" onClick={() => onOpen(record)}>
+        {record.pullStatus && <PullLifecycleIcon status={record.pullStatus} />}
         {!record.pullStatus && (
           <span
             className={`record-dot ${isRead ? 'dim' : record.tone}`}

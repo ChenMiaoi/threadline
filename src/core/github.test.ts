@@ -157,3 +157,28 @@ describe('personal review and lifecycle separation', () => {
     expect(result.summary).toContain('已撤销');
   });
 });
+
+it('shows only active review requests instead of substituting the most recent reviewer', () => {
+  const previous = {
+    ...record,
+    reviews: {
+      totalCount: 1,
+      nodes: [
+        {
+          state: 'APPROVED',
+          body: '',
+          submittedAt: updated,
+          author: { login: 'past-reviewer' },
+          commit: { oid: record.headRefOid! },
+        },
+      ],
+    },
+  };
+  expect(pullFromGitHub(previous, user.id, repo).reviewer).toBe('');
+  const requested = {
+    ...previous,
+    reviewRequests: { nodes: [{ requestedReviewer: { login: 'requested-reviewer' } }] },
+  };
+  expect(pullFromGitHub(requested, user.id, repo).reviewer).toBe('requested-reviewer');
+  expect(pullFromGitHub({ ...requested, state: 'MERGED' }, user.id, repo).reviewer).toBe('');
+});

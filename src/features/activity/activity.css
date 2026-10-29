@@ -371,3 +371,15 @@
   color: var(--text);
   -webkit-line-clamp: 3;
 }
+
+.record-main > .pull-lifecycle-icon {
+  margin-top: 2px;
+}
+@media (max-width: 760px) {
+  .record-main > .pull-lifecycle-icon {
+    grid-column: 1;
+    grid-row: 1;
+    width: 16px;
+    height: 16px;
+  }
+}

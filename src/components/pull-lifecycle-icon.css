@@ -1,0 +1,37 @@
+.pull-lifecycle-icon {
+  flex-shrink: 0;
+}
+.lifecycle-open {
+  color: var(--green);
+}
+.lifecycle-draft {
+  color: var(--muted);
+}
+.lifecycle-merged {
+  color: #bb9aef;
+}
+.lifecycle-closed {
+  color: #ef8181;
+}
+.theme-light .lifecycle-merged {
+  color: #7344a6;
+}
+.theme-light .lifecycle-closed {
+  color: #a62929;
+}
+.pr-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+.pr-title-row .pull-lifecycle-icon {
+  margin-top: 5px;
+}
+.pr-title-row h1 {
+  min-width: 0;
+  flex: 1;
+}
+.requested-reviewer {
+  color: var(--muted);
+}
