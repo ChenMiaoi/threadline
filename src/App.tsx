@@ -4,7 +4,12 @@ import { Icon, IconButton } from './components/Icon';
 import { AuthoredPage } from './features/pulls/AuthoredPage';
 import { PullDetailPage } from './features/pulls/PullDetailPage';
 import type { PullRequest } from './features/pulls/model';
+import { demoPulls } from './features/pulls/demo';
+import { ActivityPage } from './features/activity/ActivityPage';
+import type { Activity } from './features/activity/model';
+import { Modal } from './components/Modal';
 import './features/pulls/pulls.css';
+import './features/activity/activity.css';
 
 const navigation: { id: View; label: string; icon: string }[] = [
   { id: 'inbox', label: '收件箱', icon: 'inbox' },
@@ -16,6 +21,9 @@ const navigation: { id: View; label: string; icon: string }[] = [
 export default function App() {
   const [view, setView] = useState<View>('authored');
   const [openedPull, setOpenedPull] = useState<PullRequest | null>(null);
+  const [recordPreview, setRecordPreview] = useState<Activity | null>(null);
+  const [read, setRead] = useState<string[]>([]);
+  const [snoozed, setSnoozed] = useState<string[]>([]);
   const [appState, setAppState] = useState<AppState | null>(null);
   const [loading, setLoading] = useState(isDesktop);
   const [error, setError] = useState('');
@@ -50,6 +58,17 @@ export default function App() {
         .then(() => saveLastView(next))
         .catch((reason) => setError(String(reason)));
     }
+  }
+
+  function toggleRead(id: string) {
+    setRead((current) =>
+      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+    );
+  }
+
+  function openActivity(record: Activity) {
+    if (record.kind === 'pull' && record.number === 1042) setOpenedPull(demoPulls[0]);
+    else setRecordPreview(record);
   }
 
   const title = view === 'settings' ? '设置' : navigation.find((item) => item.id === view)!.label;
@@ -121,7 +140,7 @@ export default function App() {
           </button>
         </aside>
         <main className="content">
-          {view !== 'authored' && !openedPull && (
+          {view === 'settings' && !openedPull && (
             <header className="location">
               <span>ThreadLine</span>
               <span className="separator">/</span>
@@ -178,32 +197,43 @@ export default function App() {
               </section>
             </section>
           ) : (
-            <section className="empty-state">
-              <div className="empty-symbol">
-                <Icon name={navigation.find((item) => item.id === view)!.icon} />
-              </div>
-              <h1>连接 GitHub，开始协作</h1>
-              <p>
-                在这里关注
-                {view === 'inbox'
-                  ? '需要你处理的更新'
-                  : view === 'review'
-                    ? '等待你审阅的 Pull Request'
-                    : '仓库中的 Issues'}
-                。
-              </p>
-              <button className="primary-button" onClick={() => navigate('settings')}>
-                查看连接设置
-              </button>
-              <div className="context-card">
-                <h2>从一个工作区开始</h2>
-                <p>当前尚未接入 GitHub，暂无仓库或协作记录。账号连接与同步功能将在后续开放。</p>
-              </div>
-              <p className="footnote">ThreadLine · 本地优先的 GitHub 协作工作台</p>
-            </section>
+            <ActivityPage
+              key={view}
+              view={view}
+              read={read}
+              snoozed={snoozed}
+              onRead={toggleRead}
+              onSnooze={(id) => setSnoozed((current) => [...current, id])}
+              onOpen={openActivity}
+            />
           )}
         </main>
       </div>
+      {recordPreview && (
+        <Modal
+          title={`${recordPreview.kind === 'issue' ? 'Issue' : 'PR'} #${recordPreview.number}`}
+          onClose={() => setRecordPreview(null)}
+        >
+          <h2>{recordPreview.title}</h2>
+          <p>{recordPreview.summary}</p>
+          <p>{recordPreview.detail}</p>
+          <p className="dim">示例记录 · 未连接 GitHub</p>
+          <div className="inline-group">
+            <button className="chip" onClick={() => toggleRead(recordPreview.id)}>
+              {read.includes(recordPreview.id) ? '标记未读' : '标记已读'}
+            </button>
+            <button
+              className="chip"
+              onClick={() => {
+                setSnoozed((current) => [...current, recordPreview.id]);
+                setRecordPreview(null);
+              }}
+            >
+              稍后处理
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -1,0 +1,232 @@
+.activity-controls {
+  padding: 12px 32px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  min-height: 126px;
+  flex-shrink: 0;
+}
+.activity-title {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.activity-title h1 {
+  font-size: 20px;
+  line-height: 30px;
+}
+.activity-title p {
+  font-size: 14px;
+  color: var(--dim);
+  line-height: 23px;
+}
+.activity-tools {
+  margin-left: auto;
+  display: flex;
+  gap: 20px;
+}
+.activity-filters {
+  gap: 12px;
+  min-height: 38px;
+  flex-wrap: wrap;
+}
+.activity-search {
+  height: 32px;
+  width: 260px;
+}
+.activity-search input {
+  font-size: 13px;
+}
+.small-badge {
+  min-height: 30px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+.activity-list {
+  padding: 0 32px;
+  flex: 1;
+  min-height: 650px;
+}
+.activity-group {
+  font-size: 15px;
+  line-height: 24px;
+  height: 46px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.activity-group span {
+  color: var(--dim);
+  font-size: 14px;
+  font-weight: 400;
+}
+.activity-record {
+  position: relative;
+  min-height: 108px;
+  border-bottom: 1px solid var(--border);
+}
+.activity-record.selected {
+  background: var(--raised);
+  border-radius: 9px;
+}
+.record-main {
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  width: 100%;
+  min-height: 108px;
+  height: 108px;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 0 20px;
+  border-radius: 9px;
+}
+.record-dot {
+  width: 20px;
+  flex-shrink: 0;
+  font-size: 16px;
+}
+.record-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  height: 76px;
+}
+.record-title {
+  font-size: 17px;
+  line-height: 26px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.record-summary {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 23px;
+}
+.record-detail {
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 22px;
+}
+.record-status {
+  width: 230px;
+  display: flex;
+  align-self: center;
+  height: 70px;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 23px;
+}
+.record-status time {
+  font-size: 13px;
+  color: var(--dim);
+}
+.record-actions {
+  position: absolute;
+  bottom: 10px;
+  right: 16px;
+  display: none;
+  gap: 8px;
+}
+.activity-record:hover .record-actions,
+.activity-record:focus-within .record-actions {
+  display: flex;
+}
+.record-actions button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.is-read .record-title {
+  color: var(--muted);
+}
+.activity-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 80px 40px 40px;
+}
+.activity-empty .empty-symbol {
+  color: var(--accent);
+  font-size: 34px;
+}
+.activity-empty > p {
+  color: var(--muted);
+}
+.activity-empty .context-card {
+  margin-top: 0;
+}
+.modal {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(620px, calc(100vw - 48px));
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  color: #ececf4;
+  box-shadow: 0 20px 100px #0008;
+}
+.modal::backdrop {
+  background: #0009;
+}
+.modal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+.modal > p {
+  margin-block: 16px;
+  color: var(--muted);
+}
+.modal > .inline-group {
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+@media (max-width: 1200px) {
+  .record-status {
+    width: 150px;
+  }
+  .activity-title {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .activity-title p {
+    font-size: 13px;
+  }
+}
+@media (max-width: 1000px) {
+  .record-status {
+    width: 100px;
+  }
+  .record-title {
+    font-size: 15px;
+  }
+  .record-detail {
+    font-size: 12px;
+  }
+  .activity-list {
+    padding-inline: 20px;
+  }
+  .record-main {
+    gap: 12px;
+    padding-inline: 12px;
+  }
+  .activity-controls {
+    padding-inline: 20px;
+  }
+  .activity-title p {
+    display: none;
+  }
+}
