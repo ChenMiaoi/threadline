@@ -1,6 +1,8 @@
 import type { PullStatus, StatusBadge } from '../../core/pull-status';
 export type ActivityView = 'inbox' | 'review' | 'issues';
 export interface Activity {
+  updatedAt?: string;
+  changeType?: 'comment' | 'commit' | 'attention';
   pullStatus?: PullStatus;
   personalReview?: StatusBadge;
   needsAttention?: boolean;
@@ -34,6 +36,7 @@ export function filterActivities(
     (record) =>
       !snoozed.includes(record.id) &&
       (filter === 'all' ||
+        ((filter === 'pull' || filter === 'issue') && record.kind === filter) ||
         ((filter === 'open' || filter === 'closed') && record.state === filter) ||
         (filter === 'unread'
           ? !read.includes(record.id)

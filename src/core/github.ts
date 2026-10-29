@@ -45,6 +45,7 @@ export type GitHubOperation =
   | 'review'
   | 'issues'
   | 'inbox'
+  | 'activity'
   | 'detail'
   | 'issue'
   | 'pull'
@@ -74,10 +75,12 @@ export interface GitHubReview {
   state: string;
   body: string;
   submittedAt: string;
+  updatedAt?: string;
   author: Author | null;
   commit: { oid: string } | null;
 }
 export interface SearchRecord {
+  __typename?: string;
   number: number;
   title: string;
   body: string;
@@ -92,10 +95,12 @@ export interface SearchRecord {
   mergeable?: string | null;
   reviews?: { totalCount: number; nodes: GitHubReview[] };
   reviewRequests?: { nodes: { requestedReviewer: { login?: string; name?: string } | null }[] };
-  commits?: { nodes: { commit: { statusCheckRollup: { state: string } | null } }[] };
+  commits?: {
+    nodes: { commit: { committedDate?: string; statusCheckRollup: { state: string } | null } }[];
+  };
   comments: {
     totalCount: number;
-    nodes: { body: string; author: Author | null; createdAt: string }[];
+    nodes: { body: string; author: Author | null; createdAt: string; updatedAt?: string }[];
   };
   labels?: { nodes: { name: string }[] };
   participants?: { nodes: Author[] };
@@ -365,6 +370,7 @@ export function notificationFromGitHub(record: GitHubNotification, account: numb
     status: record.unread ? '未读' : '已读',
     tone: mentioned ? 'yellow' : 'blue',
     updated: compactTime(record.updated_at),
+    updatedAt: record.updated_at,
     category: mentioned ? 'attention' : 'notification',
     mentioned,
     serverRead: !record.unread,
@@ -434,4 +440,73 @@ export interface PullDetail {
 export interface IssueDetail {
   issue: { body: string | null; user: Author | null };
   comments: RestComment[][];
+}
+
+/** The inbox is a thread list; each new revision replaces the previous revision. */
+export function activityFromGitHub(
+  record: SearchRecord,
+  account: number,
+  repo: string,
+  login: string,
+): Activity {
+  const pull = record.__typename === 'PullRequest' || record.url.includes('/pull/');
+  const activity = pull
+    ? reviewFromGitHub(record, account, repo, login)
+    : issueFromGitHub(record, account, repo, login);
+  const comment = record.comments.nodes.at(-1);
+  const review = record.reviews?.nodes
+    .filter((r) => r.submittedAt)
+    .sort((a, b) => a.submittedAt.localeCompare(b.submittedAt))
+    .at(-1);
+  const latest = [
+    record.updatedAt,
+    comment?.updatedAt ?? comment?.createdAt,
+    review?.updatedAt ?? review?.submittedAt,
+    record.commits?.nodes[0]?.commit.committedDate,
+  ]
+    .filter((v): v is string => Boolean(v))
+    .sort()
+    .at(-1)!;
+  const recentComment = comment && (comment.updatedAt ?? comment.createdAt) === latest;
+  const recentReview = review && (review.updatedAt ?? review.submittedAt) === latest;
+  const fingerprint = JSON.stringify([
+    record.title,
+    record.body,
+    record.state,
+    record.isDraft,
+    record.headRefOid,
+    record.reviewDecision,
+    record.mergeStateStatus,
+    record.reviewRequests,
+    record.commits,
+    record.reviews,
+    record.comments,
+  ]);
+  let hash = 2166136261;
+  for (let index = 0; index < fingerprint.length; index++)
+    hash = Math.imul(hash ^ fingerprint.charCodeAt(index), 16777619);
+  return {
+    ...activity,
+    id: recordId(
+      account,
+      repo,
+      'activity',
+      `${pull ? 'pull' : 'issue'}-${record.number}-${(hash >>> 0).toString(36)}`,
+      latest,
+    ),
+    updatedAt: latest,
+    updated: shortTime(latest),
+    summary: recentComment
+      ? `${comment.author?.login ?? '已删除用户'}：${previewText(comment.body)}`
+      : recentReview
+        ? `${review.author?.login ?? '已删除用户'} · 评审更新：${previewText(review.body) || review.state}`
+        : '内容或状态有更新',
+    detail: activity.pullStatus
+      ? `PR · ${activity.pullStatus.lifecycle.label} · ${activity.pullStatus.review.label}`
+      : `Issue · ${activity.status}`,
+    category: recentComment || recentReview ? 'comment' : 'notification',
+    group: '最新动态',
+    mentioned: Boolean(comment?.body.toLowerCase().includes(`@${login.toLowerCase()}`)),
+    changeType: recentComment || recentReview ? 'comment' : pull ? 'commit' : 'attention',
+  };
 }

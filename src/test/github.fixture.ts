@@ -105,7 +105,26 @@ export function createGateway(): GitHubGateway {
             { id: 9, full_name: 'owner/other', private: true, description: null },
           ],
         ]);
-      if (operation === 'inbox') return response([notifications]);
+      if (operation === 'activity')
+        return response([
+          {
+            data: {
+              search: {
+                issueCount: 4,
+                nodes: notifications.map((n) => ({
+                  ...record,
+                  number: Number(n.subject.url?.split('/').at(-1)),
+                  title:
+                    Number(n.subject.url?.split('/').at(-1)) === 1042
+                      ? record.title
+                      : Number(n.subject.url?.split('/').at(-1)) === 1031
+                        ? 'Correct source location reporting'
+                        : n.subject.title,
+                })),
+              },
+            },
+          },
+        ]);
       if (
         operation === 'detail' ||
         operation === 'pull' ||

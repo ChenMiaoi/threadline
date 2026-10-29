@@ -315,7 +315,14 @@ impl Client {
         }
         if !matches!(
             operation,
-            "repository" | "inbox" | "authored" | "review" | "issues" | "detail" | "issue"
+            "repository"
+                | "activity"
+                | "inbox"
+                | "authored"
+                | "review"
+                | "issues"
+                | "detail"
+                | "issue"
         ) {
             return Err("INVALID_OPERATION".into());
         }
@@ -328,6 +335,9 @@ impl Client {
             "inbox" => Err(
                 "GH_NOTIFICATIONS_UNSUPPORTED: GitHub 通知接口不支持只读 GitHub App 授权。".into(),
             ),
+            "activity" => self.search(&format!(
+                "repo:{repo} is:pr involves:{login} sort:updated-desc"
+            )),
             "authored" | "review" | "issues" => {
                 if operation == "review" {
                     let mut pages = Vec::new();
@@ -882,6 +892,25 @@ mod tests {
         let error = client.search("query").unwrap_err();
         assert!(error.starts_with("GH_API_ERROR"));
         assert!(!error.contains("private-secret"));
+    }
+    #[test]
+    fn activity_search_uses_explicit_pull_type_without_notifications_permission() {
+        let (client, http) = client();
+        http.push(search_page(Value::Null, false, 0));
+        client
+            .request("activity", "owner/repo", 0, "owner")
+            .unwrap();
+        let requests = http.requests.lock().unwrap();
+        assert_eq!(requests.len(), 1);
+        let query = requests[0].json.as_ref().unwrap()["variables"]["search"]
+            .as_str()
+            .unwrap();
+        assert_eq!(
+            query,
+            "repo:owner/repo is:pr involves:owner sort:updated-desc"
+        );
+        assert!(query.contains("is:pr"));
+        assert!(!query.contains("is:issue"));
     }
     #[test]
     fn notifications_are_explicitly_unsupported_instead_of_empty_or_using_other_credentials() {

@@ -1,19 +1,22 @@
 import { useMemo, useRef, useState } from 'react';
 import { PullLifecycleIcon } from '../../components/PullLifecycleIcon';
 import { PullStatusBadges } from '../../components/PullStatusBadges';
+import { chronological } from '../../core/inbox';
 import { Icon } from '../../components/Icon';
 import { filterActivities, groupActivities, type Activity, type ActivityView } from './model';
 
 const config = {
   inbox: {
     title: '收件箱',
-    description: '先看需要你行动的更新',
+    description: 'PR 与 Issue 的更新，按最新动态排序',
     tabs: [
       ['unread', '未读'],
       ['all', '全部'],
+      ['pull', 'PR'],
+      ['issue', 'Issue'],
       ['mentions', '提及我的'],
     ],
-    note: 'GitHub 通知 · 已读与稍后处理仅保存在本地，不修改 GitHub 通知状态。',
+    note: '当前仓库中与你有关的 PR / Issue · 每条显示最新动态 · 按同步频率更新，已读状态仅保存在本地。',
   },
   review: {
     title: '我审阅的 PR',
@@ -74,28 +77,39 @@ export function ActivityRecord({
         )}
         <span className="record-body">
           <span className="record-title" title={record.title}>
-            {record.kind === 'issue' && (showKind || record.id.includes(':notification:'))
-              ? 'Issue '
-              : ''}
+            {showKind
+              ? record.kind === 'pull'
+                ? 'PR '
+                : 'Issue '
+              : record.kind === 'issue' && record.id.includes(':notification:')
+                ? 'Issue '
+                : ''}
             #{record.number}&nbsp; {record.title}
           </span>
-          {record.pullStatus && (
+          {record.pullStatus && !showKind && (
             <PullStatusBadges status={record.pullStatus} personal={record.personalReview} />
           )}
           <span className="record-summary">
-            {record.pullStatus ? `下一步：${record.summary}` : record.summary}
+            {record.pullStatus && !showKind ? `下一步：${record.summary}` : record.summary}
           </span>
           <span className="record-detail" title={record.detail}>
             {record.detail}
           </span>
         </span>
         <span className="record-status">
-          {!record.pullStatus && (
+          {(!record.pullStatus || onRead) && (
             <span className={record.tone}>
               {onRead ? (isRead ? '已读' : '未读') : record.status}
             </span>
           )}
-          <time>{record.updated}</time>
+          <time
+            dateTime={record.updatedAt}
+            title={
+              record.updatedAt ? new Date(record.updatedAt).toLocaleString('zh-CN') : undefined
+            }
+          >
+            {record.updated}
+          </time>
         </span>
       </button>
       {(onRead || onSnooze) && (
@@ -164,8 +178,12 @@ export function ActivityPage({
               record.tone === 'blue'))) &&
         (!label || record.labels?.includes(label)),
     );
-    return groupActivities(records);
-  }, [items, filter, query, read, snoozed, attention, label]);
+    return view === 'inbox'
+      ? records.length
+        ? [['最新动态', chronological(records)] as [string, Activity[]]]
+        : []
+      : groupActivities(records);
+  }, [items, filter, query, read, snoozed, attention, label, view]);
   return (
     <>
       <header className="location">
@@ -256,6 +274,7 @@ export function ActivityPage({
               <ActivityRecord
                 key={record.id}
                 record={record}
+                showKind={view === 'inbox'}
                 onOpen={onOpen}
                 onRead={view === 'inbox' ? onRead : undefined}
                 onSnooze={view === 'inbox' ? onSnooze : undefined}

@@ -21,6 +21,8 @@ export interface WorkspaceData {
   restored: string[];
   snoozeRecords: Record<string, Activity>;
   unread: string[];
+  inboxVersion: 1;
+  inboxSeen: Record<string, string[]>;
 }
 
 export interface WorkspaceRepository {
@@ -56,6 +58,8 @@ export function defaultWorkspace(): WorkspaceData {
     restored: [],
     snoozeRecords: {},
     unread: [],
+    inboxVersion: 1,
+    inboxSeen: {},
   };
 }
 
@@ -75,7 +79,7 @@ function ids(value: unknown): string[] {
               ),
           ),
         ),
-      ].slice(-200)
+      ].slice(-2000)
     : [];
 }
 
@@ -142,6 +146,20 @@ export function normalizeWorkspace(value: unknown, now: number): WorkspaceData {
       snoozed: 'snoozed' in value ? snoozed : defaults.snoozed,
       restored: ids(value.restored),
       unread: ids(value.unread),
+      inboxVersion: 1,
+      inboxSeen:
+        value.inboxVersion === 1 && object(value.inboxSeen)
+          ? Object.fromEntries(
+              Object.entries(value.inboxSeen)
+                .filter(
+                  ([scope, revisions]) =>
+                    /^\d+:[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(scope) &&
+                    Array.isArray(revisions),
+                )
+                .slice(-10)
+                .map(([scope, revisions]) => [scope, ids(revisions)]),
+            )
+          : {},
       snoozeRecords: object(value.snoozeRecords)
         ? (Object.fromEntries(
             Object.entries(value.snoozeRecords)
@@ -180,7 +198,7 @@ export function restoreSnoozes(data: WorkspaceData, selected: readonly string[])
     ...data,
     snoozed,
     read: data.read.filter((id) => !unread.includes(id)),
-    unread: [...new Set([...data.unread, ...due])].slice(-200),
+    unread: [...new Set([...data.unread, ...due])].slice(-2000),
     restored: [...new Set([...due, ...data.restored])].slice(0, 200),
   };
 }

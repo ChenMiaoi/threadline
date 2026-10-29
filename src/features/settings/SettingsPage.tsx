@@ -3,6 +3,7 @@ import type { Preferences } from '../../core/workspace';
 import type { AppState } from '../../lib/desktop';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
 import type { PerformanceSample } from '../../lib/useGitHubResource';
+import { enableDesktopNotifications, notifyDesktop } from '../../lib/notifications';
 import { GitHubLoginButton } from '../states/GitHubLogin';
 
 const sections = [
@@ -74,6 +75,9 @@ export function SettingsPage({
   github: GitHubWorkspace;
   onChooseRepository: () => void;
 }) {
+  const [notificationError, setNotificationError] = useState('');
+  const [notificationResult, setNotificationResult] = useState('');
+  const [requestingNotifications, setRequestingNotifications] = useState(false);
   const [section, setSection] = useState<Section>('account');
 
   const title = sections.find(([id]) => id === section)![1];
@@ -261,14 +265,20 @@ export function SettingsPage({
                   onChange={() => onChange({ notifyAttention: !preferences.notifyAttention })}
                 />
               </SettingRow>
-              <SettingRow title="评审后有新提交" description="对比上次正式评审的 SHA 与当前 HEAD。">
+              <SettingRow
+                title="PR 代码与状态更新"
+                description="新提交、检查结果与流程状态变化的弹窗提醒。"
+              >
                 <Toggle
-                  label="评审后有新提交的提醒"
+                  label="PR 代码与状态更新提醒"
                   checked={preferences.notifyCommits}
                   onChange={() => onChange({ notifyCommits: !preferences.notifyCommits })}
                 />
               </SettingRow>
-              <SettingRow title="普通评论更新" description="将新增普通评论加入工具内收件箱。">
+              <SettingRow
+                title="普通评论更新"
+                description="新增评论、回复和评审动态的弹窗提醒。关闭后仍保留未读气泡。"
+              >
                 <Toggle
                   label="普通评论更新提醒"
                   checked={preferences.notifyComments}
@@ -278,16 +288,51 @@ export function SettingsPage({
               <h2 className="settings-section-heading">呈现方式</h2>
               <SettingRow
                 title="桌面通知"
-                description="仅保存偏好；未申请系统通知权限，也不会发送通知。"
+                description="开启后向系统申请通知权限；应用运行并同步到新动态时提醒。"
               >
                 <Toggle
-                  label="桌面通知偏好"
+                  label="桌面通知"
                   checked={preferences.desktopNotifications}
-                  onChange={() =>
-                    onChange({ desktopNotifications: !preferences.desktopNotifications })
-                  }
+                  onChange={() => {
+                    if (requestingNotifications) return;
+                    setNotificationError('');
+                    if (preferences.desktopNotifications) {
+                      onChange({ desktopNotifications: false });
+                      return;
+                    }
+                    setRequestingNotifications(true);
+                    void enableDesktopNotifications()
+                      .then(() => onChange({ desktopNotifications: true }))
+                      .catch((reason) => setNotificationError(String(reason)))
+                      .finally(() => setRequestingNotifications(false));
+                  }}
                 />
               </SettingRow>
+              {preferences.desktopNotifications && (
+                <SettingRow
+                  title="测试桌面通知"
+                  description="发送一条明确标注为测试的系统通知，确认当前系统是否展示提醒。"
+                >
+                  <button
+                    className="setting-value"
+                    onClick={() => {
+                      setNotificationError('');
+                      setNotificationResult('正在发送测试通知…');
+                      void notifyDesktop(
+                        'ThreadLine · 测试通知',
+                        '桌面通知已连接。真实新动态将在同步后按你的提醒设置发送。',
+                      )
+                        .then(() => setNotificationResult('已向系统发送测试通知，请查看通知中心。'))
+                        .catch((reason) => {
+                          setNotificationResult('');
+                          setNotificationError(String(reason));
+                        });
+                    }}
+                  >
+                    发送测试通知
+                  </button>
+                </SettingRow>
+              )}
               <SettingRow title="静默时段" description="在设定时间内不弹出工具本地提醒。">
                 <div className="quiet-hours">
                   <input
@@ -311,7 +356,12 @@ export function SettingsPage({
                   />
                 </div>
               </SettingRow>
-              <p className="settings-note">偏好保存在本地。尚未接入真实提醒，不会更改系统权限。</p>
+              {requestingNotifications && <p role="status">正在申请系统通知权限…</p>}
+              {notificationError && <p role="alert">{notificationError}</p>}
+              {notificationResult && <p role="status">{notificationResult}</p>}
+              <p className="settings-note">
+                未读气泡始终更新。提醒类型与静默时段仅控制弹窗；首次导入不弹窗。应用退出或设为手动刷新后不会自动提醒。
+              </p>
             </>
           ) : (
             <>

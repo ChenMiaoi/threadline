@@ -101,7 +101,7 @@ describe('GitHub synchronization', () => {
     expect(result.current.pulls).toHaveLength(2);
     expect(result.current.times.authored).toBeDefined();
   });
-  it('skips unsupported notifications without reporting a sync failure or an empty notification result', async () => {
+  it('loads a unified activity feed without the unsupported GitHub notifications API', async () => {
     const gateway = createGateway();
     vi.mocked(gateway.session).mockResolvedValue({
       user,
@@ -114,7 +114,46 @@ describe('GitHub synchronization', () => {
       false,
     );
     expect(result.current.errors.inbox).toBeUndefined();
-    expect(result.current.times.inbox).toBeUndefined();
+    expect(result.current.times.inbox).toBeDefined();
+    expect(result.current.inbox).toHaveLength(4);
+  });
+  it('merges successful authored, review, and issue reads even when the inbox search is empty', async () => {
+    const gateway = createGateway();
+    const request = gateway.request;
+    gateway.request = vi.fn().mockImplementation((operation, repository, accountId, number) =>
+      operation === 'activity'
+        ? Promise.resolve(response([{ data: { search: { issueCount: 0, nodes: [] } } }]))
+        : operation === 'issues'
+          ? Promise.resolve(
+              response([
+                {
+                  data: {
+                    search: {
+                      issueCount: 1,
+                      nodes: [
+                        {
+                          ...record,
+                          __typename: 'Issue',
+                          number: 77,
+                          url: `https://github.com/${repo}/issues/77`,
+                        },
+                      ],
+                    },
+                  },
+                },
+              ]),
+            )
+          : request(operation, repository, accountId, number),
+    );
+    const { result } = renderHook(() => useGitHub(0, gateway));
+    await waitFor(() => expect(result.current.syncing).toBe(false));
+    await waitFor(() => expect(result.current.inbox).toHaveLength(3));
+    expect(
+      result.current.inbox.filter((item) => item.kind === 'issue').map((item) => item.number),
+    ).toEqual([77]);
+    expect(
+      result.current.inbox.filter((item) => item.kind === 'pull').map((item) => item.number),
+    ).toEqual([1042, 1031]);
   });
   it('clears account records when disconnecting only the independent app', async () => {
     const gateway = createGateway();
@@ -141,7 +180,7 @@ describe('GitHub synchronization', () => {
     gateway.request = vi
       .fn()
       .mockImplementation((operation, repository, accountId, number) =>
-        operation === 'inbox'
+        operation === 'activity'
           ? Promise.reject('GH_FORBIDDEN')
           : request(operation, repository, accountId, number),
       );

@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import App from './App';
 import { Modal } from './components/Modal';
-import { createGateway, notifications, repo, user, updated } from './test/github.fixture';
-import { recordId } from './core/github';
+import { createGateway, record, repo, user } from './test/github.fixture';
+import { activityFromGitHub } from './core/github';
 import { response } from './test/github.fixture';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: () => false }));
@@ -33,22 +33,93 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('workspace interactions', () => {
-  it('explains the GitHub App notification limitation while keeping pull requests usable', async () => {
+  it('combines issues and pull requests chronologically with local unread badges', async () => {
     const gateway = createGateway();
-    vi.mocked(gateway.session).mockResolvedValue({
-      user,
-      selected: repo,
-      notificationsAvailable: false,
-    });
+    const request = gateway.request;
+    gateway.request = vi.fn().mockImplementation((operation, repository, accountId, number) =>
+      operation === 'activity'
+        ? Promise.resolve(
+            response([
+              {
+                data: {
+                  search: {
+                    issueCount: 2,
+                    nodes: [
+                      record,
+                      {
+                        ...record,
+                        __typename: 'Issue',
+                        number: 77,
+                        url: `https://github.com/${repo}/issues/77`,
+                        updatedAt: '2026-10-29T15:00:00Z',
+                        title: 'Recent issue reply',
+                      },
+                    ],
+                  },
+                },
+              },
+            ]),
+          )
+        : request(operation, repository, accountId, number),
+    );
     render(<App gateway={gateway} />);
     await screen.findByRole('textbox', { name: '搜索 PR' });
     fireEvent.click(screen.getByRole('button', { name: /^收件箱/ }));
-    expect(
-      await screen.findByRole('heading', { name: 'GitHub 通知接口暂不支持独立只读授权' }),
-    ).toBeTruthy();
+    const rows = await screen.findAllByRole('button', { name: /(?:PR|Issue) #/ });
+    expect(rows[0].textContent).toContain('Issue #77');
+    expect(rows[1].textContent).toContain('PR #1042');
+    expect(screen.getByRole('tab', { name: '未读 3' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Issue 1' }));
+    expect(screen.queryByRole('button', { name: /PR #1042/ })).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: '查看我发起的 PR' }));
-    expect(await screen.findByRole('textbox', { name: '搜索 PR' })).toBeTruthy();
+  });
+  it('makes an updated read thread unread again and announces it only once', async () => {
+    window.localStorage.setItem(
+      'threadline.workspace.v1',
+      JSON.stringify({ preferences: { quietStart: '00:00', quietEnd: '00:00' } }),
+    );
+    let head = record.headRefOid;
+    const gateway = createGateway();
+    const request = gateway.request;
+    gateway.request = vi
+      .fn()
+      .mockImplementation((operation, repository, accountId, number) =>
+        operation === 'activity' || operation === 'authored'
+          ? Promise.resolve(
+              response([
+                { data: { search: { issueCount: 1, nodes: [{ ...record, headRefOid: head }] } } },
+              ]),
+            )
+          : request(operation, repository, accountId, number),
+      );
+    const app = render(<App gateway={gateway} />);
+    await screen.findByRole('textbox', { name: '搜索 PR' });
+    await waitFor(() =>
+      expect(
+        JSON.parse(window.localStorage.getItem('threadline.workspace.v1')!).inboxSeen[`7:${repo}`],
+      ).toHaveLength(1),
+    );
+    expect(screen.queryByText('PR #1042 有新动态')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^收件箱/ }));
+    fireEvent.click(screen.getByRole('button', { name: '标记已读' }));
+    expect(screen.getByRole('tab', { name: '未读 0' })).toBeTruthy();
+    head = 'changed-head';
+    fireEvent.click(screen.getByRole('button', { name: '刷新' }));
+    expect(await screen.findByText('PR #1042 有新动态')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: '未读 1' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '关闭消息提醒' }));
+    fireEvent.click(screen.getByRole('button', { name: '刷新' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '刷新' }).hasAttribute('disabled')).toBe(false),
+    );
+    expect(screen.queryByText('PR #1042 有新动态')).toBeNull();
+    app.unmount();
+    render(<App gateway={gateway} />);
+    await screen.findByRole('textbox', { name: '搜索 PR' });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '刷新' }).hasAttribute('disabled')).toBe(false),
+    );
+    expect(screen.queryByText('PR #1042 有新动态')).toBeNull();
   });
   it('keeps repository access failures in the picker without losing the current page', async () => {
     const gateway = createGateway();
@@ -170,31 +241,24 @@ describe('workspace interactions', () => {
     await screen.findByRole('textbox', { name: '搜索 PR' });
     expect(screen.queryByRole('dialog')).toBeNull();
   });
-  it('persists explicit unread overrides for notifications already read on GitHub', async () => {
+  it('persists explicit local read and unread choices after reopening', async () => {
     const gateway = createGateway();
-    const request = gateway.request;
-    gateway.request = vi
-      .fn()
-      .mockImplementation((operation, repository, accountId, number) =>
-        operation === 'inbox'
-          ? Promise.resolve(response([notifications.map((n) => ({ ...n, unread: false }))]))
-          : request(operation, repository, accountId, number),
-      );
-    render(<App gateway={gateway} />);
+    const app = render(<App gateway={gateway} />);
     await screen.findByRole('textbox', { name: '搜索 PR' });
-    fireEvent.click(screen.getByRole('button', { name: /收件箱\s*0/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^收件箱/ }));
+    fireEvent.click(screen.getAllByRole('button', { name: '标记已读' })[0]);
     fireEvent.click(screen.getByRole('tab', { name: '全部' }));
-    fireEvent.click(screen.getAllByRole('button', { name: '标记未读' })[0]);
-    fireEvent.click(screen.getByRole('tab', { name: '未读 1' }));
-    expect(screen.getByRole('button', { name: /未读\s*#\s*1042/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /未读\s*#\s*1042/ }).textContent).not.toContain(
-      '已读',
-    );
+    fireEvent.click(screen.getByRole('button', { name: '标记未读' }));
     await waitFor(() =>
       expect(JSON.parse(window.localStorage.getItem('threadline.workspace.v1')!).unread).toContain(
-        recordId(user.id, repo, 'notification', notifications[0].id, updated),
+        activityFromGitHub(record, user.id, repo, user.login).id,
       ),
     );
+    app.unmount();
+    render(<App gateway={gateway} />);
+    await screen.findByRole('textbox', { name: '搜索 PR' });
+    fireEvent.click(screen.getByRole('button', { name: /^收件箱/ }));
+    expect(await screen.findByRole('tab', { name: '未读 4' })).toBeTruthy();
   });
   it('keeps PR search when returning from the detail view', async () => {
     render(<App gateway={createGateway()} />);
@@ -218,14 +282,18 @@ describe('workspace interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: '标记已读' }));
     fireEvent.click(await screen.findByRole('button', { name: /收件箱\s*3/ }));
     expect(screen.getByRole('tab', { name: '未读 3' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /未读\s*#\s*1042/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /PR #1042.*未读/ })).toBeNull();
     fireEvent.click(screen.getByRole('tab', { name: '全部' }));
-    expect(screen.getByRole('button', { name: /已读\s*#\s*1042/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /PR #1042.*已读/ })).toBeTruthy();
     await waitFor(() =>
       expect(JSON.parse(window.localStorage.getItem('threadline.workspace.v1')!).read).toContain(
-        recordId(user.id, repo, 'notification', notifications[0].id, updated),
+        activityFromGitHub(record, user.id, repo, user.login).id,
       ),
     );
+    fireEvent.click(screen.getByRole('button', { name: '标记未读' }));
+    fireEvent.click(screen.getByRole('button', { name: /^我发起的/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /#1042/ }));
+    expect(screen.getByRole('button', { name: '标记已读' })).toBeTruthy();
   });
   it('restores saved theme preferences after reopening the interface', async () => {
     const app = render(<App gateway={createGateway()} />);

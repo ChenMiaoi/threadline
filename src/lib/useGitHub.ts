@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { observeUpdates } from '../core/inbox';
 import { githubGateway } from './github';
 import { useGitHubLogin } from './useGitHubLogin';
 import {
+  activityFromGitHub,
   issueFromGitHub,
-  notificationFromGitHub,
   pullFromGitHub,
   reviewFromGitHub,
   searchRecords,
   type GitHubGateway,
-  type GitHubNotification,
   type GitHubRepository,
   type GitHubSession,
   type SearchPage,
@@ -23,6 +23,7 @@ interface Snapshot {
   inbox: Activity[];
   review: Activity[];
   issues: Activity[];
+  updates: Partial<Record<Page, Activity[]>>;
   errors: Partial<Record<Page, string>>;
   times: Partial<Record<Page, number>>;
 }
@@ -32,6 +33,7 @@ const empty: Snapshot = {
   inbox: [],
   review: [],
   issues: [],
+  updates: {},
   errors: {},
   times: {},
 };
@@ -102,35 +104,25 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
     if (inFlight.current?.token === generation.current) return inFlight.current.promise;
     const token = ++generation.current;
     setSyncing(true);
-    const pages: Page[] = session.notificationsAvailable
-      ? ['authored', 'inbox', 'review', 'issues']
-      : ['authored', 'review', 'issues'];
+    const pages: Page[] = ['authored', 'inbox', 'review', 'issues'];
     const promise = Promise.all(
       pages.map(async (page) => {
         try {
-          const result =
-            page === 'inbox'
-              ? await gateway.request<GitHubNotification[][]>(page, repo, session.user.id)
-              : await gateway.request<SearchPage[]>(page, repo, session.user.id);
+          const result = await gateway.request<SearchPage[]>(
+            page === 'inbox' ? 'activity' : page,
+            repo,
+            session.user.id,
+          );
           if (token !== generation.current) return;
-          const records =
+          const records = searchRecords(result.payload).map((r) =>
             page === 'inbox'
-              ? (result.payload as GitHubNotification[][])
-                  .flat()
-                  .filter(
-                    (n) =>
-                      ['PullRequest', 'Issue'].includes(n.subject.type) &&
-                      n.repository.full_name.toLowerCase() === repo.toLowerCase() &&
-                      /\/(pulls|issues)\/\d+$/.test(n.subject.url ?? ''),
-                  )
-                  .map((n) => notificationFromGitHub(n, session.user.id))
-              : searchRecords(result.payload as SearchPage[]).map((r) =>
-                  page === 'authored'
-                    ? pullFromGitHub(r, session.user.id, repo)
-                    : page === 'issues'
-                      ? issueFromGitHub(r, session.user.id, repo, session.user.login)
-                      : reviewFromGitHub(r, session.user.id, repo, session.user.login),
-                );
+              ? activityFromGitHub(r, session.user.id, repo, session.user.login)
+              : page === 'authored'
+                ? pullFromGitHub(r, session.user.id, repo)
+                : page === 'issues'
+                  ? issueFromGitHub(r, session.user.id, repo, session.user.login)
+                  : reviewFromGitHub(r, session.user.id, repo, session.user.login),
+          );
           setSnapshot((previous) => {
             const current = previous.key === key ? previous : empty;
             const errors = { ...current.errors };
@@ -139,8 +131,25 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
             return {
               ...current,
               key,
+              ...(page !== 'inbox'
+                ? {
+                    updates: {
+                      ...current.updates,
+                      [page]: observeUpdates(
+                        searchRecords(result.payload).map((r) =>
+                          activityFromGitHub(r, session.user.id, repo, session.user.login),
+                        ),
+                        current.updates[page] ?? [],
+                        result.fetchedAt,
+                      ),
+                    },
+                  }
+                : {}),
               errors,
-              [page === 'authored' ? 'pulls' : page]: records,
+              [page === 'authored' ? 'pulls' : page]:
+                page === 'inbox'
+                  ? observeUpdates(records as Activity[], current.inbox, result.fetchedAt)
+                  : records,
               times: { ...current.times, [page]: result.fetchedAt },
             };
           });
@@ -165,7 +174,10 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
               key,
               errors: { ...current.errors, [page]: error },
               ...(/GH_(FORBIDDEN|NOT_FOUND)/.test(error)
-                ? { [page === 'authored' ? 'pulls' : page]: [] }
+                ? {
+                    [page === 'authored' ? 'pulls' : page]: [],
+                    updates: { ...current.updates, [page]: [] },
+                  }
                 : {}),
             };
           });
@@ -257,6 +269,15 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
   }
   return {
     ...current,
+    inbox: /GH_(FORBIDDEN|NOT_FOUND)/.test(current.errors.inbox ?? '')
+      ? []
+      : [
+          ...new Map(
+            [...current.inbox, ...Object.values(current.updates).flat()]
+              .sort((a, b) => (a.updatedAt ?? '').localeCompare(b.updatedAt ?? ''))
+              .map((record) => [record.kind + record.number, record]),
+          ).values(),
+        ].sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')),
     gateway,
     auth,
     disconnect,

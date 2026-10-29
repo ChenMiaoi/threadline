@@ -7,6 +7,7 @@ import { WorkspaceShell } from './components/WorkspaceShell';
 import { AuthoredPage } from './features/pulls/AuthoredPage';
 import { PullDetailPage } from './features/pulls/PullDetailPage';
 import type { PullRequest } from './features/pulls/model';
+import { useInboxNotifications } from './lib/useInboxNotifications';
 import { useGitHub } from './lib/useGitHub';
 import { createResourceCache } from './lib/useGitHubResource';
 import { preloadGitHubMarkdown } from './lib/markdown';
@@ -62,6 +63,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
     data,
     `github:${github.session?.user.id}:${github.repo}:`,
   );
+  const notices = useInboxNotifications(github, inbox, workspace);
   const effectiveRead = [
     ...new Set([
       ...data.read,
@@ -137,9 +139,13 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   }
 
   function toggleRead(id: string) {
-    const pull = github.pulls.find((pull) => pull.id === id);
+    const record = inbox.find((record) => record.id === id);
+    const pull = github.pulls.find(
+      (pull) => pull.id === id || (record?.kind === 'pull' && record.number === pull.number),
+    );
     const targets = [
       id,
+      ...(pull?.id ? [pull.id] : []),
       ...(pull
         ? github.inbox
             .filter((record) => record.kind === 'pull' && record.number === pull.number)
@@ -151,13 +157,27 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
       ...current,
       read: isRead
         ? current.read.filter((value) => !targets.includes(value))
-        : [...new Set([...current.read, ...targets])].slice(-200),
+        : [...new Set([...current.read, ...targets])].slice(-2000),
       unread: isRead
-        ? [...new Set([...current.unread, ...targets])].slice(-200)
+        ? [...new Set([...current.unread, ...targets])].slice(-2000)
         : current.unread.filter((value) => !targets.includes(value)),
     }));
   }
   function openActivity(record: Activity) {
+    if (!effectiveRead.includes(record.id))
+      update((current) => ({
+        ...current,
+        read: [
+          ...new Set([
+            ...current.read,
+            record.id,
+            ...github.pulls
+              .filter((pull) => record.kind === 'pull' && pull.number === record.number)
+              .flatMap((pull) => (pull.id ? [pull.id] : [])),
+          ]),
+        ].slice(-2000),
+        unread: current.unread.filter((id) => id !== record.id),
+      }));
     preloadGitHubMarkdown();
     if (record.kind === 'pull') {
       listScroll.current = document.querySelector<HTMLElement>('main.content')?.scrollTop ?? 0;
@@ -199,11 +219,35 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   const records = [...inbox, ...github.review, ...github.issues];
   const currentPage =
     view === 'authored' || view === 'inbox' || view === 'review' || view === 'issues' ? view : null;
-  const syncError = currentPage ? github.errors[currentPage] : '';
+  const syncError = currentPage
+    ? github.errors[currentPage] ||
+      (currentPage === 'inbox' ? github.errors.review || github.errors.issues : '')
+    : '';
   const className = `${light ? 'theme-light' : ''} density-${data.preferences.density} ${data.preferences.reducedMotion ? 'reduced-motion' : ''}`;
 
   return (
     <div className={`workspace-root ${className}`}>
+      {notices.toast && (
+        <div className="inbox-toast" role="status">
+          <button
+            onClick={() => {
+              navigate('inbox');
+              notices.dismiss();
+            }}
+          >
+            {notices.toast}
+          </button>
+          <button aria-label="关闭消息提醒" onClick={notices.dismiss}>
+            ×
+          </button>
+        </div>
+      )}
+      {notices.error && (
+        <div role="alert" className="notification-error">
+          {notices.error}
+          <button onClick={notices.clearError}>关闭</button>
+        </div>
+      )}
       <WorkspaceShell
         repo={github.repo}
         login={github.session?.user.login}
@@ -211,7 +255,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
         onChooseRepository={chooseRepository}
         view={view}
         unread={unread}
-        notificationsAvailable={Boolean(github.session?.notificationsAvailable)}
+        notificationsAvailable={Boolean(github.session)}
         onNavigate={navigate}
         loading={busy}
         className={className}
@@ -284,17 +328,6 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
             <div className="page-view" hidden={Boolean(openedPull)}>
               {view !== 'settings' && (!github.session || !github.repo || view === 'onboarding') ? (
                 <GitHubConnection github={github} onChoose={chooseRepository} />
-              ) : view === 'inbox' && !github.session?.notificationsAvailable ? (
-                <section className="empty-state">
-                  <h1>GitHub 通知接口暂不支持独立只读授权</h1>
-                  <p className="muted">
-                    你可以在「我发起的」「我审阅的」和 Issues 中查看协作记录。 ThreadLine
-                    的本地已读和稍后处理功能仍可用于这些记录。
-                  </p>
-                  <button className="chip accent" onClick={() => navigate('authored')}>
-                    查看我发起的 PR
-                  </button>
-                </section>
               ) : currentPage && !github.times[currentPage] ? (
                 <div className="list-empty" role="status">
                   {github.syncing ? '正在读取 GitHub 数据…' : '本次读取未成功，请重试。'}

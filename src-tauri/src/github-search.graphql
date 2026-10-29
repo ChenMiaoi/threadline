@@ -6,6 +6,7 @@ query ($search: String!, $endCursor: String) {
       endCursor
     }
     nodes {
+      __typename
       ... on PullRequest {
         number
         title
@@ -28,6 +29,7 @@ query ($search: String!, $endCursor: String) {
             author {
               login
             }
+            updatedAt
             createdAt
           }
         }
@@ -36,6 +38,7 @@ query ($search: String!, $endCursor: String) {
           nodes {
             state
             body
+            updatedAt
             submittedAt
             author {
               login
@@ -60,6 +63,7 @@ query ($search: String!, $endCursor: String) {
         commits(last: 1) {
           nodes {
             commit {
+              committedDate
               statusCheckRollup {
                 state
               }
@@ -94,6 +98,7 @@ query ($search: String!, $endCursor: String) {
             author {
               login
             }
+            updatedAt
             createdAt
           }
         }

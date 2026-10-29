@@ -104,7 +104,9 @@ export function WorkspaceShell({
                 <Icon name={item.icon} />
                 <span className="nav-label">{item.label}</span>
                 {item.id !== 'authored' && (
-                  <span className="nav-count">
+                  <span
+                    className={`nav-count ${item.id === 'inbox' && unread > 0 ? 'unread-bubble' : ''}`}
+                  >
                     {item.id === 'inbox'
                       ? notificationsAvailable
                         ? unread
