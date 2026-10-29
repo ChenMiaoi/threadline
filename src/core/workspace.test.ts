@@ -104,3 +104,21 @@ describe('local workspace data', () => {
     ).toEqual({});
   });
 });
+
+it('resets only the revision checkpoint when migrating a version 2 inbox', () => {
+  const record = notificationFromGitHub(notifications[0], user.id);
+  const original = {
+    ...defaultWorkspace(),
+    inboxVersion: 2,
+    inboxSeen: { [`${user.id}:${repo}`]: [record.id] },
+    preferences: { ...defaultWorkspace().preferences, theme: 'light', refreshMinutes: 15 },
+    read: [record.id],
+    unread: ['inbox-1031'],
+    snoozed: { [record.id]: now + 60000 },
+    snoozeRecords: { [record.id]: record },
+    restored: ['inbox-1027'],
+  };
+  const migrated = normalizeWorkspace(original, now);
+  expect(migrated).toEqual({ ...original, inboxVersion: 3, inboxSeen: {} });
+  expect(original.inboxSeen[`${user.id}:${repo}`]).toEqual([record.id]);
+});

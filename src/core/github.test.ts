@@ -221,3 +221,68 @@ it('shows readable review activity without presenting historical review requirem
   expect(activity.summary).toBe('reviewer · 评审评论');
   expect(activity.detail).toBe('PR · 已合并');
 });
+
+describe('collaboration revision identity', () => {
+  it('keeps merge-condition recalculation out of revisions while updating its presentation', () => {
+    const snapshot = { ...record, reviewDecision: 'APPROVED' };
+    const statuses = ['CLEAN', 'UNKNOWN', 'CLEAN', 'BLOCKED', 'BEHIND'];
+    const activities = statuses.map((mergeStateStatus) =>
+      activityFromGitHub({ ...snapshot, mergeStateStatus }, user.id, repo, user.login),
+    );
+    expect(new Set(activities.map((activity) => activity.id)).size).toBe(1);
+    expect(activities.map((activity) => activity.pullStatus?.merge.label)).toEqual([
+      '条件满足',
+      '待确认',
+      '条件满足',
+      '规则阻塞',
+      '分支落后',
+    ]);
+    expect(activities[0].pullStatus?.nextAction).not.toBe(activities[1].pullStatus?.nextAction);
+    expect(activities[3].pullStatus?.nextAction).not.toBe(activities[4].pullStatus?.nextAction);
+  });
+
+  it.each([
+    ['title', { title: 'Updated title' }],
+    ['body', { body: 'Updated description' }],
+    ['lifecycle', { state: 'CLOSED' }],
+    ['draft', { isDraft: true }],
+    ['HEAD', { headRefOid: 'b'.repeat(40) }],
+    ['review decision', { reviewDecision: 'APPROVED' }],
+    [
+      'review request',
+      { reviewRequests: { nodes: [{ requestedReviewer: { login: 'reviewer' } }] } },
+    ],
+    ['checks', { commits: { nodes: [{ commit: { statusCheckRollup: { state: 'SUCCESS' } } }] } }],
+    [
+      'formal review',
+      {
+        reviews: {
+          totalCount: 1,
+          nodes: [
+            {
+              state: 'APPROVED',
+              body: '',
+              submittedAt: updated,
+              author: { login: 'reviewer' },
+              commit: { oid: record.headRefOid! },
+            },
+          ],
+        },
+      },
+    ],
+    [
+      'edited comment',
+      {
+        comments: {
+          ...record.comments,
+          nodes: [{ ...record.comments.nodes[0], body: 'Updated comment' }],
+        },
+      },
+    ],
+  ])('still detects %s changes without a newer thread timestamp', (_field, change) => {
+    const original = activityFromGitHub(record, user.id, repo, user.login);
+    const changed = activityFromGitHub({ ...record, ...change }, user.id, repo, user.login);
+    expect(changed.id).not.toBe(original.id);
+    expect(changed.updatedAt).toBe(original.updatedAt);
+  });
+});

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { findLegacyActivityAliases } from '../core/migrate-activity-state';
 import { observeUpdates } from '../core/inbox';
 import { githubGateway } from './github';
 import { useGitHubLogin } from './useGitHubLogin';
@@ -12,6 +13,7 @@ import {
   type GitHubRepository,
   type GitHubSession,
   type SearchPage,
+  type SearchRecord,
 } from '../core/github';
 import type { Activity } from '../features/activity/model';
 import type { PullRequest } from '../features/pulls/model';
@@ -24,6 +26,7 @@ interface Snapshot {
   review: Activity[];
   issues: Activity[];
   updates: Partial<Record<Page, Activity[]>>;
+  sources: Partial<Record<Page, SearchRecord[]>>;
   errors: Partial<Record<Page, string>>;
   times: Partial<Record<Page, number>>;
 }
@@ -34,6 +37,7 @@ const empty: Snapshot = {
   review: [],
   issues: [],
   updates: {},
+  sources: {},
   errors: {},
   times: {},
 };
@@ -114,7 +118,8 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
             session.user.id,
           );
           if (token !== generation.current) return;
-          const records = searchRecords(result.payload).map((r) =>
+          const source = searchRecords(result.payload);
+          const records = source.map((r) =>
             page === 'inbox'
               ? activityFromGitHub(r, session.user.id, repo, session.user.login)
               : page === 'authored'
@@ -131,12 +136,13 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
             return {
               ...current,
               key,
+              sources: { ...current.sources, [page]: source },
               ...(page !== 'inbox'
                 ? {
                     updates: {
                       ...current.updates,
                       [page]: observeUpdates(
-                        searchRecords(result.payload).map((r) =>
+                        source.map((r) =>
                           activityFromGitHub(r, session.user.id, repo, session.user.login),
                         ),
                         current.updates[page] ?? [],
@@ -177,6 +183,7 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
                 ? {
                     [page === 'authored' ? 'pulls' : page]: [],
                     updates: { ...current.updates, [page]: [] },
+                    sources: { ...current.sources, [page]: [] },
                   }
                 : {}),
             };
@@ -281,9 +288,28 @@ export function useGitHub(refreshMinutes: number, gateway: GitHubGateway = githu
       );
     }
   }
+  const { sources, ...visible } = current;
+  function releaseMigrationSources() {
+    if (!Object.keys(sources).length) return;
+    setSnapshot((previous) =>
+      previous.sources === sources ? { ...previous, sources: {} } : previous,
+    );
+  }
+  function legacyAliases(ids: readonly string[], targets: readonly Activity[]) {
+    const selected = new Set(inbox.map((record) => record.id));
+    return findLegacyActivityAliases(
+      Object.values(sources).flat(),
+      targets.filter((target) => selected.has(target.id)),
+      ids,
+      session?.user.id ?? 0,
+      repo,
+    );
+  }
   return {
-    ...current,
+    ...visible,
     inbox,
+    legacyAliases,
+    releaseMigrationSources,
     gateway,
     auth,
     disconnect,

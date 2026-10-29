@@ -2,6 +2,9 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { activityFromGitHub } from '../core/github';
+import { legacyActivityRevisionIds } from '../core/activity-revision';
+import { findLegacyActivityAliases } from '../core/migrate-activity-state';
+import type { Activity } from '../features/activity/model';
 import { defaultWorkspace, MAX_INBOX_REVISIONS, type WorkspaceData } from '../core/workspace';
 import { record, repo, user } from '../test/github.fixture';
 import type { GitHubWorkspace } from './useGitHub';
@@ -21,6 +24,7 @@ const github = {
   syncing: false,
   times: { inbox: 1, authored: 1, review: 1, issues: 1 },
   errors: {},
+  releaseMigrationSources: () => {},
 } as GitHubWorkspace;
 async function flush() {
   await act(async () => {
@@ -133,4 +137,212 @@ describe('inbox notifications', () => {
     expect(hook.result.current.workspace.data.read).toEqual(data.read);
     expect(hook.result.current.notices.toast).toBe('');
   });
+});
+
+it('silently rebuilds a version 2 checkpoint while retaining local workspace choices', async () => {
+  const original = {
+    ...defaultWorkspace(),
+    inboxVersion: 2,
+    inboxSeen: { [key]: ['inbox-1042'] },
+    preferences: { ...defaultWorkspace().preferences, theme: 'light' },
+    read: ['inbox-1042'],
+    snoozed: { 'inbox-1042': Date.now() + 60000 },
+    snoozeRecords: { 'inbox-1042': { ...activity, id: 'inbox-1042' } },
+  };
+  const repository = {
+    load: async () => JSON.parse(JSON.stringify(original)),
+    save: vi.fn(async () => {}),
+  };
+  const hook = renderHook(() => {
+    const workspace = useWorkspace(repository);
+    return { workspace, notices: useInboxNotifications(github, [activity], workspace) };
+  });
+  await flush();
+  await flush();
+  expect(hook.result.current.notices.toast).toBe('');
+  expect(hook.result.current.workspace.data.inboxVersion).toBe(3);
+  expect(hook.result.current.workspace.data.inboxSeen[key]).toEqual([activity.id]);
+  expect(hook.result.current.workspace.data.read).toEqual(original.read);
+  expect(hook.result.current.workspace.data.snoozed).toEqual(original.snoozed);
+  expect(hook.result.current.workspace.data.snoozeRecords).toEqual(original.snoozeRecords);
+  expect(hook.result.current.workspace.data.preferences).toEqual(original.preferences);
+});
+
+it('atomically migrates exact legacy state and the checkpoint without repeating work after restart', async () => {
+  const previous = legacyActivityRevisionIds(record, user.id, repo)[0];
+  const until = Date.now() + 60000;
+  let saved: unknown = {
+    ...defaultWorkspace(),
+    inboxVersion: 2,
+    inboxSeen: { [key]: [previous] },
+    read: [previous],
+    snoozed: { [previous]: until },
+    snoozeRecords: { [previous]: { ...activity, id: previous } },
+  };
+  const repository = {
+    load: async () => JSON.parse(JSON.stringify(saved)),
+    save: vi.fn(async (data: WorkspaceData) => {
+      saved = JSON.parse(JSON.stringify(data));
+    }),
+  };
+  const source = {
+    ...github,
+    legacyAliases: vi.fn((ids: readonly string[], targets: readonly Activity[]) =>
+      findLegacyActivityAliases([record], targets, ids, user.id, repo),
+    ),
+  };
+  const mount = () =>
+    renderHook(() => {
+      const workspace = useWorkspace(repository);
+      return { workspace, notices: useInboxNotifications(source, [activity], workspace) };
+    });
+  const first = mount();
+  await flush();
+  await flush();
+  expect(first.result.current.workspace.data.read).toEqual([activity.id]);
+  expect(first.result.current.workspace.data.snoozed).toEqual({ [activity.id]: until });
+  expect(first.result.current.workspace.data.snoozeRecords).toEqual({ [activity.id]: activity });
+  expect(first.result.current.workspace.data.inboxSeen[key]).toEqual([activity.id]);
+  expect(first.result.current.notices.toast).toBe('');
+  expect(source.legacyAliases).toHaveBeenCalledTimes(1);
+  first.unmount();
+  const restarted = mount();
+  await flush();
+  await flush();
+  expect(restarted.result.current.workspace.data.read).toEqual([activity.id]);
+  expect(restarted.result.current.workspace.data.snoozed).toEqual({ [activity.id]: until });
+  expect(restarted.result.current.notices.toast).toBe('');
+  expect(source.legacyAliases).toHaveBeenCalledTimes(1);
+});
+
+it('migrates an absent saved snooze when identical content later returns without announcing it', async () => {
+  const previous = legacyActivityRevisionIds(record, user.id, repo)[0];
+  const until = Date.now() + 60000;
+  const original = {
+    ...defaultWorkspace(),
+    inboxVersion: 2,
+    read: [previous],
+    snoozed: { [previous]: until },
+    snoozeRecords: { [previous]: { ...activity, id: previous } },
+  };
+  const repository = { load: async () => original, save: vi.fn(async () => {}) };
+  const source = {
+    ...github,
+    legacyAliases: vi.fn((ids: readonly string[], targets: readonly Activity[]) =>
+      findLegacyActivityAliases([record], targets, ids, user.id, repo),
+    ),
+  };
+  const hook = renderHook(
+    ({ items, time }) => {
+      const workspace = useWorkspace(repository);
+      return {
+        workspace,
+        notices: useInboxNotifications(
+          { ...source, times: { ...source.times, inbox: time } },
+          items,
+          workspace,
+        ),
+      };
+    },
+    { initialProps: { items: [] as Activity[], time: 1 } },
+  );
+  await flush();
+  await flush();
+  expect(hook.result.current.workspace.data.inboxSeen[key]).toEqual([]);
+  expect(hook.result.current.workspace.data.snoozed).toEqual({ [previous]: until });
+  hook.rerender({ items: [activity], time: 2 });
+  await flush();
+  await flush();
+  expect(hook.result.current.workspace.data.read).toEqual([activity.id]);
+  expect(hook.result.current.workspace.data.snoozed).toEqual({ [activity.id]: until });
+  expect(hook.result.current.workspace.data.snoozeRecords).toEqual({ [activity.id]: activity });
+  expect(hook.result.current.notices.toast).toBe('');
+  const calls = source.legacyAliases.mock.calls.length;
+  hook.rerender({ items: [activity], time: 3 });
+  await flush();
+  expect(source.legacyAliases).toHaveBeenCalledTimes(calls);
+});
+
+it.each(['HEAD', 'comment'])(
+  'does not inherit legacy read or snooze state after a real %s change',
+  async (field) => {
+    const previous = legacyActivityRevisionIds(record, user.id, repo)[0];
+    const changed =
+      field === 'HEAD'
+        ? { ...record, headRefOid: 'b'.repeat(40) }
+        : {
+            ...record,
+            comments: {
+              ...record.comments,
+              nodes: [{ ...record.comments.nodes[0], body: 'edited' }],
+            },
+          };
+    const next = activityFromGitHub(changed, user.id, repo, user.login);
+    const until = Date.now() + 60000;
+    const repository = {
+      load: async () => ({
+        ...defaultWorkspace(),
+        inboxSeen: { [key]: [] },
+        read: [previous],
+        snoozed: { [previous]: until },
+        snoozeRecords: { [previous]: { ...activity, id: previous } },
+      }),
+      save: vi.fn(async () => {}),
+    };
+    const source = {
+      ...github,
+      legacyAliases: vi.fn((ids: readonly string[], targets: readonly Activity[]) =>
+        findLegacyActivityAliases([record, changed], targets, ids, user.id, repo),
+      ),
+    };
+    const hook = renderHook(
+      ({ items }) => {
+        const workspace = useWorkspace(repository);
+        return { workspace, notices: useInboxNotifications(source, items, workspace) };
+      },
+      { initialProps: { items: [] as Activity[] } },
+    );
+    await flush();
+    await flush();
+    hook.rerender({ items: [next] });
+    await flush();
+    expect(hook.result.current.workspace.data.read).toEqual([previous]);
+    expect(hook.result.current.workspace.data.snoozed).toEqual({ [previous]: until });
+    expect(hook.result.current.notices.toast).toBe('PR #1042 有新动态');
+    expect(hook.result.current.workspace.data.inboxSeen[key]).toEqual([next.id]);
+    const calls = source.legacyAliases.mock.calls.length;
+    hook.rerender({ items: [next] });
+    await flush();
+    expect(source.legacyAliases).toHaveBeenCalledTimes(calls);
+  },
+);
+
+it('releases migration sources after successful decisions including unchanged revisions and no legacy state', async () => {
+  const releaseMigrationSources = vi.fn();
+  const legacyAliases = vi.fn();
+  const source = { ...github, releaseMigrationSources, legacyAliases };
+  const repository = { load: async () => defaultWorkspace(), save: vi.fn(async () => {}) };
+  const hook = renderHook(
+    ({ source }) => {
+      const workspace = useWorkspace(repository);
+      return useInboxNotifications(source, [activity], workspace);
+    },
+    {
+      initialProps: {
+        source: { ...source, errors: { authored: 'Unavailable' } } as GitHubWorkspace,
+      },
+    },
+  );
+  await flush();
+  await flush();
+  expect(releaseMigrationSources).not.toHaveBeenCalled();
+  hook.rerender({ source });
+  await flush();
+  await flush();
+  expect(releaseMigrationSources).toHaveBeenCalledTimes(1);
+  expect(legacyAliases).not.toHaveBeenCalled();
+  hook.rerender({ source: { ...source, times: { ...source.times, inbox: 2 } } });
+  await flush();
+  expect(releaseMigrationSources).toHaveBeenCalledTimes(2);
+  expect(legacyAliases).not.toHaveBeenCalled();
 });

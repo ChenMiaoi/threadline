@@ -69,7 +69,7 @@ describe('unified activity inbox', () => {
     );
     expect(data.inboxSeen).toEqual({});
     expect(newUpdates([activity], data.inboxSeen[`7:${repo}`])).toEqual([]);
-    expect(data.inboxVersion).toBe(2);
+    expect(data.inboxVersion).toBe(3);
   });
   it('matches observations by kind and number and preserves the first prior match', () => {
     const issue = {

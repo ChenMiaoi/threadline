@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { useGitHub } from './useGitHub';
+import { legacyActivityRevisionIds } from '../core/activity-revision';
 import { createGateway, record, repo, response, user } from '../test/github.fixture';
 afterEach(cleanup);
 describe('GitHub synchronization', () => {
@@ -337,4 +338,49 @@ describe('GitHub synchronization', () => {
     await waitFor(() => expect(result.current.pulls).toHaveLength(2));
     expect(result.current.connectionError).toBe('');
   });
+});
+
+it('offers exact legacy aliases from the selected repository and discards them when switching scopes', async () => {
+  const gateway = createGateway();
+  const { result } = renderHook(() => useGitHub(0, gateway));
+  await waitFor(() => expect(result.current.times.issues).toBeDefined());
+  const previous = legacyActivityRevisionIds(record, user.id, repo)[0];
+  const aliases = result.current.legacyAliases([previous], result.current.inbox);
+  expect(aliases.get(previous)?.number).toBe(record.number);
+  expect(aliases.get(previous)?.id).toContain(`:activity:pull-${record.number}-v3-`);
+  await act(() => result.current.selectRepository('owner/other'));
+  await waitFor(() => expect(result.current.times.issues).toBeDefined());
+  expect(result.current.legacyAliases([previous], result.current.inbox).size).toBe(0);
+});
+
+it('releases only its captured raw snapshot without changing the inbox or refreshing the network', async () => {
+  const gateway = createGateway();
+  const { result } = renderHook(() => useGitHub(0, gateway));
+  await waitFor(() => expect(result.current.times.issues).toBeDefined());
+  const previous = legacyActivityRevisionIds(record, user.id, repo)[0];
+  const initialInbox = result.current.inbox;
+  const releaseFirst = result.current.releaseMigrationSources;
+  const calls = vi.mocked(gateway.request).mock.calls.length;
+  expect('sources' in result.current).toBe(false);
+  expect(result.current.legacyAliases([previous], initialInbox).size).toBe(1);
+  act(() => releaseFirst());
+  expect(result.current.legacyAliases([previous], initialInbox).size).toBe(0);
+  expect(result.current.inbox).toBe(initialInbox);
+  expect(gateway.request).toHaveBeenCalledTimes(calls);
+
+  await act(() => result.current.refresh());
+  const nextInbox = result.current.inbox;
+  expect(result.current.legacyAliases([previous], nextInbox).size).toBe(1);
+  act(() => releaseFirst());
+  expect(result.current.legacyAliases([previous], nextInbox).size).toBe(1);
+  expect(result.current.inbox).toBe(nextInbox);
+  const releaseSecond = result.current.releaseMigrationSources;
+  await act(() => result.current.refresh());
+  act(() => releaseSecond());
+  expect(result.current.legacyAliases([previous], result.current.inbox).size).toBe(1);
+  const lastInbox = result.current.inbox;
+  act(() => result.current.releaseMigrationSources());
+  expect(result.current.legacyAliases([previous], lastInbox).size).toBe(0);
+  expect(result.current.inbox).toBe(lastInbox);
+  expect(gateway.request).toHaveBeenCalledTimes(calls + 8);
 });

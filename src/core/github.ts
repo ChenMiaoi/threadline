@@ -1,4 +1,5 @@
 import { describePull } from './pull-status';
+import { activityRevisionId } from './activity-revision';
 import type { StatusBadge } from './pull-status';
 import type { Activity } from '../features/activity/model';
 import type { PullRequest } from '../features/pulls/model';
@@ -477,31 +478,9 @@ export function activityFromGitHub(
     .at(-1)!;
   const recentComment = comment && (comment.updatedAt ?? comment.createdAt) === latest;
   const recentReview = review && (review.updatedAt ?? review.submittedAt) === latest;
-  const fingerprint = JSON.stringify([
-    record.title,
-    record.body,
-    record.state,
-    record.isDraft,
-    record.headRefOid,
-    record.reviewDecision,
-    record.mergeStateStatus,
-    record.reviewRequests,
-    record.commits,
-    record.reviews,
-    record.comments,
-  ]);
-  let hash = 2166136261;
-  for (let index = 0; index < fingerprint.length; index++)
-    hash = Math.imul(hash ^ fingerprint.charCodeAt(index), 16777619);
   return {
     ...activity,
-    id: recordId(
-      account,
-      repo,
-      'activity',
-      `${pull ? 'pull' : 'issue'}-${record.number}-${(hash >>> 0).toString(36)}`,
-      latest,
-    ),
+    id: activityRevisionId(record, account, repo, latest),
     updatedAt: latest,
     updated: shortTime(latest),
     summary: recentComment

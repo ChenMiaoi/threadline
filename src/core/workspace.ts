@@ -25,7 +25,7 @@ export interface WorkspaceData {
   restored: string[];
   snoozeRecords: Record<string, Activity>;
   unread: string[];
-  inboxVersion: 2;
+  inboxVersion: 3;
   inboxSeen: Record<string, string[]>;
 }
 
@@ -62,7 +62,7 @@ export function defaultWorkspace(): WorkspaceData {
     restored: [],
     snoozeRecords: {},
     unread: [],
-    inboxVersion: 2,
+    inboxVersion: 3,
     inboxSeen: {},
   };
 }
@@ -165,9 +165,10 @@ export function normalizeWorkspace(value: unknown, now: number): WorkspaceData {
       snoozed: 'snoozed' in value ? snoozed : defaults.snoozed,
       restored: ids(value.restored),
       unread: ids(value.unread),
-      inboxVersion: 2,
+      inboxVersion: 3,
+      // Older fingerprints include transient merge conditions; rebuild their checkpoint silently.
       inboxSeen:
-        value.inboxVersion === 2 && object(value.inboxSeen)
+        value.inboxVersion === 3 && object(value.inboxSeen)
           ? Object.fromEntries(
               Object.entries(value.inboxSeen)
                 .filter(

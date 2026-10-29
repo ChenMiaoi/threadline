@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useState } from 'react';
 import { newUpdates, quietHours, shouldNotify } from '../core/inbox';
+import { legacyActivityStateIds, migrateActivityState } from '../core/migrate-activity-state';
 import { MAX_INBOX_REVISIONS } from '../core/workspace';
 import type { Activity } from '../features/activity/model';
 import type { GitHubWorkspace } from './useGitHub';
@@ -27,34 +28,53 @@ export function useInboxNotifications(
       records.length > MAX_INBOX_REVISIONS
     )
       return;
-    const seen = workspace.data.inboxSeen[github.key];
-    const changes = newUpdates(records, seen);
-    const ids = records.map((record) => record.id);
-    const known = new Set(seen);
-    if (seen && ids.length === seen.length && ids.every((id) => known.has(id))) return;
-    const changed = new Set(changes.map((record) => record.id));
-    workspace.update((current) => ({
-      ...current,
-      read: current.read.filter((id) => !changed.has(id)),
-      inboxSeen: {
-        ...current.inboxSeen,
-        [github.key]: ids,
-      },
-    }));
-    const notify = changes.filter(
-      (record) =>
-        !(record.id in workspace.data.snoozed) && shouldNotify(record, workspace.data.preferences),
-    );
-    if (!notify.length || quietHours(workspace.data.preferences, new Date())) return;
-    const message =
-      notify.length === 1
-        ? `${notify[0].kind === 'pull' ? 'PR' : 'Issue'} #${notify[0].number} 有新动态`
-        : `${notify.length} 条 PR / Issue 有新动态`;
-    setToast({ key: github.key, text: message });
-    if (workspace.data.preferences.desktopNotifications)
-      void notifyDesktop('ThreadLine · 新动态', `${github.repo} · ${message}`).catch((reason) =>
-        setError({ key: github.key, text: String(reason) }),
+    try {
+      const seen = workspace.data.inboxSeen[github.key];
+      const observed = newUpdates(records, seen);
+      const ids = records.map((record) => record.id);
+      const known = new Set(seen);
+      if (seen && ids.length === seen.length && ids.every((id) => known.has(id))) return;
+      const candidates = seen ? observed : records;
+      const legacy = candidates.length
+        ? legacyActivityStateIds(workspace.data).filter((id) =>
+            id.startsWith(`github:${github.key}:`),
+          )
+        : [];
+      const aliases = legacy.length
+        ? github.legacyAliases(legacy, candidates)
+        : new Map<string, Activity>();
+      const migrated = new Set([...aliases.values()].map((record) => record.id));
+      const changes = observed.filter((record) => !migrated.has(record.id));
+      const changed = new Set(changes.map((record) => record.id));
+      workspace.update((current) => {
+        const next = migrateActivityState(current, aliases);
+        return {
+          ...next,
+          read: next.read.filter((id) => !changed.has(id)),
+          inboxSeen: {
+            ...next.inboxSeen,
+            [github.key]: ids,
+          },
+        };
+      });
+      const notify = changes.filter(
+        (record) =>
+          !(record.id in workspace.data.snoozed) &&
+          shouldNotify(record, workspace.data.preferences),
       );
+      if (!notify.length || quietHours(workspace.data.preferences, new Date())) return;
+      const message =
+        notify.length === 1
+          ? `${notify[0].kind === 'pull' ? 'PR' : 'Issue'} #${notify[0].number} 有新动态`
+          : `${notify.length} 条 PR / Issue 有新动态`;
+      setToast({ key: github.key, text: message });
+      if (workspace.data.preferences.desktopNotifications)
+        void notifyDesktop('ThreadLine · 新动态', `${github.repo} · ${message}`).catch((reason) =>
+          setError({ key: github.key, text: String(reason) }),
+        );
+    } finally {
+      github.releaseMigrationSources();
+    }
   });
   const revisions = records.map((record) => record.id).join('|');
   useEffect(() => {
