@@ -25,7 +25,7 @@ npm run desktop
 
 The first run builds the Rust services and desktop application, so it can take longer than subsequent launches. See [development](development.md) for browser preview and packaging commands.
 
-The [CI workflow](../.github/workflows/ci.yml) also produces unsigned debug installers for macOS and Windows. When a workflow run succeeds, its artifacts contain a macOS DMG or Windows NSIS installer. These are temporary development artifacts; they are not signed or notarized production releases. Use only artifacts from a source and workflow run you trust.
+The [CI workflow](../.github/workflows/ci.yml) also produces debug installers for macOS and Windows. When a workflow run succeeds, its artifacts contain a macOS DMG or Windows NSIS installer. These are temporary development artifacts; macOS builds use ad-hoc signatures without Apple notarization, and Windows builds are not Authenticode-signed. Use only artifacts from a source and workflow run you trust.
 
 ## Sign in to GitHub
 

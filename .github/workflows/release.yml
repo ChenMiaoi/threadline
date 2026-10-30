@@ -89,6 +89,9 @@ jobs:
           done
           node scripts/release.ts prepare "$RELEASE_TAG"
           npm run tauri -- build --ci --target "$BUILD_TARGET" --config .release-config.json -- --locked
+      - name: Verify macOS application signatures in packaged artifacts
+        if: runner.os == 'macOS'
+        run: node scripts/verify-macos-bundles.ts "src-tauri/target/${{ matrix.target }}/release/bundle" --updater
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: release-${{ matrix.target }}

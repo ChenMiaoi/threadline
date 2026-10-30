@@ -85,7 +85,7 @@ jobs:
         run: npm run build:desktop:installer
 
       - name: Verify installer output
-        run: test -d src-tauri/target/debug/bundle/macos/ThreadLine.app && ls src-tauri/target/debug/bundle/dmg/*.dmg
+        run: node scripts/verify-macos-bundles.ts src-tauri/target/debug/bundle
 
       - name: Upload macOS test installer
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

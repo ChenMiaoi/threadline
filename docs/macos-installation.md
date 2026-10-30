@@ -18,6 +18,12 @@ If your browser blocks the download, check its download settings or try another 
 
 To check the installed version, select ThreadLine in Applications and choose **File → Get Info**. The version appears under **General**. Replacing the app does not require deleting its local data; see [data and security](data-and-security.md) for storage locations.
 
-macOS may display a security notice when opening an app downloaded from the internet. Check the source and the exact message before deciding how to proceed. Updater signatures are separate from macOS code signing and notarization.
+## macOS security notices
+
+Builds without an Apple Developer ID use ad-hoc signatures to seal the complete application bundle. These signatures check integrity but do not establish a verified publisher, and the app is not notarized by Apple. macOS can still block the first launch. After checking that the app came from the official release, review **System Settings → Privacy & Security** for an **Open Anyway** option. See [Apple's instructions for opening an app from an unidentified developer](https://support.apple.com/en-us/102445). Do not disable Gatekeeper globally.
+
+The original v0.1.3 Apple Silicon installer contains an incomplete application signature; the Intel installer is unsigned. Both require a rebuilt installer with the signing fix. A successful download or matching checksum does not establish a valid application signature.
+
+Updater signatures are separate from macOS application signing and notarization.
 
 For GitHub sign-in and repository selection, continue to [getting started](getting-started.md#sign-in-to-github). For in-app updates, see [release publishing](release/README.md).

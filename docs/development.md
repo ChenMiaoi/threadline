@@ -53,7 +53,7 @@ The development adapter allows only the configured loopback host, origin, reques
 | `npm run build:desktop:installer` | Debug native app and platform installer                    |
 | `npm run desktop:build`           | Tauri's default release-profile build and platform bundles |
 
-Build the native target on its host platform. Debug installer output is under `src-tauri/target/debug/bundle/`: macOS uses `macos/ThreadLine.app` and `dmg/*.dmg`; Windows uses `nsis/*-setup.exe`. Default release-profile bundles use `src-tauri/target/release/bundle/`. A release profile does not establish signing, notarization, or readiness for distribution. The checked-in workflow builds test installers without a configured signing/notarization step.
+Build the native target on its host platform. Debug installer output is under `src-tauri/target/debug/bundle/`: macOS uses `macos/ThreadLine.app` and `dmg/*.dmg`; Windows uses `nsis/*-setup.exe`. Default release-profile bundles use `src-tauri/target/release/bundle/`. A release profile does not establish signing, notarization, or readiness for distribution. The macOS configuration uses ad-hoc application signing by default; test installers are not Apple-notarized. CI verifies the application signature inside the DMG before uploading it.
 
 ## Prepare a change
 
