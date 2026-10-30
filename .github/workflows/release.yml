@@ -126,6 +126,8 @@ jobs:
         run: |
           node scripts/release.ts manifest "$RELEASE_TAG" artifacts release-assets
           node scripts/release.ts channel "$RELEASE_TAG"
+          node scripts/release.ts notes "$RELEASE_TAG" release-body.md
+          RELEASE_NOTES=release-body.md
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release create "$RELEASE_TAG" --verify-tag --draft --title "ThreadLine $RELEASE_TAG" --notes-file "$RELEASE_NOTES" --prerelease="$PRERELEASE"
           fi

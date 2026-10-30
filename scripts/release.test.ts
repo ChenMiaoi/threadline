@@ -7,6 +7,7 @@ import {
   compareVersions,
   releaseConfiguration,
   releaseIdentity,
+  releaseNotesBody,
   validateRelease,
 } from './release';
 const roots: string[] = [];
@@ -36,6 +37,16 @@ afterEach(() => {
   roots.splice(0).forEach((root) => rmSync(root, { recursive: true, force: true }));
 });
 describe('release policy', () => {
+  it('removes only the leading document title and preserves release sections', () => {
+    expect(releaseNotesBody('\uFEFF# ThreadLine 1.2.3\r\n\r\n## Workspace\r\n\r\nChanges')).toBe(
+      '## Workspace\r\n\r\nChanges\n',
+    );
+    expect(releaseNotesBody('## Workspace\n\nChanges')).toBe('## Workspace\n\nChanges\n');
+    expect(releaseNotesBody('# Title\n\nChanges\n\n# Another section')).toBe(
+      'Changes\n\n# Another section\n',
+    );
+    expect(() => releaseNotesBody('# ThreadLine 1.2.3')).toThrow('empty');
+  });
   it('accepts stable and RC tags with a required base-version note', () => {
     expect(validateRelease(fixture(), 'v1.2.3')).toMatchObject({
       channel: 'stable',
@@ -64,6 +75,8 @@ describe('release policy', () => {
     rmSync(join(root, 'docs/release/v1.2.3-releasenote.md'));
     expect(() => validateRelease(root, 'v1.2.3')).toThrow();
     writeFileSync(join(root, 'docs/release/v1.2.3-releasenote.md'), ' ');
+    expect(() => validateRelease(root, 'v1.2.3')).toThrow('empty');
+    writeFileSync(join(root, 'docs/release/v1.2.3-releasenote.md'), '# Release');
     expect(() => validateRelease(root, 'v1.2.3')).toThrow('empty');
     writeFileSync(join(root, 'docs/release/v1.2.3-releasenote.md'), 'Changes');
     writeFileSync(join(root, 'package.json'), JSON.stringify({ version: '1.2.4' }));
@@ -95,6 +108,7 @@ describe('release policy', () => {
       writeFileSync(join(directory, `${file}.sig`), 'signature');
     }
     const result = buildManifest(root, artifacts, 'v1.2.3', output);
+    expect(result.notes).toBe('Changes\n');
     expect(Object.keys(result.platforms)).toHaveLength(3);
     expect(result.platforms['darwin-aarch64'].url).toContain(
       '/v1.2.3/darwin-aarch64-ThreadLine.app.tar.gz',

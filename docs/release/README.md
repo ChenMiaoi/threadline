@@ -2,6 +2,8 @@
 
 Push a version tag to run the release workflow. Accepted tags are `vX.Y.Z` and `vX.Y.Z-rcX`. Every release requires a nonempty `docs/release/vX.Y.Z-releasenote.md`; RC builds and the final release share that base-version file. Unsupported tags beginning with `v` fail validation.
 
+Release notes may start with a document title such as `# ThreadLine 1.2.3`, followed by change sections such as `## Workspace`. Publishing automatically removes the leading level-one title from both the GitHub release body and updater notes, because their surrounding UI already identifies the version. Files without a leading title are also supported. Validation rejects empty or title-only notes; the source document keeps its title.
+
 Keep `package.json`, the root entries in `package-lock.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` at the release version. RC tags use `v1.2.3-rc10`, while application versions use `1.2.3-rc.10`. The numeric prerelease component ensures that RC 10 is newer than RC 2 under SemVer. Update `src-tauri/Cargo.lock` with Cargo after changing the package version.
 
 Before tagging, run:

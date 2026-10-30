@@ -10,6 +10,15 @@ import {
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+export function releaseNotesBody(markdown: string) {
+  const body = markdown
+    .trim()
+    .replace(/^#[ \t]+[^\r\n]*(?:\r?\n|$)/, '')
+    .trim();
+  if (!body) throw new Error('Release notes must not be empty after removing the title.');
+  return body + '\n';
+}
+
 export function releaseIdentity(tag: string) {
   const match = /^v((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))(?:-rc(0|[1-9]\d*))?$/.exec(tag);
   if (!match || match[0] !== tag) throw new Error('Release tag must be vX.Y.Z or vX.Y.Z-rcX.');
@@ -42,8 +51,7 @@ export function validateRelease(root: string, tag: string) {
   ];
   if (versions.some((value) => value !== identity.version))
     throw new Error(`All application versions must equal ${identity.version}.`);
-  if (!readFileSync(join(root, identity.notes), 'utf8').trim())
-    throw new Error('Release notes must not be empty.');
+  releaseNotesBody(readFileSync(join(root, identity.notes), 'utf8'));
   return identity;
 }
 export function releaseConfiguration(publicKey: string, channel: string) {
@@ -98,7 +106,7 @@ export function buildManifest(root: string, artifactRoot: string, tag: string, o
   }
   const manifest = {
     version: identity.version,
-    notes: readFileSync(join(root, identity.notes), 'utf8'),
+    notes: releaseNotesBody(readFileSync(join(root, identity.notes), 'utf8')),
     pub_date: new Date().toISOString(),
     platforms,
   };
@@ -135,6 +143,8 @@ async function main() {
           .map(([key, value]) => `${key}=${value}\n`)
           .join(''),
       );
+  } else if (command === 'notes') {
+    writeFileSync(artifactRoot, releaseNotesBody(readFileSync(join(root, identity.notes), 'utf8')));
   } else if (command === 'prepare') {
     if (!process.env.TAURI_SIGNING_PRIVATE_KEY)
       throw new Error('TAURI_SIGNING_PRIVATE_KEY is required.');
