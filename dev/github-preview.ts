@@ -13,6 +13,7 @@ const binary = fileURLToPath(
 );
 const commandFields: Record<string, Record<string, 'string' | 'number'>> = {
   get_storage_usage: {},
+  clear_cache: { kind: 'string' },
   github_session: {},
   github_cached_session: {},
   github_cached_request: {
@@ -229,7 +230,9 @@ export function githubPreview(): Plugin {
             return;
           }
           input = '';
-          const bridge = parsed.command === 'get_storage_usage' ? storage : auth;
+          const bridge = ['get_storage_usage', 'clear_cache'].includes(parsed.command)
+            ? storage
+            : auth;
           void bridge.request(parsed.command, parsed.args).then(
             (output) => {
               if (!response.writableEnded) response.end(output);

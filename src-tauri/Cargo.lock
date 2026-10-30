@@ -4390,6 +4390,8 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-updater",
  "tempfile",
+ "webview2-com",
+ "windows 0.62.2",
  "zeroize",
 ]
 

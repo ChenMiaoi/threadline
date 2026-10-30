@@ -38,3 +38,7 @@ tauri-plugin-notification = "2.8.0"
 tauri-plugin-updater = "2.14.1"
 tauri-plugin-process = "2.4.0"
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
+
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39.1"
+windows = "0.62.2"

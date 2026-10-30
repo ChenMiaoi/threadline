@@ -79,6 +79,7 @@ pub fn run() {
             get_app_state,
             updates_configured,
             get_storage_usage,
+            clear_cache,
             save_last_view,
             get_workspace_data,
             save_workspace_data,
@@ -99,7 +100,7 @@ pub fn run() {
 
 #[tauri::command]
 async fn get_storage_usage(app: tauri::AppHandle) -> Result<storage::StorageUsage, String> {
-    let data = vec![
+    let mut data = vec![
         app.path()
             .app_data_dir()
             .map_err(|_| "STORAGE_PATH_FAILED")?,
@@ -107,14 +108,46 @@ async fn get_storage_usage(app: tauri::AppHandle) -> Result<storage::StorageUsag
             .app_local_data_dir()
             .map_err(|_| "STORAGE_PATH_FAILED")?,
     ];
-    let caches = vec![app
+    let cache = app
         .path()
         .app_cache_dir()
-        .map_err(|_| "STORAGE_PATH_FAILED")?];
+        .map_err(|_| "STORAGE_PATH_FAILED")?;
+    let mut caches = vec![cache.clone()];
+    let mut runtimes = vec![];
+    if cfg!(target_os = "windows") {
+        let root = cache.join("EBWebView");
+        caches = storage::webview_cache_paths(&root);
+        data.push(root.join("Default"));
+        runtimes.push(root);
+    }
+
     let program = std::env::current_exe().map_err(|_| "STORAGE_PATH_FAILED")?;
-    tauri::async_runtime::spawn_blocking(move || storage::measure(Some(program), data, caches))
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut usage = storage::measure(Some(program), data, caches, runtimes);
+        usage.web_cache_clearable = cfg!(target_os = "windows");
+        usage
+    })
+    .await
+    .map_err(|_| "STORAGE_TASK_FAILED".into())
+}
+
+#[tauri::command]
+async fn clear_cache(app: tauri::AppHandle, kind: String) -> Result<(), String> {
+    match kind.as_str() {
+        "responses" => tauri::async_runtime::spawn_blocking(move || {
+            let state = app.state::<Workspace>();
+            let result = state
+                .database
+                .lock()
+                .map_err(|_| "DATABASE_LOCKED")?
+                .clear_response_cache();
+            result
+        })
         .await
-        .map_err(|_| "STORAGE_TASK_FAILED".into())
+        .map_err(|_| "CACHE_CLEAR_FAILED")?,
+        "web-resources" => storage::clear_web_cache(app).await,
+        _ => Err("INVALID_CACHE_KIND".into()),
+    }
 }
 
 #[tauri::command]

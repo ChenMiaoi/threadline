@@ -8,6 +8,8 @@ const usage = {
   programBytes: 7,
   programAvailable: true,
   dataBytes: 11,
+  runtimeBytes: 0,
+  webCacheClearable: false,
   cacheBytes: 13,
   totalBytes: 31,
   incomplete: false,

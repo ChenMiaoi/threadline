@@ -2,17 +2,20 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { StoragePanel } from './StoragePanel';
-import { loadStorageUsage } from '../../lib/storage';
+import { clearCache, loadStorageUsage } from '../../lib/storage';
 const host = vi.hoisted(() => ({ isDesktop: true }));
 vi.mock('../../lib/desktop', () => host);
 vi.mock('../../lib/storage', async (original) => ({
   ...(await original<typeof import('../../lib/storage')>()),
   loadStorageUsage: vi.fn(),
+  clearCache: vi.fn().mockResolvedValue(undefined),
 }));
 const usage = {
   programBytes: 1024,
   programAvailable: true,
   dataBytes: 2048,
+  runtimeBytes: 0,
+  webCacheClearable: false,
   cacheBytes: 1024,
   totalBytes: 4096,
   incomplete: false,
@@ -50,4 +53,18 @@ it('includes the local desktop build alongside separate browser estimates', asyn
   expect(screen.getByText('程序文件')).toBeTruthy();
   expect(screen.getByText('5 KiB')).toBeTruthy();
   expect(screen.queryByText('仅统计本地预览数据，不含开发构建。')).toBeNull();
+});
+
+it('clears only the selected category and then refreshes measurements', async () => {
+  vi.mocked(loadStorageUsage).mockResolvedValue({
+    ...usage,
+    webCacheClearable: true,
+    runtimeBytes: 2048,
+  });
+  render(<StoragePanel />);
+  await screen.findByText('运行组件');
+  const calls = vi.mocked(loadStorageUsage).mock.calls.length;
+  fireEvent.click(screen.getByRole('button', { name: '清理页面资源' }));
+  await waitFor(() => expect(clearCache).toHaveBeenCalledWith('web-resources'));
+  await waitFor(() => expect(loadStorageUsage).toHaveBeenCalledTimes(calls + 1));
 });

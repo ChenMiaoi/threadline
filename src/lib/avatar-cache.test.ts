@@ -58,10 +58,34 @@ it('rejects untrusted URLs and non-image responses', async () => {
 });
 it('limits disk entries and still loads when storage is unavailable', async () => {
   const { entries, cache } = setup();
-  for (let i = 0; i < 200; i++) entries.set(`${url}?s=${i}`, new Response('old'));
+  for (let i = 0; i < 200; i++)
+    entries.set(
+      `${url}?s=${i}`,
+      new Response('old', { headers: { 'x-cached-at': String(Date.now() - 1000) } }),
+    );
   await loadGitHubAvatar(url);
   expect(entries.size).toBe(200);
   expect(cache.delete).toHaveBeenCalledOnce();
   vi.stubGlobal('caches', { open: vi.fn().mockRejectedValue(new Error('denied')) });
   expect(await (await loadGitHubAvatar(url))?.text()).toBe('image bytes');
+});
+
+it('evicts expired entries and older images when byte capacity is reached', async () => {
+  const { entries, cache } = setup();
+  for (let i = 0; i < 5; i++)
+    entries.set(
+      `${url}?old=${i}`,
+      new Response('x'.repeat(2 * 1024 * 1024), {
+        headers: { 'x-cached-at': String(Date.now() - 10000 + i) },
+      }),
+    );
+  await loadGitHubAvatar(url);
+  expect(entries.has(`${url}?old=0`)).toBe(false);
+  expect(
+    (await Promise.all([...entries.values()].map((v) => v.clone().blob()))).reduce(
+      (n, b) => n + b.size,
+      0,
+    ),
+  ).toBeLessThanOrEqual(8 * 1024 * 1024);
+  expect(cache.delete).toHaveBeenCalled();
 });

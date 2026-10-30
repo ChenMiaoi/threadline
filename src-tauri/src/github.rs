@@ -391,6 +391,13 @@ impl Client {
             for page in &mut pages {
                 let repositories = page.as_array_mut().ok_or("GH_RESPONSE_ERROR")?;
                 repositories.retain(|r| r["id"].as_u64().is_some_and(|id| seen.insert(id)));
+                for repo in repositories {
+                    *repo = serde_json::json!({
+                        "id": repo["id"], "full_name": repo["full_name"],
+                        "private": repo["private"], "description": repo["description"],
+                        "owner": { "login": repo["owner"]["login"], "avatar_url": repo["owner"]["avatar_url"] }
+                    });
+                }
             }
             return Ok(pages.into());
         }
@@ -953,10 +960,12 @@ mod tests {
     #[test]
     fn repository_picker_merges_public_and_installed_repositories_without_duplicates() {
         let (client, http) = client();
-        http.push(json!([{"id":1,"full_name":"owner/public","private":false}]));
+        http.push(json!([{"id":1,"full_name":"owner/public","private":false,"owner":{"login":"owner","avatar_url":"https://avatars.githubusercontent.com/u/1"},"huge_unused_field":"unused-data"}]));
         http.push(json!({"installations":[{"id":2,"permissions":{"metadata":"read"}}]}));
         http.push(json!({"repositories":[{"id":1,"full_name":"owner/public","private":false},{"id":3,"full_name":"org/private","private":true}]}));
         let pages = client.request("repositories", "", 0, "owner").unwrap();
+        assert!(pages[0][0].get("huge_unused_field").is_none());
+        assert_eq!(pages[0][0]["owner"]["login"], "owner");
         assert_eq!(
             pages
                 .as_array()

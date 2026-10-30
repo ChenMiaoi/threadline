@@ -10,6 +10,8 @@ use zeroize::Zeroizing;
 
 #[derive(Deserialize)]
 enum Command {
+    #[serde(rename = "clear_cache")]
+    ClearCache,
     #[serde(rename = "get_storage_usage")]
     StorageUsage,
     #[serde(rename = "github_session")]
@@ -36,6 +38,8 @@ enum Command {
 #[derive(Default, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Args {
+    #[serde(default)]
+    kind: String,
     #[serde(default)]
     operation: String,
     #[serde(default)]
@@ -64,6 +68,16 @@ fn execute(
     auth: &AuthManager,
 ) -> Result<Value, String> {
     match request.command {
+        Command::ClearCache => {
+            if request.args.kind != "responses" {
+                return Err("INVALID_CACHE_KIND".into());
+            }
+            database
+                .lock()
+                .map_err(|_| "DATABASE_LOCKED")?
+                .clear_response_cache()?;
+            Ok(Value::Null)
+        }
         Command::StorageUsage => serde_json::to_value(crate::storage::preview_usage())
             .map_err(|_| "STORAGE_TASK_FAILED".into()),
         Command::Session => github_workspace::session(database, auth),

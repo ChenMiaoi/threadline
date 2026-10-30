@@ -119,6 +119,21 @@ impl Database {
         Ok(Self { connection })
     }
 
+    pub fn clear_response_cache(&self) -> Result<(), String> {
+        let transaction = self
+            .connection
+            .unchecked_transaction()
+            .map_err(|e| e.to_string())?;
+        transaction.execute("DELETE FROM settings WHERE key LIKE 'github-app:%:cache:%' OR key LIKE 'github:cache:%'", []).map_err(|e| e.to_string())?;
+        transaction
+            .execute("DELETE FROM github_cache_index", [])
+            .map_err(|e| e.to_string())?;
+        transaction.commit().map_err(|e| e.to_string())?;
+        self.connection
+            .execute_batch("VACUUM; PRAGMA wal_checkpoint(TRUNCATE);")
+            .map_err(|e| e.to_string())
+    }
+
     pub fn last_view(&self) -> rusqlite::Result<String> {
         let view: Option<String> = self
             .connection
@@ -441,5 +456,46 @@ mod tests {
             assert_eq!(version, SCHEMA_VERSION);
         }
         std::fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn targeted_cache_clear_preserves_workspace_and_login_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let database = Database::open(&dir.path().join("app.db")).unwrap();
+        database
+            .set_setting("workspace", "preferences-and-read-state")
+            .unwrap();
+        database
+            .set_setting("github-app:test:session:7", "session-metadata")
+            .unwrap();
+        database
+            .set_setting("github:cache:7:repo:repositories:0", "legacy-cache")
+            .unwrap();
+        database
+            .cache_response(
+                "github-app:test:cache:7:owner/repo:profile:2026",
+                "response",
+                u64::MAX / 2,
+            )
+            .unwrap();
+        database.clear_response_cache().unwrap();
+        assert_eq!(
+            database.setting("workspace").unwrap().as_deref(),
+            Some("preferences-and-read-state")
+        );
+        assert_eq!(
+            database
+                .setting("github-app:test:session:7")
+                .unwrap()
+                .as_deref(),
+            Some("session-metadata")
+        );
+        assert!(database
+            .setting("github:cache:7:repo:repositories:0")
+            .unwrap()
+            .is_none());
+        assert!(database
+            .setting("github-app:test:cache:7:owner/repo:profile:2026")
+            .unwrap()
+            .is_none());
     }
 }

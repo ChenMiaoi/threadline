@@ -1,6 +1,7 @@
 const CACHE_NAME = 'threadline-github-avatars-v1';
 const MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const MAX_ENTRIES = 200;
+const MAX_BYTES = 8 * 1024 * 1024;
 const pending = new Map<string, Promise<Blob | null>>();
 
 export function trustedAvatarUrl(url?: string | null): string | null {
@@ -45,10 +46,7 @@ async function readAvatar(url: string): Promise<Blob | null> {
             headers: { 'content-type': blob.type, 'x-cached-at': String(Date.now()) },
           }),
         );
-        const keys = await cache.keys();
-        await Promise.all(
-          keys.slice(0, Math.max(0, keys.length - MAX_ENTRIES)).map((key) => cache!.delete(key)),
-        );
+        await pruneAvatars(cache);
       }
     } catch {
       /* A full cache must not prevent displaying an avatar. */
@@ -67,4 +65,35 @@ export function loadGitHubAvatar(url: string): Promise<Blob | null> {
   const request = readAvatar(trusted).finally(() => pending.delete(trusted));
   pending.set(trusted, request);
   return request;
+}
+
+async function pruneAvatars(cache: Cache) {
+  const entries = await Promise.all(
+    (await cache.keys()).map(async (key) => {
+      const value = await cache.match(key);
+      return {
+        key,
+        bytes: value ? (await value.blob()).size : 0,
+        time: Number(value?.headers.get('x-cached-at') ?? 0),
+      };
+    }),
+  );
+  entries.sort((a, b) => b.time - a.time);
+  let bytes = 0;
+  let count = 0;
+  for (const entry of entries) {
+    if (
+      Date.now() - entry.time > MAX_AGE ||
+      count >= MAX_ENTRIES ||
+      bytes + entry.bytes > MAX_BYTES
+    )
+      await cache.delete(entry.key);
+    else {
+      bytes += entry.bytes;
+      count++;
+    }
+  }
+}
+export async function clearAvatarCache() {
+  await caches.delete(CACHE_NAME);
 }

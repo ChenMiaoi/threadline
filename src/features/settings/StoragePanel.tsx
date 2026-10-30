@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useI18n } from '../../i18n/I18n';
 import { isDesktop } from '../../lib/desktop';
-import { formatBytes, loadStorageUsage, type StorageUsage } from '../../lib/storage';
+import { clearCache, formatBytes, loadStorageUsage, type StorageUsage } from '../../lib/storage';
 
 export function StoragePanel() {
   const { t, locale } = useI18n();
@@ -9,6 +9,8 @@ export function StoragePanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [clearing, setClearing] = useState(false);
+  const [clearError, setClearError] = useState(false);
   useEffect(() => {
     let active = true;
     void loadStorageUsage().then(
@@ -39,6 +41,7 @@ export function StoragePanel() {
         },
         { label: '本地数据', bytes: usage.dataBytes, color: 'var(--green)' },
         { label: '缓存', bytes: usage.cacheBytes, color: 'var(--blue, #6aa9f4)' },
+        { label: '运行组件', bytes: usage.runtimeBytes ?? 0, color: 'var(--yellow)' },
         ...(!isDesktop && usage.browserBytes != null
           ? [{ label: '浏览器存储（估算）', bytes: usage.browserBytes, color: 'var(--muted)' }]
           : []),
@@ -81,13 +84,54 @@ export function StoragePanel() {
                   {t(item.label)}
                 </dt>
                 <dd>
-                  {item.label.startsWith('程序文件') && !usage.programAvailable
+                  {item.label === '程序文件' && !usage.programAvailable
                     ? t('未找到程序文件')
                     : formatBytes(item.bytes, locale)}
                 </dd>
               </div>
             ))}
           </dl>
+          <div className="storage-cleanup" role="group" aria-label={t('定向清理缓存')}>
+            {(
+              [
+                'responses',
+                'avatars',
+                ...(usage.webCacheClearable ? ['web-resources'] : []),
+              ] as const
+            ).map((kind) => (
+              <button
+                key={kind}
+                className="chip"
+                disabled={loading || clearing}
+                onClick={async () => {
+                  setClearing(true);
+                  setClearError(false);
+                  try {
+                    await clearCache(kind as 'responses' | 'avatars' | 'web-resources');
+                    setLoading(true);
+                    setRevision((value) => value + 1);
+                  } catch {
+                    setClearError(true);
+                  } finally {
+                    setClearing(false);
+                  }
+                }}
+              >
+                {t(
+                  kind === 'responses'
+                    ? '清理 GitHub 响应'
+                    : kind === 'avatars'
+                      ? '清理头像缓存'
+                      : '清理页面资源',
+                )}
+              </button>
+            ))}
+          </div>
+          <p className="storage-note">
+            {t('响应上限 32 MiB · 头像上限 8 MiB')}
+            {usage.webCacheClearable && t(' · 页面资源目标 32 MiB')}
+          </p>
+          {clearError && <p role="alert">{t('缓存清理失败，请重试。')}</p>}
           {usage.incomplete && (
             <p role="status" className="storage-note">
               {t('部分文件无法读取，当前显示已统计的占用。')}

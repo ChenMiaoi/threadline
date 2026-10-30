@@ -545,3 +545,10 @@ select.setting-value:hover {
     gap: 12px;
   }
 }
+
+.storage-cleanup {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
