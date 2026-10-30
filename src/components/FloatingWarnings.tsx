@@ -13,30 +13,34 @@ import { useI18n } from '../i18n/I18n';
 import './floating-warnings.css';
 
 export const WARNING_COLLAPSE_MS = 10_000;
-interface Warning {
+interface Notice {
   id: string;
   title: string;
   content: ReactNode;
+  kind: 'warning' | 'update';
 }
 const WarningContext = createContext<{
-  put: (warning: Warning) => void;
+  put: (warning: Notice) => void;
   remove: (id: string) => void;
 } | null>(null);
 
 export function FloatingWarnings({ children }: { children: ReactNode }) {
   const { t } = useI18n();
-  const [warnings, setWarnings] = useState<Warning[]>([]);
+  const [warnings, setWarnings] = useState<Notice[]>([]);
   const [expanded, setExpanded] = useState(true);
   const [paused, setPaused] = useState(false);
   const launcher = useRef<HTMLButtonElement>(null);
   const panelId = useId();
-  const put = useCallback((warning: Warning) => {
+  const put = useCallback((warning: Notice) => {
     setWarnings((items) => [...items.filter((item) => item.id !== warning.id), warning]);
   }, []);
   const remove = useCallback((id: string) => {
     setWarnings((items) => items.filter((item) => item.id !== id));
   }, []);
   const context = useMemo(() => ({ put, remove }), [put, remove]);
+  const hasWarnings = warnings.some((warning) => warning.kind === 'warning');
+  const onlyWarnings = warnings.every((warning) => warning.kind === 'warning');
+  const tone = hasWarnings ? 'warning' : 'update';
   const signature = warnings
     .map((warning) => `${warning.id}:${warning.title}`)
     .sort()
@@ -71,16 +75,27 @@ export function FloatingWarnings({ children }: { children: ReactNode }) {
           }}
         >
           {isExpanded && (
-            <section className="floating-warning-panel" id={panelId} aria-label={t('待处理的提醒')}>
+            <section
+              className="floating-warning-panel"
+              data-tone={tone}
+              id={panelId}
+              aria-label={t('待处理的提醒')}
+            >
               <header>
-                <strong>{t('需要注意')}</strong>
+                <strong>
+                  {t(onlyWarnings ? '需要注意' : hasWarnings ? '应用提醒' : '更新提示')}
+                </strong>
                 <button className="text-button" aria-label={t('收起提醒')} onClick={collapse}>
                   −
                 </button>
               </header>
               <div className="floating-warning-list">
                 {warnings.map((warning) => (
-                  <article role="alert" key={warning.id}>
+                  <article
+                    role={warning.kind === 'warning' ? 'alert' : 'status'}
+                    data-tone={warning.kind}
+                    key={warning.id}
+                  >
                     <h2>{warning.title}</h2>
                     {warning.content}
                   </article>
@@ -91,6 +106,7 @@ export function FloatingWarnings({ children }: { children: ReactNode }) {
           <button
             ref={launcher}
             className="floating-warning-launcher"
+            data-tone={tone}
             aria-label={t('查看提醒（{0}）', [warnings.length])}
             aria-expanded={isExpanded}
             aria-controls={isExpanded ? panelId : undefined}
@@ -102,7 +118,7 @@ export function FloatingWarnings({ children }: { children: ReactNode }) {
               }
             }}
           >
-            <span aria-hidden="true">!</span>
+            <span aria-hidden="true">{hasWarnings ? '!' : '↑'}</span>
             <span>{warnings.length}</span>
           </button>
         </aside>
@@ -111,18 +127,28 @@ export function FloatingWarnings({ children }: { children: ReactNode }) {
   );
 }
 
-export function FloatingWarning({ title, children }: { title: string; children: ReactNode }) {
+type NoticeProps = { title: string; children: ReactNode };
+
+function FloatingNotice({ title, children, kind }: NoticeProps & { kind: Notice['kind'] }) {
   const center = useContext(WarningContext);
   const id = useId();
   useEffect(() => {
-    center?.put({ id, title, content: children });
-  }, [center, id, title, children]);
+    center?.put({ id, title, content: children, kind });
+  }, [center, id, title, children, kind]);
   useEffect(() => () => center?.remove(id), [center, id]);
   // Keep isolated views usable outside the workspace host (including component tests).
   return center ? null : (
-    <aside role="alert">
+    <aside role={kind === 'warning' ? 'alert' : 'status'}>
       <h2>{title}</h2>
       {children}
     </aside>
   );
+}
+
+export function FloatingWarning(props: NoticeProps) {
+  return <FloatingNotice {...props} kind="warning" />;
+}
+
+export function FloatingUpdate(props: NoticeProps) {
+  return <FloatingNotice {...props} kind="update" />;
 }

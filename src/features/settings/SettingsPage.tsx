@@ -81,6 +81,7 @@ function Toggle({
 }
 
 export function SettingsPage({
+  initialSection = 'account',
   preferences,
   updates,
   flush = async () => {},
@@ -90,6 +91,7 @@ export function SettingsPage({
   onChooseRepository,
   onQuit,
 }: {
+  initialSection?: Section;
   preferences: Preferences;
   updates?: ReturnType<typeof useUpdates>;
   flush?: () => Promise<void>;
@@ -107,7 +109,7 @@ export function SettingsPage({
   const [previewingSound, setPreviewingSound] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const cancelLogout = useRef<HTMLButtonElement>(null);
-  const [section, setSection] = useState<Section>('account');
+  const [section, setSection] = useState<Section>(initialSection);
 
   const title = sections.find(([id]) => id === section)![1];
   return (

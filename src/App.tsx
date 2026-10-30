@@ -1,4 +1,4 @@
-import { FloatingWarning, FloatingWarnings } from './components/FloatingWarnings';
+import { FloatingUpdate, FloatingWarning, FloatingWarnings } from './components/FloatingWarnings';
 import { typographyStyle } from './lib/appearance';
 import { I18nContext, useLanguage } from './i18n/I18n';
 import { useUpdates } from './lib/useUpdates';
@@ -50,6 +50,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   const [loading, setLoading] = useState(isDesktop);
   const [error, setError] = useState('');
   const [inboxFilter, setInboxFilter] = useState('unread');
+  const [settingsSection, setSettingsSection] = useState<'account' | 'updates'>('account');
   const [systemLight, setSystemLight] = useState(
     () => window.matchMedia('(prefers-color-scheme: light)').matches,
   );
@@ -171,6 +172,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   }, []);
 
   function navigate(next: View) {
+    if (next === 'settings') setSettingsSection('account');
     listScroll.current = 0;
     const content = document.querySelector<HTMLElement>('main.content');
     if (content) content.scrollTop = 0;
@@ -382,10 +384,21 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
               </FloatingWarning>
             )}
             {updates.status === 'available' && view !== 'settings' && (
-              <p className="sync-status" role="status">
-                {t('新版本')}
-                {updates.nextVersion} {t('可用，可在设置 → 关于与更新下载。')}
-              </p>
+              <FloatingUpdate
+                title={t('发现新版本 {0}', [updates.nextVersion])}
+                key={updates.nextVersion}
+              >
+                <p>{t('可查看更新说明并下载。')}</p>
+                <button
+                  className="chip accent"
+                  onClick={() => {
+                    navigate('settings');
+                    setSettingsSection('updates');
+                  }}
+                >
+                  {t('查看更新')}
+                </button>
+              </FloatingUpdate>
             )}
             {syncError && (
               <FloatingWarning title={t('暂时无法更新工作区')} key={syncError}>
@@ -511,6 +524,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                     ) : view === 'settings' ? (
                       <Suspense fallback={<p role="status">{t('正在读取内容…')}</p>}>
                         <SettingsPage
+                          initialSection={settingsSection}
                           updates={updates}
                           flush={flushWorkspace}
                           onQuit={isDesktop ? desktopLifecycle.quit : undefined}

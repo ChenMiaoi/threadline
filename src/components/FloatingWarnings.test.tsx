@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { FloatingWarning, FloatingWarnings, WARNING_COLLAPSE_MS } from './FloatingWarnings';
+import {
+  FloatingUpdate,
+  FloatingWarning,
+  FloatingWarnings,
+  WARNING_COLLAPSE_MS,
+} from './FloatingWarnings';
 
 afterEach(() => {
   cleanup();
@@ -75,4 +80,49 @@ it('preserves collapsed state during status refreshes and expands newly added wa
   view.rerender(<Example error="Still unavailable" second />);
   expect(screen.getAllByRole('alert')).toHaveLength(2);
   expect(screen.getByRole('button', { name: 'Retry save' })).toBeTruthy();
+});
+
+it('shows an update as a polite floating notice and retains its action after collapsing', () => {
+  vi.useFakeTimers();
+  const open = vi.fn();
+  render(
+    <FloatingWarnings>
+      <main>
+        <h1>Inbox</h1>
+      </main>
+      <FloatingUpdate title="Version 0.1.4-rc.2">
+        <button onClick={open}>View update</button>
+      </FloatingUpdate>
+    </FloatingWarnings>,
+  );
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.getByRole('status').getAttribute('data-tone')).toBe('update');
+  expect(document.querySelector('main [role="status"]')).toBeNull();
+  expect(screen.getByText('更新提示')).toBeTruthy();
+  act(() => vi.advanceTimersByTime(WARNING_COLLAPSE_MS));
+  const launcher = screen.getByRole('button', { name: '查看提醒（1）' });
+  expect(launcher.getAttribute('data-tone')).toBe('update');
+  expect(launcher.textContent).toContain('↑');
+  expect(screen.queryByRole('status')).toBeNull();
+  fireEvent.click(launcher);
+  fireEvent.click(screen.getByRole('button', { name: 'View update' }));
+  expect(open).toHaveBeenCalledOnce();
+});
+
+it('keeps warning and update semantics distinct in the same dock', () => {
+  render(
+    <FloatingWarnings>
+      <FloatingWarning title="Sync failed">
+        <p>Offline</p>
+      </FloatingWarning>
+      <FloatingUpdate title="New version">
+        <p>Ready to download</p>
+      </FloatingUpdate>
+    </FloatingWarnings>,
+  );
+  expect(screen.getByRole('alert').textContent).toContain('Offline');
+  expect(screen.getByRole('status').textContent).toContain('Ready to download');
+  expect(screen.getByRole('button', { name: '查看提醒（2）' }).getAttribute('data-tone')).toBe(
+    'warning',
+  );
 });
