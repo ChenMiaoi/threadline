@@ -5,7 +5,10 @@ export interface ReviewThread {
   replies: RestComment[];
 }
 
-/** Only GitHub's explicit reply IDs establish a thread; paths and mentions do not. */
+/** GitHub reply IDs establish thread membership, not the person being addressed.
+ * Replies in a conversation commonly all point to its first comment, including
+ * follow-ups by that first author. Never infer recipients from these IDs.
+ */
 export function reviewThreads(comments: readonly RestComment[]): ReviewThread[] {
   const byId = new Map(comments.map((comment) => [comment.id, comment]));
   const threads = new Map<number, ReviewThread>();

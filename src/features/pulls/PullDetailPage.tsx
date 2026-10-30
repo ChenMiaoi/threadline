@@ -269,14 +269,12 @@ function ReviewThreadCard({
       {replies.length > 0 && (
         <div className="review-replies" role="group" aria-label={t('代码评论回复')}>
           {replies.map((reply) => {
-            const parent = replies.find((item) => item.id === reply.in_reply_to_id);
-            const author = (parent ? parent.user?.login : comment.user?.login) ?? t('已删除用户');
             return (
               <article className="review-reply" key={reply.id}>
                 <div className="inline-group">
                   <GitHubAvatar login={reply.user?.login} url={reply.user?.avatar_url} />
                   <h5>{reply.user?.login ?? t('已删除用户')}</h5>
-                  <span className="reply-context">{t('回复 @{0}', [author])}</span>
+                  <span className="reply-context">{t('回复')}</span>
                   <time className="dim">{shortTime(reply.created_at)}</time>
                 </div>
                 <GitHubMarkdown repo={resource.repo}>{reply.body}</GitHubMarkdown>

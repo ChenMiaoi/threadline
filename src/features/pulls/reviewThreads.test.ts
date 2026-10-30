@@ -22,3 +22,15 @@ it('preserves orphan replies and malformed cycles without dropping or duplicatin
     1, 2, 3, 4,
   ]);
 });
+
+it('treats shared root IDs as thread membership even when the starter replies again', () => {
+  const root = { ...comment(1), user: { login: 'reviewer' } };
+  const authorReply = { ...comment(2, 1), user: { login: 'author' } };
+  const followUp = { ...comment(3, 1), user: { login: 'reviewer' } };
+  const [thread] = reviewThreads([followUp, root, authorReply]);
+  expect(thread.comment.id).toBe(1);
+  expect(thread.replies.map((reply) => [reply.id, reply.in_reply_to_id])).toEqual([
+    [2, 1],
+    [3, 1],
+  ]);
+});

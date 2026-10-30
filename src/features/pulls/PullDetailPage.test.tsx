@@ -273,7 +273,7 @@ it('omits empty comment reviews but retains decisions and their code freshness',
   expect(screen.queryByText(/批准不代表检查已通过或可以合并/)).toBeNull();
 });
 
-it('keeps review replies with their parent and names the actual recipient', async () => {
+it('groups replies without mistaking the thread starter for their recipient', async () => {
   const gateway = createGateway();
   const request = gateway.request;
   gateway.request = vi.fn().mockImplementation((operation, ...args) =>
@@ -307,6 +307,14 @@ it('keeps review replies with their parent and names the actual recipient', asyn
                   commit_id: 'older123456',
                 },
                 {
+                  id: 4,
+                  in_reply_to_id: 1,
+                  body: '> Changed the test.\n\nPlease update all call sites.',
+                  user: { login: 'reviewer' },
+                  created_at: '2026-10-29T10:01:00Z',
+                  path: 'test.cpp',
+                },
+                {
                   id: 3,
                   in_reply_to_id: 99,
                   body: 'An orphan reply.',
@@ -331,11 +339,14 @@ it('keeps review replies with their parent and names the actual recipient', asyn
       cache={createResourceCache()}
     />,
   );
-  await screen.findByRole('heading', { name: '讨论 3' });
-  const reply = await screen.findByText('回复 @reviewer');
+  await screen.findByRole('heading', { name: '讨论 4' });
+  const reply = (await screen.findAllByText('回复', { exact: true }))[0];
   const thread = reply.closest('.detail-card');
   expect(thread?.textContent).toContain('Use this test instead.');
   expect(thread?.textContent).toContain('Changed the test.');
+  expect(thread?.textContent).toContain('Please update all call sites.');
+  expect(within(thread as HTMLElement).getAllByText('回复', { exact: true })).toHaveLength(2);
+  expect(screen.queryByText(/^回复 @/)).toBeNull();
   expect(thread?.textContent).not.toContain('An orphan reply.');
   const code = screen.getByRole('region', { name: 'test.cpp 的代码差异' });
   expect(code.textContent).toContain('+new_test();');
