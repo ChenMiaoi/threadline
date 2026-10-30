@@ -98,7 +98,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  flex: 1;
+  /* Let the content pane own scrolling instead of overflowing a shrunken page. */
+  flex: 1 0 auto;
 }
 .pull-tabs {
   display: flex;

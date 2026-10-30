@@ -712,5 +712,8 @@ select {
 }
 
 .workspace-root {
+  /* Keep the workspace anchored while its content pane scrolls. */
+  position: fixed;
+  inset: 0;
   font-size: calc(14px * var(--ui-scale, 1));
 }

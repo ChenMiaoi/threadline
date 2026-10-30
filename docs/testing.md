@@ -58,6 +58,8 @@ Build with `npm run build:desktop:installer`, quit the previous process, and ope
 
 Browser checks at 360px are supplemental responsive tests; the native minimum width is 900px. DOM/ARIA assertions and keyboard checks do not establish screen-reader speech. A native macOS pass does not establish Windows behavior.
 
+For authored-PR scrolling, use enough rows to exceed the viewport, scroll the list to its final draft, and verify that the app bar and sidebar remain stationary. The document must not gain a second vertical scrollbar or expose blank space below the application. Repeat after filtering to a short or empty list, opening and dismissing a preview, and resizing the window. Check this in a real browser or desktop webview; jsdom does not calculate layout or scroll geometry.
+
 Use mocks or a disposable account for destructive local-state changes and permission revocation. Real logout, private repository access, organization policy, physical offline/reconnect, desktop notification delivery, and accessibility technology require dedicated checks; do not infer them from a mocked test or an unrelated smoke run.
 
 ## Timing and CI evidence
