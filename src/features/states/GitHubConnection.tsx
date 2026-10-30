@@ -37,11 +37,6 @@ export function GitHubConnection({
             {github.session ? t('已连接 @{0}', [github.session.user.login]) : t('登录 GitHub')}
           </h2>
           <p>{t('连接 GitHub 后，选择你关注的仓库并查看协作更新。')}</p>
-          <p className="dim">
-            {t(
-              '使用 ThreadLine 独立 GitHub App 登录，权限全部为只读。公开仓库可直接读取，私有仓库需要所属账号或组织安装 App 并选择允许访问的仓库。登录凭据安全保存在本机，重启后自动恢复，直到退出登录或授权失效。',
-            )}
-          </p>
           {github.connecting ? (
             <p role="status">{t('正在检查 ThreadLine 登录状态…')}</p>
           ) : github.session ? (

@@ -2,14 +2,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
 import { isPermissionGranted, requestPermission } from '@tauri-apps/plugin-notification';
 import { enableDesktopNotifications, notifyDesktop } from './notifications';
-vi.mock('./desktop', () => ({ isDesktop: true }));
+const host = vi.hoisted(() => ({ isDesktop: true }));
+vi.mock('./desktop', () => host);
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
 vi.mock('@tauri-apps/plugin-notification', () => ({
   isPermissionGranted: vi.fn(),
   requestPermission: vi.fn(),
 }));
-beforeEach(() => vi.resetAllMocks());
+beforeEach(() => {
+  vi.resetAllMocks();
+  host.isDesktop = true;
+});
 describe('desktop notifications', () => {
+  it('rejects browser delivery before calling native notification APIs', async () => {
+    host.isDesktop = false;
+    await expect(notifyDesktop('ThreadLine', 'Update')).rejects.toThrow('桌面程序');
+    await expect(enableDesktopNotifications()).rejects.toThrow('桌面程序');
+    expect(isPermissionGranted).not.toHaveBeenCalled();
+    expect(requestPermission).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalled();
+  });
   it('requests permission only on explicit enabling and exposes a denial', async () => {
     vi.mocked(isPermissionGranted).mockResolvedValue(false);
     vi.mocked(requestPermission).mockResolvedValue('denied');

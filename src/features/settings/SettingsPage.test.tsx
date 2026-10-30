@@ -12,6 +12,8 @@ import {
 } from '@testing-library/react';
 import { SettingsPage } from './SettingsPage';
 import { enableDesktopNotifications } from '../../lib/notifications';
+const host = vi.hoisted(() => ({ isDesktop: true }));
+vi.mock('../../lib/desktop', () => host);
 
 vi.mock('../../lib/notifications', () => ({
   enableDesktopNotifications: vi.fn(),
@@ -22,6 +24,7 @@ import { createGateway } from '../../test/github.fixture';
 import { defaultWorkspace } from '../../core/workspace';
 
 beforeEach(() => {
+  host.isDesktop = true;
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
     configurable: true,
     value(this: HTMLDialogElement) {
@@ -35,6 +38,27 @@ beforeEach(() => {
       this.removeAttribute('open');
     },
   });
+});
+
+it('does not offer native notifications in a browser even with a saved enabled preference', async () => {
+  host.isDesktop = false;
+  const { result } = renderHook(() => useGitHub(0, createGateway()));
+  await waitFor(() => expect(result.current.session).not.toBeNull());
+  render(
+    <SettingsPage
+      preferences={{ ...defaultWorkspace().preferences, desktopNotifications: true }}
+      onChange={vi.fn()}
+      onSync={vi.fn()}
+      github={result.current}
+      onChooseRepository={vi.fn()}
+    />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: '通知' }));
+  const toggle = screen.getByRole('switch', { name: '桌面通知' }) as HTMLButtonElement;
+  expect(toggle.disabled).toBe(true);
+  expect(toggle.getAttribute('aria-checked')).toBe('false');
+  expect(screen.queryByRole('button', { name: '发送测试通知' })).toBeNull();
+  expect(screen.getByText('桌面通知需要在 ThreadLine 桌面程序中开启。')).toBeTruthy();
 });
 afterEach(cleanup);
 

@@ -44,8 +44,8 @@ describe('in-app GitHub authorization', () => {
     const github = workspace();
     const view = render(<GitHubLoginDialog github={github} />);
     expect(screen.getByRole('dialog', { name: '登录 GitHub' })).toBeTruthy();
-    expect(screen.getByText(/ThreadLine 独立 GitHub App 授权/)).toBeTruthy();
-    expect(screen.getByText(/不授予写入、删除仓库或管理公钥的权限/)).toBeTruthy();
+    expect(screen.queryByText(/ThreadLine 独立 GitHub App 授权/)).toBeNull();
+    expect(screen.queryByText('等待授权完成，完成后会自动连接。')).toBeNull();
     await waitFor(() => expect(github.gateway.open).toHaveBeenCalledOnce());
     view.rerender(
       <GitHubLoginDialog
@@ -63,6 +63,8 @@ describe('in-app GitHub authorization', () => {
     expect(screen.getByLabelText('GitHub 验证码').textContent).toBe('ABCD-1234');
     fireEvent.click(screen.getByRole('button', { name: '复制验证码' }));
     await screen.findByText('验证码已复制');
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(screen.queryByText('授权在 GitHub 官方页面确认。你可以返回此窗口查看状态。')).toBeNull();
     expect(writeText).toHaveBeenCalledWith('ABCD-1234');
     fireEvent.click(screen.getByRole('button', { name: '重新打开授权页 ↗' }));
     expect(github.gateway.open).toHaveBeenCalledWith('https://github.com/login/device');

@@ -54,11 +54,6 @@ export function GitHubLoginDialog({ github }: { github: GitHubWorkspace }) {
   return (
     <Modal title={t('登录 GitHub')} onClose={() => void cancel()}>
       <section className="github-device-login" aria-label={t('GitHub 授权')}>
-        <p className="dim">
-          {t(
-            '使用 ThreadLine 独立 GitHub App 授权，可读取公开仓库和已单独授权的私有仓库。 权限包括 PR、Issue、代码、检查和提交状态；不授予写入、删除仓库或管理公钥的权限。',
-          )}
-        </p>
         {busy ? (
           <>
             {state.code ? (
@@ -89,9 +84,7 @@ export function GitHubLoginDialog({ github }: { github: GitHubWorkspace }) {
             ) : (
               <p>{t('正在准备 GitHub 授权页面…')}</p>
             )}
-            <p className="muted" role="status">
-              {state.code ? t('等待授权完成，完成后会自动连接。') : t('正在获取验证码…')}
-            </p>
+            {copyMessage && <p role="status">{t(copyMessage)}</p>}
           </>
         ) : (
           <button
@@ -115,8 +108,6 @@ export function GitHubLoginDialog({ github }: { github: GitHubWorkspace }) {
             {t(openError)}
           </p>
         )}
-        {copyMessage && <p role="status">{copyMessage}</p>}
-        <p className="dim">{t('授权在 GitHub 官方页面确认。你可以返回此窗口查看状态。')}</p>
         <button className="chip" onClick={() => void cancel()}>
           {t('取消登录')}
         </button>

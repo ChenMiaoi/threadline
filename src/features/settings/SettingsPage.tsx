@@ -8,6 +8,7 @@ import type { GitHubWorkspace } from '../../lib/useGitHub';
 import { enableDesktopNotifications, notifyDesktop } from '../../lib/notifications';
 import { PageHeader } from '../../components/PageHeader';
 import { GitHubLoginButton } from '../states/GitHubLogin';
+import { isDesktop } from '../../lib/desktop';
 
 const sections = [
   ['account', '账号与连接'],
@@ -211,7 +212,7 @@ export function SettingsPage({
               <SettingRow title={github.repo || '尚未选择仓库'}>
                 <span className="muted">{github.repo ? t('已选择') : t('未选择')}</span>
               </SettingRow>
-              <SettingRow title={t('选择仓库')} description={t('仅显示已授权仓库。')}>
+              <SettingRow title={t('选择仓库')}>
                 <button className="setting-value accent" onClick={onChooseRepository}>
                   {t('选择仓库')}
                 </button>
@@ -241,7 +242,7 @@ export function SettingsPage({
                     : t('尚未同步')}
                 </span>
               </SettingRow>
-              <SettingRow title={t('手动刷新')} description={t('刷新失败时保留本地缓存。')}>
+              <SettingRow title={t('手动刷新')}>
                 <button
                   className="setting-value accent"
                   disabled={github.syncing || !github.session || !github.repo}
@@ -287,12 +288,16 @@ export function SettingsPage({
               <h2 className="settings-section-heading">{t('呈现方式')}</h2>
               <SettingRow
                 title={t('桌面通知')}
-                description={t('应用运行时提醒，需要系统通知权限。')}
+                description={t(
+                  isDesktop
+                    ? '应用运行时提醒，需要系统通知权限。'
+                    : '桌面通知需要在 ThreadLine 桌面程序中开启。',
+                )}
               >
                 <Toggle
                   label={t('桌面通知')}
-                  disabled={requestingNotifications}
-                  checked={preferences.desktopNotifications}
+                  disabled={!isDesktop || requestingNotifications}
+                  checked={isDesktop && preferences.desktopNotifications}
                   onChange={() => {
                     if (requestingNotifications) return;
                     setNotificationError('');
@@ -308,7 +313,7 @@ export function SettingsPage({
                   }}
                 />
               </SettingRow>
-              {preferences.desktopNotifications && (
+              {isDesktop && preferences.desktopNotifications && (
                 <SettingRow title={t('测试桌面通知')}>
                   <button
                     className="setting-value"
@@ -356,11 +361,6 @@ export function SettingsPage({
               {requestingNotifications && <p role="status">{t('正在申请系统通知权限…')}</p>}
               {notificationError && <p role="alert">{t(notificationError)}</p>}
               {notificationResult && <p role="status">{t(notificationResult)}</p>}
-              <p className="settings-note">
-                {t(
-                  '未读气泡始终更新。提醒类型与静默时段仅控制弹窗；首次导入不弹窗。应用退出或设为手动刷新后不会自动提醒。',
-                )}
-              </p>
             </>
           ) : (
             <>

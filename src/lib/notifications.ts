@@ -9,6 +9,7 @@ export async function enableDesktopNotifications() {
 }
 
 export async function notifyDesktop(title: string, body: string) {
+  if (!isDesktop) throw new Error('桌面通知需要在 ThreadLine 桌面程序中开启。');
   if (!(await isPermissionGranted()))
     throw new Error('系统通知权限不可用，请在通知设置中重新开启桌面通知。');
   await invoke('plugin:notification|notify', { options: { title, body } });

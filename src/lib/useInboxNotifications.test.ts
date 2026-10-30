@@ -10,6 +10,9 @@ import { record, repo, user } from '../test/github.fixture';
 import type { GitHubWorkspace } from './useGitHub';
 import { useInboxNotifications } from './useInboxNotifications';
 import { useWorkspace } from './useWorkspace';
+import { notifyDesktop } from './notifications';
+vi.mock('./notifications', () => ({ notifyDesktop: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('./desktop', () => ({ isDesktop: false }));
 
 const key = `${user.id}:${repo}`;
 const activity = activityFromGitHub(record, user.id, repo, user.login);
@@ -41,6 +44,23 @@ afterEach(() => {
 });
 
 describe('inbox notifications', () => {
+  it('keeps in-app updates without attempting native delivery in a browser', async () => {
+    vi.mocked(notifyDesktop).mockClear();
+    const saved = defaultWorkspace();
+    saved.preferences.desktopNotifications = true;
+    saved.inboxSeen[key] = [activity.id];
+    const repository = { load: async () => saved, save: vi.fn().mockResolvedValue(undefined) };
+    const changed = { ...activity, id: `${activity.id}:new` };
+    const { result } = renderHook(() => {
+      const workspace = useWorkspace(repository);
+      return useInboxNotifications(github, [changed], workspace);
+    });
+    await flush();
+    await flush();
+    expect(result.current.toast).toContain('有新动态');
+    expect(result.current.error).toBe('');
+    expect(notifyDesktop).not.toHaveBeenCalled();
+  });
   it('keeps the full supported baseline and read state across refreshes and persistence', async () => {
     let saved: WorkspaceData = { ...defaultWorkspace(), read: [records[0].id] };
     const repository = {
