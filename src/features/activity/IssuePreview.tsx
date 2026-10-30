@@ -75,34 +75,28 @@ export function IssuePreview({
           <>
             <p className="dim">{detail.issue.user?.login ?? '已删除用户'}</p>
             <GitHubMarkdown repo={repo}>{detail.issue.body || '暂无说明'}</GitHubMarkdown>
-            <section className="detail-card" aria-label={t('关联 PR')}>
-              <h3>{t('关联 PR')}</h3>
-              <p className="dim">
-                {t('引用此 Issue 的 PR；引用不一定表示合并后会自动关闭 Issue。')}
-              </p>
-              {detail.referencedPulls?.map((pull) => (
-                <p key={pull.url}>
-                  <button
-                    className="text-button accent"
-                    onClick={() =>
-                      void gateway.open(pull.url).catch((reason) => setOpenError(String(reason)))
-                    }
-                  >
-                    #{pull.number} {pull.title} ↗
-                  </button>
-                  {' · '}
-                  {pull.merged ? t('已合并') : pull.state === 'closed' ? t('已关闭') : t('开放')}
+            {!!detail.referencedPulls?.length && (
+              <section className="detail-card" aria-label={t('关联 PR')}>
+                <h3>{t('关联 PR')}</h3>
+                <p className="dim">
+                  {t('引用此 Issue 的 PR；引用不一定表示合并后会自动关闭 Issue。')}
                 </p>
-              ))}
-              {detail.referencedPulls?.length === 0 && (
-                <p className="dim">{t('未找到引用此 Issue 的 PR。')}</p>
-              )}
-              {!detail.referencedPulls && (
-                <button className="chip" disabled={result.loading} onClick={result.retry}>
-                  {t('读取关联 PR')}
-                </button>
-              )}
-            </section>
+                {detail.referencedPulls?.map((pull) => (
+                  <p key={pull.url}>
+                    <button
+                      className="text-button accent"
+                      onClick={() =>
+                        void gateway.open(pull.url).catch((reason) => setOpenError(String(reason)))
+                      }
+                    >
+                      #{pull.number} {pull.title} ↗
+                    </button>
+                    {' · '}
+                    {pull.merged ? t('已合并') : pull.state === 'closed' ? t('已关闭') : t('开放')}
+                  </p>
+                ))}
+              </section>
+            )}
             {comments.length > limit && (
               <button className="chip" onClick={() => setLimit((n) => n + 30)}>
                 {t('显示更早的评论（还有')}
