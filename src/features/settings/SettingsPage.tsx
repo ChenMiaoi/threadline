@@ -9,6 +9,7 @@ import { enableDesktopNotifications, notifyDesktop } from '../../lib/notificatio
 import { PageHeader } from '../../components/PageHeader';
 import { GitHubLoginButton } from '../states/GitHubLogin';
 import { isDesktop } from '../../lib/desktop';
+import { StoragePanel } from './StoragePanel';
 
 const sections = [
   ['account', '账号与连接'],
@@ -164,6 +165,7 @@ export function SettingsPage({
           ) : section === 'updates' ? (
             <>
               {updates && <UpdatesPanel updates={updates} flush={flush} />}
+              <StoragePanel />
               <SettingRow
                 title={t('自动检查更新')}
                 description={t('每 6 小时检查一次，安装前由你确认。')}

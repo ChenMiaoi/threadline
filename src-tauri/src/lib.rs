@@ -10,6 +10,7 @@ mod github_workspace;
 mod macos;
 #[cfg(feature = "browser-preview")]
 pub mod preview;
+mod storage;
 
 use db::{Database, SCHEMA_VERSION};
 use serde::Serialize;
@@ -77,6 +78,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_app_state,
             updates_configured,
+            get_storage_usage,
             save_last_view,
             get_workspace_data,
             save_workspace_data,
@@ -93,6 +95,26 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("Unable to start ThreadLine");
+}
+
+#[tauri::command]
+async fn get_storage_usage(app: tauri::AppHandle) -> Result<storage::StorageUsage, String> {
+    let data = vec![
+        app.path()
+            .app_data_dir()
+            .map_err(|_| "STORAGE_PATH_FAILED")?,
+        app.path()
+            .app_local_data_dir()
+            .map_err(|_| "STORAGE_PATH_FAILED")?,
+    ];
+    let caches = vec![app
+        .path()
+        .app_cache_dir()
+        .map_err(|_| "STORAGE_PATH_FAILED")?];
+    let program = std::env::current_exe().map_err(|_| "STORAGE_PATH_FAILED")?;
+    tauri::async_runtime::spawn_blocking(move || storage::measure(Some(program), data, caches))
+        .await
+        .map_err(|_| "STORAGE_TASK_FAILED".into())
 }
 
 #[tauri::command]

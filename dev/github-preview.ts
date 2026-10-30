@@ -12,6 +12,7 @@ const binary = fileURLToPath(
   ),
 );
 const commandFields: Record<string, Record<string, 'string' | 'number'>> = {
+  get_storage_usage: {},
   github_session: {},
   github_cached_session: {},
   github_cached_request: {
@@ -177,14 +178,18 @@ export function createGitHubBridge(
 
 export function githubPreview(): Plugin {
   const auth = createGitHubBridge();
+  // Local measurement must not queue behind slow GitHub network requests.
+  const storage = createGitHubBridge(undefined, 15000);
+  const close = () => {
+    auth.close();
+    storage.close();
+  };
   return {
     name: 'threadline-local-github',
     apply: 'serve',
-    closeBundle() {
-      auth.close();
-    },
+    closeBundle: close,
     configureServer(server) {
-      server.httpServer?.on('close', auth.close);
+      server.httpServer?.on('close', close);
       server.middlewares.use('/__threadline/github', (request, response) => {
         response.setHeader('Cache-Control', 'no-store');
         response.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -224,7 +229,8 @@ export function githubPreview(): Plugin {
             return;
           }
           input = '';
-          void auth.request(parsed.command, parsed.args).then(
+          const bridge = parsed.command === 'get_storage_usage' ? storage : auth;
+          void bridge.request(parsed.command, parsed.args).then(
             (output) => {
               if (!response.writableEnded) response.end(output);
             },

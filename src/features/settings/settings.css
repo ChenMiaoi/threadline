@@ -30,6 +30,70 @@
   flex: 1;
   min-width: 0;
 }
+.storage-panel {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.storage-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.storage-heading h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.storage-heading strong {
+  font-size: 30px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.storage-bar {
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--raised);
+  margin: 20px 0 16px;
+  gap: 2px;
+}
+.storage-bar span {
+  flex-basis: 0;
+}
+.storage-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+  margin: 0;
+}
+.storage-categories > div {
+  min-width: 100px;
+}
+.storage-categories dt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.storage-categories i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.storage-categories dd {
+  margin: 6px 0 0 14px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.storage-note {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--dim);
+}
 .settings-section-heading {
   min-height: 42px;
   display: flex;

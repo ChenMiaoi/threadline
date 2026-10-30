@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { Socket } from 'node:net';
 import { allowsCommand, allowsPreviewRequest } from './github-preview';
 describe('local preview boundary', () => {
+  it('allows storage measurement without accepting caller-provided filesystem paths', () => {
+    expect(allowsCommand('get_storage_usage', {})).toBe(true);
+    expect(allowsCommand('get_storage_usage', { path: 'C:/' })).toBe(false);
+  });
   const socket = new Socket();
   Object.defineProperty(socket, 'remoteAddress', { value: '127.0.0.1' });
   const request = {

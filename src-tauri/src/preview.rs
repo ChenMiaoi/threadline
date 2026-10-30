@@ -10,6 +10,8 @@ use zeroize::Zeroizing;
 
 #[derive(Deserialize)]
 enum Command {
+    #[serde(rename = "get_storage_usage")]
+    StorageUsage,
     #[serde(rename = "github_session")]
     Session,
     #[serde(rename = "github_cached_session")]
@@ -62,6 +64,8 @@ fn execute(
     auth: &AuthManager,
 ) -> Result<Value, String> {
     match request.command {
+        Command::StorageUsage => serde_json::to_value(crate::storage::preview_usage())
+            .map_err(|_| "STORAGE_TASK_FAILED".into()),
         Command::Session => github_workspace::session(database, auth),
         Command::CachedSession => github_workspace::cached_session(database, auth),
         Command::CachedRequest => github_workspace::cached_request_scoped(
