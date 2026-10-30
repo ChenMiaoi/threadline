@@ -45,17 +45,37 @@ export function ProfilePage({
       </header>
       <div className="profile-identity">
         <GitHubAvatar login={user.login} url={profile?.avatarUrl ?? user.avatar_url} />
-        <div>
-          <h2>{profile?.name || user.name || user.login}</h2>
+        <div className="profile-identity-info">
+          <div className="profile-identity-name">
+            <h2 title={profile?.name || user.name || user.login}>
+              {profile?.name || user.name || user.login}
+            </h2>
+            <button
+              className="profile-github-link"
+              aria-label={t('在 GitHub 查看')}
+              title={t('在 GitHub 查看')}
+              onClick={() =>
+                void gateway.open(`https://github.com/${encodeURIComponent(user.login)}`)
+              }
+            >
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M14 3h7v7M21 3l-9 9M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5" />
+              </svg>
+            </button>
+          </div>
           <span>@{user.login}</span>
           {profile?.bio && <p>{profile.bio}</p>}
         </div>
-        <button
-          className="chip"
-          onClick={() => void gateway.open(`https://github.com/${encodeURIComponent(user.login)}`)}
-        >
-          {t('在 GitHub 查看')}
-        </button>
       </div>
       <div className="profile-toolbar">
         <div className="profile-period" role="group" aria-label={t('贡献活动')}>

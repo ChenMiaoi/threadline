@@ -254,3 +254,14 @@ it('isolates delayed responses when switching selected repositories', async () =
     '',
   );
 });
+
+it('keeps the compact GitHub icon accessible and opens the displayed user profile', async () => {
+  const gateway = createGateway();
+  gateway.request = vi.fn().mockResolvedValue(response(profile));
+  render(<ProfilePage user={user} repo={repo} gateway={gateway} cache={createResourceCache()} />);
+  await screen.findByText('Building useful things');
+  const link = screen.getByRole('button', { name: '在 GitHub 查看' });
+  expect(link.textContent).toBe('');
+  fireEvent.click(link);
+  expect(gateway.open).toHaveBeenCalledWith(`https://github.com/${user.login}`);
+});
