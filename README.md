@@ -1,9 +1,19 @@
-# ThreadLine
+<h1 align="center">ThreadLine</h1>
 
-[![CI status on main](https://github.com/ChenMiaoi/threadline/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ChenMiaoi/threadline/actions/workflows/ci.yml)
-[![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue)](LICENSE)
-[![Platforms: macOS and Windows](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows-blue)](docs/development.md)
-[![Latest release](https://img.shields.io/github/v/release/ChenMiaoi/threadline?label=release)](https://github.com/ChenMiaoi/threadline/releases/latest)
+<p align="center">
+  <a href="https://github.com/ChenMiaoi/threadline/actions/workflows/ci.yml">
+    <img src="https://github.com/ChenMiaoi/threadline/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status on main" />
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/license-GPL--3.0--only-blue" alt="License: GPL-3.0-only" />
+  </a>
+  <a href="docs/development.md">
+    <img src="https://img.shields.io/badge/platforms-macOS%20%7C%20Windows-blue" alt="Platforms: macOS and Windows" />
+  </a>
+  <a href="https://github.com/ChenMiaoi/threadline/releases/latest">
+    <img src="https://img.shields.io/github/v/release/ChenMiaoi/threadline?label=release" alt="Latest release" />
+  </a>
+</p>
 
 A local-first desktop workspace for GitHub collaboration.
 
