@@ -1,3 +1,4 @@
+import { FloatingWarning } from '../../components/FloatingWarnings';
 import { ContributionChart } from './ContributionChart';
 import { useI18n } from '../../i18n/I18n';
 import { useState, type CSSProperties } from 'react';
@@ -88,16 +89,13 @@ export function ProfilePage({
           </button>
         </div>
         {resource.error && (
-          <div className="profile-error" role="alert">
-            <p>
-              {t('暂时无法更新个人主页：')}
-              {resource.error}
-            </p>
+          <FloatingWarning title={t('暂时无法更新个人主页')} key={resource.error}>
+            <p>{resource.error}</p>
             {profile && <p>{t('当前显示上次读取的数据，可能不是最新。')}</p>}
             <button className="chip" onClick={resource.retry}>
               {t('重试个人主页')}
             </button>
-          </div>
+          </FloatingWarning>
         )}
       </div>
       {collection && calendar && (

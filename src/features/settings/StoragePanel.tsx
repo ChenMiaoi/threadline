@@ -1,3 +1,4 @@
+import { FloatingWarning } from '../../components/FloatingWarnings';
 import { useEffect, useState } from 'react';
 import { useI18n } from '../../i18n/I18n';
 import { isDesktop } from '../../lib/desktop';
@@ -68,7 +69,21 @@ export function StoragePanel() {
         </button>
       </header>
       {loading && <p role="status">{t('正在计算占用…')}</p>}
-      {error && <p role="alert">{t('无法读取磁盘占用，请重试。')}</p>}
+      {error && (
+        <FloatingWarning title={t('无法读取磁盘占用')}>
+          <p>{t('无法读取磁盘占用，请重试。')}</p>
+          <button
+            className="chip"
+            disabled={loading}
+            onClick={() => {
+              setLoading(true);
+              setRevision((value) => value + 1);
+            }}
+          >
+            {t('重试')}
+          </button>
+        </FloatingWarning>
+      )}
       {usage && (
         <>
           <div className="storage-bar" aria-hidden="true">
@@ -131,7 +146,11 @@ export function StoragePanel() {
             {t('响应上限 32 MiB · 头像上限 8 MiB')}
             {usage.webCacheClearable && t(' · 页面资源目标 32 MiB')}
           </p>
-          {clearError && <p role="alert">{t('缓存清理失败，请重试。')}</p>}
+          {clearError && (
+            <FloatingWarning title={t('缓存清理未完成')}>
+              <p>{t('缓存清理失败，请重试。')}</p>
+            </FloatingWarning>
+          )}
           {usage.incomplete && (
             <p role="status" className="storage-note">
               {t('部分文件无法读取，当前显示已统计的占用。')}

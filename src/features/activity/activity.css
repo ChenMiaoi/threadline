@@ -303,9 +303,6 @@
   border: 0;
   cursor: pointer;
 }
-.notification-error {
-  padding: 10px 24px;
-}
 .density-compact .record-main {
   min-height: 74px;
   padding-block: 8px;

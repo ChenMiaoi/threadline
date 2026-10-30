@@ -36,8 +36,9 @@
   max-width: 100%;
   min-width: 0;
   max-height: 60vh;
-  font-size: calc(14px * var(--ui-scale, 1));
-  line-height: 24px;
+  font-family: var(--code-font, monospace);
+  font-size: var(--code-size, 14px);
+  line-height: var(--code-line-height, 1.7);
   padding: 0;
   margin-block: 10px;
   border: 1px solid var(--border);
@@ -53,7 +54,7 @@
 .diff-line {
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr);
-  min-height: 24px;
+  min-height: var(--code-row-height, 24px);
 }
 .diff-number {
   padding-inline: 8px;
@@ -63,10 +64,10 @@
   user-select: none;
 }
 .diff-source {
-  white-space: pre-wrap;
+  white-space: var(--code-wrap, pre-wrap);
   overflow-wrap: anywhere;
   min-width: 0;
-  max-width: calc(80ch + 24px);
+  max-width: var(--code-width, calc(80ch + 24px));
   padding-inline: 12px;
 }
 .diff-added {
@@ -209,30 +210,6 @@
 .sync-error-page h1 {
   font-size: calc(26px * var(--ui-scale, 1));
   line-height: 34px;
-}
-.sync-error-banner {
-  background: var(--raised);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 20px 24px;
-  min-height: 0;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.sync-error-banner h2 {
-  font-size: calc(20px * var(--ui-scale, 1));
-  line-height: 27px;
-}
-.sync-error-banner p {
-  font-size: calc(16px * var(--ui-scale, 1));
-  color: var(--muted);
-  line-height: 24px;
-}
-.sync-error-banner small {
-  color: var(--dim);
-  font-size: calc(13px * var(--ui-scale, 1));
 }
 .sync-error-page .chip,
 .snoozed-page > .inline-group > .chip {
@@ -386,9 +363,6 @@
 }
 .repository-choice > span:last-of-type {
   flex-shrink: 0;
-}
-.sync-error-banner {
-  overflow-wrap: anywhere;
 }
 @media (max-width: 760px) {
   .onboarding-page {

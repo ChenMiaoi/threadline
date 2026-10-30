@@ -1,4 +1,5 @@
 import { ReviewVersionStatus } from './ReviewVersionStatus';
+import { FloatingWarning } from '../../components/FloatingWarnings';
 import { GitHubAvatar } from '../../components/GitHubAvatar';
 import type { ReviewThread } from './reviewThreads';
 import { discussionEntries, discussionCount } from './discussionEntries';
@@ -71,7 +72,7 @@ function ResourceState({
         </p>
       )}
       {error && (
-        <div className="sync-error-banner" role="alert">
+        <FloatingWarning title={t('无法更新详情')} key={error}>
           <p>{t(error)}</p>
           {cached && <p>{t('保留上次读取内容，可能不是最新。')}</p>}
           <button
@@ -81,7 +82,7 @@ function ResourceState({
           >
             {/GH_HEAD_CHANGED/.test(error) ? t('刷新详情') : t('重试')}
           </button>
-        </div>
+        </FloatingWarning>
       )}
       {children}
     </>
@@ -460,9 +461,9 @@ function ChecksSection({ resource, onReload }: { resource: ResourceProps; onRelo
             </span>
           </p>
           {result.response.payload.checkError && (
-            <div role="alert">
+            <FloatingWarning title={t('未能完整获取检查结果')}>
               <p>{result.response.payload.checkError}</p>
-            </div>
+            </FloatingWarning>
           )}
           <div className="check-list">
             {rows.map((row) => (
@@ -608,7 +609,11 @@ export function PullDetailPage({
           </button>
         </div>
       </section>
-      {openError && <p role="alert">{t(openError)}</p>}
+      {openError && (
+        <FloatingWarning title={t('无法打开链接')}>
+          <p>{t(openError)}</p>
+        </FloatingWarning>
+      )}
       <ResourceState {...result} cached={Boolean(detail)} onReload={refresh} />
       <TabList
         id={tabsId}

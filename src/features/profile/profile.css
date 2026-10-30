@@ -203,12 +203,6 @@
 .profile-page .profile-fetched {
   font-size: calc(11px * var(--ui-scale, 1));
 }
-.profile-error {
-  margin: 12px 0;
-  border: 1px solid var(--border);
-  padding: 12px;
-  border-radius: 8px;
-}
 @media (max-width: 650px) {
   .profile-page {
     padding: 20px 14px;

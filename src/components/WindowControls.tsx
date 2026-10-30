@@ -1,3 +1,4 @@
+import { FloatingWarning } from './FloatingWarnings';
 import { useI18n } from '../i18n/I18n';
 import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -69,9 +70,9 @@ export function WindowControls() {
         </svg>
       </button>
       {error && (
-        <span className="window-error" role="alert">
-          {error}
-        </span>
+        <FloatingWarning title={t('窗口操作未完成')}>
+          <p>{error}</p>
+        </FloatingWarning>
       )}
     </div>
   );

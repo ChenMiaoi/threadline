@@ -1,3 +1,4 @@
+import { FloatingWarning } from '../../components/FloatingWarnings';
 import { useI18n } from '../../i18n/I18n';
 import type { useUpdates } from '../../lib/useUpdates';
 import { Icon } from '../../components/Icon';
@@ -70,7 +71,14 @@ export function UpdatesPanel({
           </div>
         )}
       </div>
-      {updates.error && <p role="alert">{updates.error}</p>}
+      {updates.error && (
+        <FloatingWarning title={t('更新未完成')} key={updates.error}>
+          <p>{updates.error}</p>
+          <button className="chip" onClick={() => void updates.check()}>
+            {t('检查更新')}
+          </button>
+        </FloatingWarning>
+      )}
       {updates.status === 'downloading' && (
         <div className="updates-progress">
           <progress

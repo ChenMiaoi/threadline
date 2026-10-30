@@ -1,3 +1,4 @@
+import { FloatingWarning } from '../../components/FloatingWarnings';
 import { notificationSounds, type NotificationSound } from '../../core/notification-sound';
 import { playNotificationSound } from '../../lib/notification-sound';
 import { useI18n } from '../../i18n/I18n';
@@ -408,7 +409,11 @@ export function SettingsPage({
                 </div>
               </SettingRow>
               {requestingNotifications && <p role="status">{t('正在申请系统通知权限…')}</p>}
-              {notificationError && <p role="alert">{t(notificationError)}</p>}
+              {notificationError && (
+                <FloatingWarning title={t('通知设置需要处理')}>
+                  <p>{t(notificationError)}</p>
+                </FloatingWarning>
+              )}
               {notificationResult && <p role="status">{t(notificationResult)}</p>}
             </>
           ) : (
