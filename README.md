@@ -11,7 +11,7 @@ ThreadLine brings the pull requests, reviews, and issues that need your attentio
 
 ![ThreadLine authored PR workspace for the public llvm/llvm-project repository](docs/images/workspace.png)
 
-_Current development UI, showing the public `llvm/llvm-project` repository in Simplified Chinese._
+_ThreadLine workspace showing the public `llvm/llvm-project` repository in Simplified Chinese._
 
 ## Your repository, in one place
 
