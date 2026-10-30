@@ -22,7 +22,7 @@ it('shows version information without an update action in unsupported builds', a
 it('checks, downloads, and requires an explicit install action in the UI', async () => {
   const update = {
     version: '0.2.0',
-    body: 'Release notes',
+    body: '## Release notes\n\n- Improved navigation',
     download: vi.fn().mockResolvedValue(undefined),
     install: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined),
@@ -39,7 +39,12 @@ it('checks, downloads, and requires an explicit install action in the UI', async
   render(<Harness />);
   await screen.findByText('ThreadLine 0.1.0');
   fireEvent.click(screen.getByRole('button', { name: '检查更新' }));
-  fireEvent.click(await screen.findByRole('button', { name: '下载更新' }));
+  const download = await screen.findByRole('button', { name: '下载更新' });
+  expect(screen.getByText('发现新版本 0.2.0').getAttribute('role')).toBe('status');
+  fireEvent.click(screen.getByText('更新说明'));
+  expect(await screen.findByRole('heading', { name: 'Release notes' })).toBeTruthy();
+  expect(screen.getByText('Improved navigation')).toBeTruthy();
+  fireEvent.click(download);
   const install = await screen.findByRole('button', { name: '安装并重新启动' });
   expect(update.install).not.toHaveBeenCalled();
   fireEvent.click(install);

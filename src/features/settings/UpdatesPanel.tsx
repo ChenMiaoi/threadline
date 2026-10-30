@@ -1,5 +1,7 @@
 import { useI18n } from '../../i18n/I18n';
 import type { useUpdates } from '../../lib/useUpdates';
+import { Icon } from '../../components/Icon';
+import { GitHubMarkdown } from '../../components/GitHubMarkdown';
 
 export function UpdatesPanel({
   updates,
@@ -24,14 +26,22 @@ export function UpdatesPanel({
     error: '检查更新失败',
   };
   return (
-    <section className="updates-card" aria-label={t('版本与更新')}>
+    <section className="updates-card" aria-label={t('版本与更新')} data-status={updates.status}>
       <div className="updates-header">
+        <span className="updates-logo">
+          <Icon name="brand" />
+        </span>
         <div>
           <h2>ThreadLine {updates.version}</h2>
-          <p className="muted">{updates.channel}</p>
+          <span className="updates-channel">{updates.channel}</span>
         </div>
+      </div>
+      <div className="updates-state">
+        <p role="status" className="updates-status">
+          {t(labels[updates.status])}
+        </p>
         {updates.status !== 'unavailable' && (
-          <div className="inline-group">
+          <div className="inline-group updates-actions">
             <button
               className="chip"
               disabled={[
@@ -60,16 +70,9 @@ export function UpdatesPanel({
           </div>
         )}
       </div>
-      <p role="status">{t(labels[updates.status])}</p>
-      {updates.checkedAt > 0 && (
-        <p className="muted">
-          {t('上次检查：')}
-          {new Date(updates.checkedAt).toLocaleString(locale)}
-        </p>
-      )}
       {updates.error && <p role="alert">{updates.error}</p>}
       {updates.status === 'downloading' && (
-        <>
+        <div className="updates-progress">
           <progress
             aria-label={t('更新下载进度')}
             value={updates.total ? updates.received : undefined}
@@ -79,12 +82,28 @@ export function UpdatesPanel({
             {(updates.received / 1048576).toFixed(1)} MB
             {updates.total ? ` / ${(updates.total / 1048576).toFixed(1)} MB` : ''}
           </p>
-        </>
+        </div>
+      )}
+      {updates.checkedAt > 0 && (
+        <p className="updates-checked">
+          {t('上次检查：')}
+          <time
+            dateTime={new Date(updates.checkedAt).toISOString()}
+            title={new Date(updates.checkedAt).toLocaleString(locale)}
+          >
+            {new Date(updates.checkedAt).toLocaleString(locale, {
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </time>
+        </p>
       )}
       {updates.notes && (
-        <details className="storage-details">
+        <details className="updates-notes">
           <summary>{t('更新说明')}</summary>
-          <pre className="release-notes">{updates.notes}</pre>
+          <GitHubMarkdown repo="ChenMiaoi/threadline">{updates.notes}</GitHubMarkdown>
         </details>
       )}
     </section>
