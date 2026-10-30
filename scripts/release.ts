@@ -63,7 +63,7 @@ export function releaseConfiguration(publicKey: string, channel: string) {
       updater: {
         pubkey: publicKey.trim(),
         endpoints: [
-          `https://github.com/ChenMiaoi/threadline/releases/download/update-channel/${channel}.json`,
+          'https://github.com/ChenMiaoi/threadline/releases/download/update-channel/preview.json',
         ],
       },
     },
@@ -110,7 +110,8 @@ export function buildManifest(root: string, artifactRoot: string, tag: string, o
     pub_date: new Date().toISOString(),
     platforms,
   };
-  writeFileSync(join(output, `${identity.channel}.json`), JSON.stringify(manifest, null, 2) + '\n');
+  for (const channel of ['stable', 'preview'])
+    writeFileSync(join(output, `${channel}.json`), JSON.stringify(manifest, null, 2) + '\n');
   return manifest;
 }
 export function compareVersions(a: string, b: string) {
@@ -135,6 +136,9 @@ export function canPublishChannel(tag: string, existingVersion: string) {
   if (compareVersions(identity.version, existingVersion) >= 0) return true;
   if (identity.prerelease) return false;
   throw new Error('Refusing to move the update channel backwards.');
+}
+export function canPublishChannels(tag: string, existingVersions: string[]) {
+  return existingVersions.every((version) => canPublishChannel(tag, version));
 }
 async function main() {
   const [command, tag, artifactRoot, output] = process.argv.slice(2);
@@ -162,31 +166,23 @@ async function main() {
     );
   } else if (command === 'manifest') {
     buildManifest(root, artifactRoot, tag, output);
-  } else if (command === 'channel' || command === 'promote') {
-    const channel = command === 'promote' ? 'preview' : identity.channel;
-    const response = await fetch(
-      `https://github.com/ChenMiaoi/threadline/releases/download/update-channel/${channel}.json`,
-      { signal: AbortSignal.timeout(30_000) },
-    );
-    if (response.status !== 404) {
-      if (!response.ok) throw new Error(`Channel check failed: HTTP ${response.status}`);
-      const existing = (await response.json()) as { version: string };
-      if (command === 'promote' && compareVersions(identity.version, existing.version) < 0) return;
-      if (command === 'channel' && !canPublishChannel(tag, existing.version)) {
-        if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, 'publish=false\n');
-        console.log(
-          `Publishing ${tag} without replacing the newer ${channel} channel (${existing.version}).`,
+  } else if (command === 'channel') {
+    const existingVersions = await Promise.all(
+      ['stable', 'preview'].map(async (channel) => {
+        const response = await fetch(
+          `https://github.com/ChenMiaoi/threadline/releases/download/update-channel/${channel}.json`,
+          { signal: AbortSignal.timeout(30_000) },
         );
-        return;
-      }
-    }
-    if (command === 'channel' && process.env.GITHUB_OUTPUT)
-      appendFileSync(process.env.GITHUB_OUTPUT, 'publish=true\n');
-    if (command === 'promote') {
-      if (identity.prerelease)
-        throw new Error('Only stable releases can graduate the preview channel.');
-      copyFileSync(join(artifactRoot, 'stable.json'), join(artifactRoot, 'preview.json'));
-    }
+        if (response.status === 404) return [];
+        if (!response.ok) throw new Error(`Channel check failed: HTTP ${response.status}`);
+        const existing = (await response.json()) as { version: string };
+        return [existing.version];
+      }),
+    );
+    const publish = canPublishChannels(tag, existingVersions.flat());
+    if (process.env.GITHUB_OUTPUT)
+      appendFileSync(process.env.GITHUB_OUTPUT, `publish=${publish}\n`);
+    if (!publish) console.log(`Publishing ${tag} without replacing newer update channels.`);
   } else throw new Error('Unknown release command.');
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

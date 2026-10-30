@@ -112,7 +112,6 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ github.ref_name }}
       RELEASE_NOTES: ${{ needs.validate.outputs.notes }}
-      CHANNEL: ${{ needs.validate.outputs.channel }}
       PRERELEASE: ${{ needs.validate.outputs.prerelease }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -144,10 +143,4 @@ jobs:
           if ! gh release view update-channel >/dev/null 2>&1; then
             gh release create update-channel --target "$GITHUB_SHA" --prerelease --latest=false --title 'Update channels' --notes 'Machine-managed signed update manifests. Download installers from versioned releases.'
           fi
-          gh release upload update-channel "release-assets/$CHANNEL.json" --clobber
-          if [ "$CHANNEL" = stable ]; then
-            node scripts/release.ts promote "$RELEASE_TAG" release-assets
-            if [ -f release-assets/preview.json ]; then
-              gh release upload update-channel release-assets/preview.json --clobber
-            fi
-          fi
+          gh release upload update-channel release-assets/stable.json release-assets/preview.json --clobber

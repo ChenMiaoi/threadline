@@ -17,6 +17,24 @@ function setup(enabled = true) {
   return { update, gateway, store: createUpdateStore(gateway) };
 }
 describe('application updates', () => {
+  it('offers a candidate to a stable installation and keeps installation explicit', async () => {
+    const { store, update, gateway } = setup();
+    update.version = '0.1.1-rc.1';
+    await store.check();
+    expect(store.getSnapshot()).toMatchObject({
+      version: '0.1.0',
+      nextVersion: '0.1.1-rc.1',
+      status: 'available',
+    });
+    expect(update.download).not.toHaveBeenCalled();
+    expect(update.install).not.toHaveBeenCalled();
+    await store.download();
+    expect(store.getSnapshot().status).toBe('ready');
+    expect(update.install).not.toHaveBeenCalled();
+    await store.install(async () => {});
+    expect(update.install).toHaveBeenCalledOnce();
+    expect(gateway.restart).toHaveBeenCalledOnce();
+  });
   it('does not report an unconfigured build as current', async () => {
     const { store, gateway } = setup(false);
     await store.initialize();

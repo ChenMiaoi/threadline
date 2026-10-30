@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   buildManifest,
   canPublishChannel,
+  canPublishChannels,
   compareVersions,
   releaseConfiguration,
   releaseIdentity,
@@ -83,16 +84,21 @@ describe('release policy', () => {
     writeFileSync(join(root, 'package.json'), JSON.stringify({ version: '1.2.4' }));
     expect(() => validateRelease(root, 'v1.2.3')).toThrow('versions');
   });
-  it('requires a public key and separates stable from preview endpoints', () => {
+  it('requires a public key and lets both stable and RC installations discover candidates', () => {
     expect(() => releaseConfiguration('', 'stable')).toThrow('PUBLIC_KEY');
-    expect(releaseConfiguration('public-key', 'preview').plugins.updater.endpoints[0]).toContain(
-      '/preview.json',
-    );
+    expect(() => releaseConfiguration('public-key', 'invalid')).toThrow('channel');
+    for (const channel of ['stable', 'preview']) {
+      expect(releaseConfiguration('public-key', channel).plugins.updater.endpoints).toEqual([
+        'https://github.com/ChenMiaoi/threadline/releases/download/update-channel/preview.json',
+      ]);
+    }
   });
   it('orders RC numbers numerically and graduates to the stable version', () => {
     expect(compareVersions('1.2.3-rc.10', '1.2.3-rc.2')).toBe(1);
     expect(compareVersions('1.2.3', '1.2.3-rc.10')).toBe(1);
     expect(compareVersions('1.2.2', '1.2.3')).toBe(-1);
+    expect(compareVersions('1.2.4-rc.1', '1.2.3')).toBe(1);
+    expect(canPublishChannel('v1.2.4-rc1', '1.2.3')).toBe(true);
   });
   it('publishes older prereleases without downgrading channels and still rejects stable downgrades', () => {
     expect(canPublishChannel('v0.1.3-rc1', '0.1.3')).toBe(false);
@@ -103,38 +109,54 @@ describe('release policy', () => {
     expect(() => canPublishChannel('v0.1.2', '0.1.3')).toThrow('backwards');
     expect(() => canPublishChannel('v0.1.3-rc1', 'invalid')).toThrow('Unsupported');
   });
-  it('requires all signed platform artifacts and emits versioned download URLs', () => {
-    const root = fixture(),
-      artifacts = join(root, 'artifacts'),
-      output = join(root, 'output');
-    for (const [target, file] of [
-      ['aarch64-apple-darwin', 'ThreadLine.app.tar.gz'],
-      ['x86_64-apple-darwin', 'ThreadLine.app.tar.gz'],
-      ['x86_64-pc-windows-msvc', 'win.exe'],
-    ]) {
-      const directory = join(artifacts, `release-${target}`);
-      mkdirSync(directory, { recursive: true });
-      writeFileSync(join(directory, file), target);
-      writeFileSync(join(directory, `${file}.sig`), 'signature');
-    }
-    const result = buildManifest(root, artifacts, 'v1.2.3', output);
-    expect(result.notes).toBe('Changes\n');
-    expect(Object.keys(result.platforms)).toHaveLength(3);
-    expect(result.platforms['darwin-aarch64'].url).toContain(
-      '/v1.2.3/darwin-aarch64-ThreadLine.app.tar.gz',
-    );
-    expect(readFileSync(join(output, 'darwin-aarch64-ThreadLine.app.tar.gz'), 'utf8')).toBe(
-      'aarch64-apple-darwin',
-    );
-    expect(readFileSync(join(output, 'darwin-x86_64-ThreadLine.app.tar.gz'), 'utf8')).toBe(
-      'x86_64-apple-darwin',
-    );
-    expect(readFileSync(join(output, 'darwin-aarch64-ThreadLine.app.tar.gz.sig'), 'utf8')).toBe(
-      result.platforms['darwin-aarch64'].signature,
-    );
-    rmSync(join(artifacts, 'release-x86_64-pc-windows-msvc/win.exe.sig'));
-    expect(() => buildManifest(root, artifacts, 'v1.2.3', join(root, 'other'))).toThrow(
-      'signed updater',
-    );
+  it('advances both legacy and current clients without moving either channel backwards', () => {
+    expect(canPublishChannels('v0.1.4-rc1', ['0.1.3', '0.1.3'])).toBe(true);
+    expect(canPublishChannels('v0.1.4-rc2', ['0.1.4-rc.1', '0.1.4-rc.1'])).toBe(true);
+    expect(canPublishChannels('v0.1.4', ['0.1.4-rc.2', '0.1.4-rc.2'])).toBe(true);
+    expect(canPublishChannels('v0.1.4-rc1', ['0.1.3', '0.1.4-rc.2'])).toBe(false);
+    expect(canPublishChannels('v0.1.4-rc1', ['0.1.4', '0.1.3'])).toBe(false);
+    expect(canPublishChannels('v0.1.4-rc1', [])).toBe(true);
+    expect(() => canPublishChannels('v0.1.3', ['0.1.3', '0.1.4-rc.1'])).toThrow('backwards');
   });
+  it.each(['1.2.3', '1.2.3-rc.1'])(
+    'requires all signed artifacts and publishes identical stable and preview manifests for %s',
+    (version) => {
+      const root = fixture(version),
+        artifacts = join(root, 'artifacts'),
+        output = join(root, 'output');
+      for (const [target, file] of [
+        ['aarch64-apple-darwin', 'ThreadLine.app.tar.gz'],
+        ['x86_64-apple-darwin', 'ThreadLine.app.tar.gz'],
+        ['x86_64-pc-windows-msvc', 'win.exe'],
+      ]) {
+        const directory = join(artifacts, `release-${target}`);
+        mkdirSync(directory, { recursive: true });
+        writeFileSync(join(directory, file), target);
+        writeFileSync(join(directory, `${file}.sig`), 'signature');
+      }
+      const tag = version === '1.2.3' ? 'v1.2.3' : 'v1.2.3-rc1';
+      const result = buildManifest(root, artifacts, tag, output);
+      expect(result.version).toBe(version);
+      expect(JSON.parse(readFileSync(join(output, 'stable.json'), 'utf8'))).toEqual(result);
+      expect(JSON.parse(readFileSync(join(output, 'preview.json'), 'utf8'))).toEqual(result);
+      expect(result.notes).toBe('Changes\n');
+      expect(Object.keys(result.platforms)).toHaveLength(3);
+      expect(result.platforms['darwin-aarch64'].url).toContain(
+        `/${tag}/darwin-aarch64-ThreadLine.app.tar.gz`,
+      );
+      expect(readFileSync(join(output, 'darwin-aarch64-ThreadLine.app.tar.gz'), 'utf8')).toBe(
+        'aarch64-apple-darwin',
+      );
+      expect(readFileSync(join(output, 'darwin-x86_64-ThreadLine.app.tar.gz'), 'utf8')).toBe(
+        'x86_64-apple-darwin',
+      );
+      expect(readFileSync(join(output, 'darwin-aarch64-ThreadLine.app.tar.gz.sig'), 'utf8')).toBe(
+        result.platforms['darwin-aarch64'].signature,
+      );
+      rmSync(join(artifacts, 'release-x86_64-pc-windows-msvc/win.exe.sig'));
+      expect(() => buildManifest(root, artifacts, tag, join(root, 'other'))).toThrow(
+        'signed updater',
+      );
+    },
+  );
 });
