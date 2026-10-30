@@ -125,10 +125,12 @@ jobs:
         with:
           pattern: release-*
           path: artifacts
+      - name: Check update channel advancement
+        id: channel
+        run: node scripts/release.ts channel "$RELEASE_TAG"
       - name: Verify complete platform set and publish release
         run: |
           node scripts/release.ts manifest "$RELEASE_TAG" artifacts release-assets
-          node scripts/release.ts channel "$RELEASE_TAG"
           node scripts/release.ts notes "$RELEASE_TAG" release-body.md
           RELEASE_NOTES=release-body.md
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
@@ -136,6 +138,9 @@ jobs:
           fi
           gh release upload "$RELEASE_TAG" release-assets/* --clobber
           gh release edit "$RELEASE_TAG" --draft=false --prerelease="$PRERELEASE" --latest="$([ "$PRERELEASE" = false ] && echo true || echo false)" --notes-file "$RELEASE_NOTES"
+      - name: Publish update channel
+        if: steps.channel.outputs.publish == 'true'
+        run: |
           if ! gh release view update-channel >/dev/null 2>&1; then
             gh release create update-channel --target "$GITHUB_SHA" --prerelease --latest=false --title 'Update channels' --notes 'Machine-managed signed update manifests. Download installers from versioned releases.'
           fi

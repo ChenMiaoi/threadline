@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   buildManifest,
+  canPublishChannel,
   compareVersions,
   releaseConfiguration,
   releaseIdentity,
@@ -92,6 +93,15 @@ describe('release policy', () => {
     expect(compareVersions('1.2.3-rc.10', '1.2.3-rc.2')).toBe(1);
     expect(compareVersions('1.2.3', '1.2.3-rc.10')).toBe(1);
     expect(compareVersions('1.2.2', '1.2.3')).toBe(-1);
+  });
+  it('publishes older prereleases without downgrading channels and still rejects stable downgrades', () => {
+    expect(canPublishChannel('v0.1.3-rc1', '0.1.3')).toBe(false);
+    expect(canPublishChannel('v0.1.3-rc2', '0.1.3-rc.10')).toBe(false);
+    expect(canPublishChannel('v0.1.3-rc10', '0.1.3-rc.2')).toBe(true);
+    expect(canPublishChannel('v0.1.3-rc1', '0.1.3-rc.1')).toBe(true);
+    expect(canPublishChannel('v0.1.3', '0.1.3-rc.1')).toBe(true);
+    expect(() => canPublishChannel('v0.1.2', '0.1.3')).toThrow('backwards');
+    expect(() => canPublishChannel('v0.1.3-rc1', 'invalid')).toThrow('Unsupported');
   });
   it('requires all signed platform artifacts and emits versioned download URLs', () => {
     const root = fixture(),

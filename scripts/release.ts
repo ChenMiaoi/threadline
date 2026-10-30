@@ -130,6 +130,12 @@ export function compareVersions(a: string, b: string) {
     if (left[index] !== right[index]) return left[index] > right[index] ? 1 : -1;
   return 0;
 }
+export function canPublishChannel(tag: string, existingVersion: string) {
+  const identity = releaseIdentity(tag);
+  if (compareVersions(identity.version, existingVersion) >= 0) return true;
+  if (identity.prerelease) return false;
+  throw new Error('Refusing to move the update channel backwards.');
+}
 async function main() {
   const [command, tag, artifactRoot, output] = process.argv.slice(2);
   const root = process.cwd();
@@ -165,11 +171,17 @@ async function main() {
     if (response.status !== 404) {
       if (!response.ok) throw new Error(`Channel check failed: HTTP ${response.status}`);
       const existing = (await response.json()) as { version: string };
-      if (compareVersions(identity.version, existing.version) < 0) {
-        if (command === 'promote') return;
-        throw new Error('Refusing to move the update channel backwards.');
+      if (command === 'promote' && compareVersions(identity.version, existing.version) < 0) return;
+      if (command === 'channel' && !canPublishChannel(tag, existing.version)) {
+        if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, 'publish=false\n');
+        console.log(
+          `Publishing ${tag} without replacing the newer ${channel} channel (${existing.version}).`,
+        );
+        return;
       }
     }
+    if (command === 'channel' && process.env.GITHUB_OUTPUT)
+      appendFileSync(process.env.GITHUB_OUTPUT, 'publish=true\n');
     if (command === 'promote') {
       if (identity.prerelease)
         throw new Error('Only stable releases can graduate the preview channel.');
