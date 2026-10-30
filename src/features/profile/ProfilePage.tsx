@@ -1,6 +1,6 @@
 import { ContributionChart } from './ContributionChart';
 import { useI18n } from '../../i18n/I18n';
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import type { GitHubGateway, GitHubUser } from '../../core/github';
 import { GitHubAvatar } from '../../components/GitHubAvatar';
 import { useGitHubResource, type ResourceCache } from '../../lib/useGitHubResource';
@@ -41,9 +41,6 @@ export function ProfilePage({
           <h1 id="profile-heading">{t('个人主页')}</h1>
           <p>{t('你在当前仓库的 GitHub 年度贡献')}</p>
         </div>
-        <button className="chip" disabled={resource.loading} onClick={resource.retry}>
-          {t('刷新个人主页')}
-        </button>
       </header>
       <div className="profile-identity">
         <GitHubAvatar login={user.login} url={profile?.avatarUrl ?? user.avatar_url} />
@@ -59,13 +56,7 @@ export function ProfilePage({
           {t('在 GitHub 查看')}
         </button>
       </div>
-      <div className="profile-period">
-        <div>
-          <h2>{t('贡献活动')}</h2>
-          <p>
-            {t('当前仓库 ·')} {repo}
-          </p>
-        </div>
+      <div className="profile-period" role="group" aria-label={t('贡献活动')}>
         <label>
           {t('年份')}{' '}
           <select
@@ -78,6 +69,14 @@ export function ProfilePage({
             ))}
           </select>
         </label>
+        <button
+          className="chip"
+          aria-label={t('刷新个人主页')}
+          disabled={resource.loading}
+          onClick={resource.retry}
+        >
+          {t('刷新')}
+        </button>
       </div>
       {resource.loading && (
         <p role="status">
@@ -124,7 +123,14 @@ export function ProfilePage({
                 }
               }}
             >
-              <div className="contribution-calendar" role="list" aria-label={t('每日 GitHub 贡献')}>
+              <div
+                className="contribution-calendar"
+                style={
+                  { '--contribution-weeks': Math.max(1, calendar.weeks.length) } as CSSProperties
+                }
+                role="list"
+                aria-label={t('每日 GitHub 贡献')}
+              >
                 <div className="contribution-week contribution-weekdays" aria-hidden="true">
                   <span style={{ gridRow: 3 }}>{t('一')}</span>
                   <span style={{ gridRow: 5 }}>{t('三')}</span>

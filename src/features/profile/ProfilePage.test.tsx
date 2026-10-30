@@ -4,7 +4,7 @@ vi.mock('../../lib/avatar-cache', async (original) => ({
 }));
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ProfilePage } from './ProfilePage';
 import { GitHubAvatar } from '../../components/GitHubAvatar';
 import { createResourceCache } from '../../lib/useGitHubResource';
@@ -63,7 +63,7 @@ it('reads repository-year contribution shape and supports keyboard day and year 
     new Date().getUTCFullYear(),
     '',
   );
-  expect(screen.getByText(`当前仓库 · ${repo}`)).toBeTruthy();
+  expect(screen.queryByText(`当前仓库 · ${repo}`)).toBeNull();
   expect(
     (await screen.findByRole('img', { name: `${user.login} 的头像` })).getAttribute('src'),
   ).toBe(profile.avatarUrl);
@@ -77,6 +77,14 @@ it('reads repository-year contribution shape and supports keyboard day and year 
     target: { value: '2025' },
   });
   await waitFor(() => expect(gateway.request).toHaveBeenCalledWith('profile', repo, 7, 2025, ''));
+  const refresh = within(screen.getByRole('group', { name: '贡献活动' })).getByRole('button', {
+    name: '刷新个人主页',
+  }) as HTMLButtonElement;
+  await waitFor(() => expect(refresh.disabled).toBe(false));
+  const calls = vi.mocked(gateway.request).mock.calls.length;
+  fireEvent.click(refresh);
+  await waitFor(() => expect(gateway.request).toHaveBeenCalledTimes(calls + 1));
+  expect(gateway.request).toHaveBeenLastCalledWith('profile', repo, 7, 2025, '');
 });
 it('retries a failed request and never publishes a previous account response', async () => {
   const gateway = createGateway();
@@ -202,7 +210,7 @@ it('isolates delayed responses when switching selected repositories', async () =
     complete(response(profile));
     await Promise.resolve();
   });
-  expect(screen.getByText('当前仓库 · owner/other')).toBeTruthy();
+  expect(screen.getByText(/年共 999 次贡献/)).toBeTruthy();
   expect(screen.queryByText(/年共 24 次贡献/)).toBeNull();
   expect(gateway.request).toHaveBeenLastCalledWith(
     'profile',

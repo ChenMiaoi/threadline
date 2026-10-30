@@ -427,7 +427,7 @@ it('requests profile lazily using the selected repository', async () => {
       '',
     ),
   );
-  expect(screen.getByText(`当前仓库 · ${repo}`)).toBeTruthy();
+  expect(screen.getByRole('heading', { name: '个人主页' })).toBeTruthy();
 });
 
 it('keeps the cached-session connection error visible on profile and settings until a successful refresh', async () => {
