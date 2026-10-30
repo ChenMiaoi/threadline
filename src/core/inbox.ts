@@ -47,6 +47,14 @@ export function observeUpdates(records: Activity[], previous: Activity[], fetche
   return records.map((record) => {
     const before = observed.get(`${record.kind}:${record.number}`);
     if (!before?.updatedAt) return record;
+    if (before.id === record.id)
+      return {
+        ...record,
+        updatedAt: before.updatedAt,
+        updated: before.updated,
+        selfEvent: before.selfEvent,
+        serverRead: before.serverRead,
+      };
     if (
       record.selfEvent &&
       record.collaborationKey === before.collaborationKey &&
@@ -71,10 +79,9 @@ export function observeUpdates(records: Activity[], previous: Activity[], fetche
     )
       record = { ...record, selfEvent: false, serverRead: false };
 
-    const updatedAt =
-      before.id === record.id
-        ? before.updatedAt
-        : new Date(Math.max(Date.parse(record.updatedAt ?? '') || 0, fetchedAt)).toISOString();
+    const updatedAt = new Date(
+      Math.max(Date.parse(record.updatedAt ?? '') || 0, fetchedAt),
+    ).toISOString();
     return {
       ...record,
       updatedAt,

@@ -388,7 +388,7 @@ it('offers exact legacy aliases from the selected repository and discards them w
   const previous = legacyActivityRevisionIds(record, user.id, repo)[0];
   const aliases = result.current.legacyAliases([previous], result.current.inbox);
   expect(aliases.get(previous)?.number).toBe(record.number);
-  expect(aliases.get(previous)?.id).toContain(`:activity:pull-${record.number}-v3-`);
+  expect(aliases.get(previous)?.id).toContain(`:activity:pull-${record.number}-v4-`);
   await act(() => result.current.selectRepository('owner/other'));
   await waitFor(() => expect(result.current.times.issues).toBeDefined());
   expect(result.current.legacyAliases([previous], result.current.inbox).size).toBe(0);

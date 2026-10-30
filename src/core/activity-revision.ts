@@ -13,7 +13,7 @@ const mergeStates = [
   'UNSTABLE',
 ];
 
-function fingerprint(record: SearchRecord) {
+function fingerprint(record: SearchRecord, includeCommentHistory = false) {
   return [
     record.title,
     record.body,
@@ -24,8 +24,17 @@ function fingerprint(record: SearchRecord) {
     record.reviewRequests,
     record.commits,
     record.reviews,
-    record.comments,
+    // Fetching a larger history window is not a new collaboration event.
+    includeCommentHistory
+      ? record.comments
+      : { totalCount: record.comments.totalCount, nodes: record.comments.nodes.slice(-1) },
   ];
+}
+function previousShortFingerprint(record: SearchRecord) {
+  const fields = fingerprint(record, true);
+  // Preserve the serialized field order used by the released v3 fingerprint.
+  fields[fields.length - 1] = { ...record.comments, nodes: record.comments.nodes.slice(-1) };
+  return fields;
 }
 export function revisionFingerprint(fields: unknown[]) {
   const text = JSON.stringify(fields);
@@ -60,10 +69,10 @@ export function activityRevisionId(
   updatedAt = activityUpdatedAt(record),
 ) {
   // Merge conditions are recomputed by GitHub without a collaboration event.
-  return `github:${account}:${repo}:activity:${activityKind(record)}-${record.number}-v3-${revisionFingerprint(fingerprint(record))}:${updatedAt}`;
+  return `github:${account}:${repo}:activity:${activityKind(record)}-${record.number}-v4-${revisionFingerprint(fingerprint(record))}:${updatedAt}`;
 }
 export function legacyActivityRevisionIds(record: SearchRecord, account: number, repo: string) {
-  const fields = fingerprint(record);
+  const fields = previousShortFingerprint(record);
   const updatedAt = activityUpdatedAt(record);
   return [
     ...new Set(
@@ -75,7 +84,20 @@ export function legacyActivityRevisionIds(record: SearchRecord, account: number,
   ];
 }
 export function isLegacyActivityId(id: string) {
-  return /^github:\d+:[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+:activity:(pull|issue)-\d+-[a-z0-9]+:[\dTZ:.-]+$/.test(
+  return /^github:\d+:[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+:activity:(pull|issue)-\d+-(?:v3-)?[a-z0-9]+:[\dTZ:.-]+$/.test(
     id,
   );
+}
+
+export function previousActivityRevisionIds(record: SearchRecord, account: number, repo: string) {
+  const prefix = `github:${account}:${repo}:activity:${activityKind(record)}-${record.number}-v3-`;
+  const updatedAt = activityUpdatedAt(record);
+  return [
+    ...new Set([
+      ...legacyActivityRevisionIds(record, account, repo),
+      // v0.1.2 fetched one comment; v0.1.3 hashed up to twenty comments.
+      `${prefix}${revisionFingerprint(previousShortFingerprint(record))}:${updatedAt}`,
+      `${prefix}${revisionFingerprint(fingerprint(record, true))}:${updatedAt}`,
+    ]),
+  ];
 }

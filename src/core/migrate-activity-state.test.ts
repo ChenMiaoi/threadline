@@ -13,7 +13,7 @@ const current = activityFromGitHub(record, user.id, repo, user.login);
 const legacy = legacyActivityRevisionIds(record, user.id, repo);
 
 it('matches only exact legacy content across all previous merge-condition states', () => {
-  expect(current.id).toContain(`:activity:pull-${record.number}-v3-`);
+  expect(current.id).toContain(`:activity:pull-${record.number}-v4-`);
   expect(legacy).toHaveLength(9);
   expect(legacy[0]).toBe('github:7:owner/project:activity:pull-1042-un84s:2026-10-29T04:00:00Z');
   const aliases = findLegacyActivityAliases([record], [current], legacy, user.id, repo);
@@ -92,4 +92,67 @@ it('preserves existing read/unread semantics when no choice is being migrated', 
   expect(migrated.read).toEqual(original.read);
   expect(migrated.unread).toEqual(original.unread);
   expect(inboxReadIds([current], migrated.read, migrated.unread).has(current.id)).toBe(true);
+});
+
+it('migrates frozen v0.1.2 and v0.1.3 IDs without treating fetched history as an update', () => {
+  const expanded = {
+    ...record,
+    comments: {
+      totalCount: 2,
+      nodes: [
+        { body: 'Older comment', author: { login: 'reviewer' }, createdAt: '2026-10-28T04:00:00Z' },
+        ...record.comments.nodes,
+      ],
+    },
+  };
+  const short = {
+    ...expanded,
+    comments: { ...expanded.comments, nodes: expanded.comments.nodes.slice(-1) },
+  };
+  const oldShort = 'github:7:owner/project:activity:pull-1042-v3-1lywzxc:2026-10-29T04:00:00Z';
+  const oldExpanded = 'github:7:owner/project:activity:pull-1042-v3-scuhl0:2026-10-29T04:00:00Z';
+  const next = activityFromGitHub(expanded, user.id, repo, user.login);
+  const original = {
+    ...defaultWorkspace(),
+    read: [oldShort],
+    inboxSeen: { [`${user.id}:${repo}`]: [oldExpanded] },
+    snoozed: { [oldExpanded]: Date.now() + 60000 },
+    snoozeRecords: { [oldExpanded]: { ...next, id: oldExpanded } },
+  };
+  const pending = legacyActivityStateIds(original);
+  const aliases = findLegacyActivityAliases([short, expanded], [next], pending, user.id, repo);
+  expect(aliases.size).toBe(2);
+  const migrated = migrateActivityState(original, aliases);
+  expect(migrated.read).toEqual([next.id]);
+  expect(migrated.inboxSeen[`${user.id}:${repo}`]).toEqual([next.id]);
+  expect(migrated.snoozed[next.id]).toBe(original.snoozed[oldExpanded]);
+  expect(migrated.snoozeRecords[next.id].id).toBe(next.id);
+  const changed = activityFromGitHub(
+    { ...expanded, headRefOid: 'new-head' },
+    user.id,
+    repo,
+    user.login,
+  );
+  expect(findLegacyActivityAliases([expanded], [changed], pending, user.id, repo).size).toBe(0);
+
+  function sortedFields(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(sortedFields);
+    return value && typeof value === 'object'
+      ? Object.fromEntries(
+          Object.entries(value)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([key, field]) => [key, sortedFields(field)]),
+        )
+      : value;
+  }
+  // Rust's JSON objects use sorted keys; these IDs came from the released implementation.
+  const sorted = sortedFields(expanded) as typeof expanded;
+  const sortedTarget = activityFromGitHub(sorted, user.id, repo, user.login);
+  const sortedIds = [
+    'github:7:owner/project:activity:pull-1042-v3-xc86xy:2026-10-29T04:00:00Z',
+    'github:7:owner/project:activity:pull-1042-v3-1crz5a0:2026-10-29T04:00:00Z',
+  ];
+  expect(findLegacyActivityAliases([sorted], [sortedTarget], sortedIds, user.id, repo).size).toBe(
+    2,
+  );
 });

@@ -5,6 +5,35 @@ import { defaultWorkspace, normalizeWorkspace } from './workspace';
 import { record, repo, user } from '../test/github.fixture';
 const activity = activityFromGitHub(record, user.id, repo, user.login);
 describe('unified activity inbox', () => {
+  it.each(['reviewer', user.login])(
+    "keeps the revision, time and read state when fetching history before %s's comment",
+    (login) => {
+      const comments = {
+        totalCount: 2,
+        nodes: [
+          {
+            body: 'Older comment',
+            author: { login: 'reviewer' },
+            createdAt: '2026-10-28T04:00:00Z',
+          },
+          { ...record.comments.nodes[0], author: { login } },
+        ],
+      };
+      const before = activityFromGitHub(
+        { ...record, comments: { ...comments, nodes: comments.nodes.slice(-1) } },
+        user.id,
+        repo,
+        user.login,
+      );
+      const after = activityFromGitHub({ ...record, comments }, user.id, repo, user.login);
+      expect(after.id).toBe(before.id);
+      const observed = observeUpdates([after], [before], Date.parse('2026-10-30T11:48:00Z'))[0];
+      expect(observed.updatedAt).toBe(before.updatedAt);
+      expect(observed.serverRead).toBe(before.serverRead);
+      expect(observed.selfEvent).toBe(before.selfEvent);
+      expect(newUpdates([after], [before.id])).toEqual([]);
+    },
+  );
   it('detects HEAD, check and edited-comment changes without relying on thread timestamps', () => {
     for (const changed of [
       { ...record, headRefOid: 'new-head' },

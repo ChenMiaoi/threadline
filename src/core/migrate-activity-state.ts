@@ -5,7 +5,7 @@ import {
   activityKind,
   activityRevisionId,
   isLegacyActivityId,
-  legacyActivityRevisionIds,
+  previousActivityRevisionIds,
 } from './activity-revision';
 
 export function legacyActivityStateIds(data: WorkspaceData) {
@@ -16,6 +16,7 @@ export function legacyActivityStateIds(data: WorkspaceData) {
       ...data.restored,
       ...Object.keys(data.snoozed),
       ...Object.keys(data.snoozeRecords),
+      ...Object.values(data.inboxSeen).flat(),
     ]),
   ].filter(isLegacyActivityId);
 }
@@ -30,7 +31,9 @@ export function findLegacyActivityAliases(
   const pending = new Set(ids.filter(isLegacyActivityId));
   const aliases = new Map<string, Activity>();
   if (!pending.size || !targets.length) return aliases;
-  const threads = new Set([...pending].map((id) => id.replace(/-[a-z0-9]+:[\dTZ:.-]+$/, '-')));
+  const threads = new Set(
+    [...pending].map((id) => id.replace(/-(?:v3-)?[a-z0-9]+:[\dTZ:.-]+$/, '-')),
+  );
   const current = new Map(targets.map((record) => [record.id, record]));
   const checked = new Set<string>();
   for (const record of records) {
@@ -38,10 +41,12 @@ export function findLegacyActivityAliases(
     if (!threads.has(prefix)) continue;
     const id = activityRevisionId(record, account, repo);
     const target = current.get(id);
-    if (!target || checked.has(id)) continue;
-    checked.add(id);
-    for (const previous of legacyActivityRevisionIds(record, account, repo))
-      if (pending.has(previous)) aliases.set(previous, target);
+    if (!target) continue;
+    const previousIds = previousActivityRevisionIds(record, account, repo);
+    const sourceId = previousIds.at(-1)!;
+    if (checked.has(sourceId)) continue;
+    checked.add(sourceId);
+    for (const previous of previousIds) if (pending.has(previous)) aliases.set(previous, target);
   }
   return aliases;
 }
@@ -71,6 +76,9 @@ export function migrateActivityState(data: WorkspaceData, aliases: ReadonlyMap<s
     // When old aliases collapse, preserve an explicit unread choice over a read choice.
     read: read.filter((id) => !movedChoices.has(id) || !explicitUnread.has(id)),
     unread,
+    inboxSeen: Object.fromEntries(
+      Object.entries(data.inboxSeen).map(([scope, ids]) => [scope, mapIds(ids)]),
+    ),
     restored: mapIds(data.restored),
     snoozed,
     snoozeRecords,

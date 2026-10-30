@@ -20,6 +20,7 @@ vi.mock('./desktop', () => ({ isDesktop: false }));
 
 const key = `${user.id}:${repo}`;
 const activity = activityFromGitHub(record, user.id, repo, user.login);
+
 const records = Array.from({ length: MAX_INBOX_REVISIONS }, (_, index) => ({
   ...activity,
   number: index + 1,
@@ -453,5 +454,91 @@ it.each(['enabled', 'disabled', 'quiet', 'self', 'filtered', 'initial'] as const
       await flush();
       expect(playNotificationSound).toHaveBeenCalledOnce();
     } else expect(playNotificationSound).not.toHaveBeenCalled();
+  },
+);
+
+it.each(
+  [
+    'github:7:owner/project:activity:pull-1042-v3-1lywzxc:2026-10-29T04:00:00Z',
+    'github:7:owner/project:activity:pull-1042-v3-scuhl0:2026-10-29T04:00:00Z',
+  ].flatMap((previous) => [
+    { previous, read: true },
+    { previous, read: false },
+  ]),
+)(
+  'preserves upgrade state without alerts or sounds for checkpoint $previous (read: $read)',
+  async ({ previous, read }) => {
+    const expanded = {
+      ...record,
+      comments: {
+        totalCount: 2,
+        nodes: [
+          {
+            body: 'Older comment',
+            author: { login: 'reviewer' },
+            createdAt: '2026-10-28T04:00:00Z',
+          },
+          ...record.comments.nodes,
+        ],
+      },
+    };
+    const oldRead = 'github:7:owner/project:activity:pull-1042-v3-1lywzxc:2026-10-29T04:00:00Z';
+    const current = activityFromGitHub(expanded, user.id, repo, user.login);
+    let saved = {
+      ...defaultWorkspace(),
+      preferences: { ...defaultWorkspace().preferences, notificationSoundEnabled: true },
+      read: read ? [oldRead] : [],
+      inboxSeen: { [key]: [previous] },
+    };
+    const repository = {
+      load: async () => JSON.parse(JSON.stringify(saved)),
+      save: vi.fn(async (data: WorkspaceData) => {
+        saved = JSON.parse(JSON.stringify(data));
+      }),
+    };
+    const source = {
+      ...github,
+      legacyAliases: (ids: readonly string[], targets: readonly Activity[]) =>
+        findLegacyActivityAliases([expanded], targets, ids, user.id, repo),
+    };
+    const mount = () =>
+      renderHook(
+        ({ items }) => {
+          const workspace = useWorkspace(repository);
+          return { workspace, notices: useInboxNotifications(source, items, workspace) };
+        },
+        { initialProps: { items: [current] } },
+      );
+    const first = mount();
+    await flush();
+    await flush();
+    expect(first.result.current.workspace.data.read).toEqual(read ? [current.id] : []);
+    expect(first.result.current.workspace.data.inboxSeen[key]).toEqual([current.id]);
+    expect(first.result.current.notices.toast).toBe('');
+    expect(playNotificationSound).not.toHaveBeenCalled();
+    first.unmount();
+    const restarted = mount();
+    await flush();
+    await flush();
+    expect(restarted.result.current.workspace.data.read).toEqual(read ? [current.id] : []);
+    expect(restarted.result.current.notices.toast).toBe('');
+    const changed = activityFromGitHub(
+      {
+        ...expanded,
+        comments: {
+          ...expanded.comments,
+          nodes: [{ ...expanded.comments.nodes.at(-1)!, body: 'New external comment' }],
+          totalCount: 3,
+        },
+      },
+      user.id,
+      repo,
+      user.login,
+    );
+    restarted.rerender({ items: [changed] });
+    await flush();
+    expect(restarted.result.current.notices.toast).toBe('PR #1042 有新动态');
+    expect(restarted.result.current.workspace.data.read).not.toContain(changed.id);
+    expect(playNotificationSound).toHaveBeenCalledOnce();
   },
 );
