@@ -12,7 +12,7 @@ Open the [latest release](https://github.com/ChenMiaoi/threadline/releases/lates
 | macOS Apple Silicon | `aarch64.dmg`     |
 | macOS Intel         | `x64.dmg`         |
 
-Run the Windows installer, or open the macOS disk image and copy ThreadLine to Applications. The `.app.tar.gz`, `.sig`, and channel JSON assets are used by the updater; they are not the initial installer. Updater signatures are separate from operating-system code signing and notarization.
+Run the Windows installer, or open the macOS disk image and copy ThreadLine to Applications. For detailed macOS installation and replacement steps, see [installing on macOS](macos-installation.md). The `.app.tar.gz`, `.sig`, and channel JSON assets are used by the updater; they are not the initial installer. Updater signatures are separate from operating-system code signing and notarization.
 
 ### Build from source
 

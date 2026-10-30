@@ -90,6 +90,7 @@ The interface supports English, Japanese, Simplified Chinese, and Traditional Ch
 
 Start at the [documentation index](docs/README.md), or go directly to:
 
+- [Installing](docs/installing.md) — download and install for your platform.
 - [Getting started](docs/getting-started.md) — installation options, sign-in, and repository selection.
 - [Using the workspace](docs/workspace.md) — lists, previews, contribution calendars, and reminders.
 - [Troubleshooting](docs/troubleshooting.md) — connection, access, cache, and display issues.

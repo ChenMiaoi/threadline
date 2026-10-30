@@ -7,6 +7,7 @@ ThreadLine is a local-first, read-only GitHub workspace organized around one sel
 [Download the latest release](https://github.com/ChenMiaoi/threadline/releases/latest) for Windows x64 or macOS (Apple Silicon and Intel).
 
 - [Getting started](getting-started.md): run the app, sign in, and choose a repository.
+- [Installing](installing.md): find installation instructions for your platform.
 - [Using the workspace](workspace.md): understand lists and statuses, read PRs and issues, and manage local reminders.
 - [Troubleshooting](troubleshooting.md): recover from connection, access, loading, and notification problems.
 - [Data and security](data-and-security.md): understand permissions, credentials, local data, and cached content.
