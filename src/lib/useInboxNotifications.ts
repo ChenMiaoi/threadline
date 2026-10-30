@@ -6,6 +6,7 @@ import type { Activity } from '../features/activity/model';
 import type { GitHubWorkspace } from './useGitHub';
 import type { useWorkspace } from './useWorkspace';
 import { notifyDesktop } from './notifications';
+import { playNotificationSound } from './notification-sound';
 import { isDesktop } from './desktop';
 
 export function useInboxNotifications(
@@ -73,6 +74,10 @@ export function useInboxNotifications(
           ? `${notify[0].kind === 'pull' ? 'PR' : 'Issue'} #${notify[0].number} 有新动态`
           : `${notify.length} 条 PR / Issue 有新动态`;
       setToast({ key: github.key, text: message });
+      if (workspace.data.preferences.notificationSoundEnabled)
+        void playNotificationSound(workspace.data.preferences.notificationSound).catch((reason) =>
+          setError({ key: github.key, text: String(reason) }),
+        );
       if (isDesktop && workspace.data.preferences.desktopNotifications)
         void notifyDesktop('ThreadLine · 新动态', `${github.repo} · ${message}`).catch((reason) =>
           setError({ key: github.key, text: String(reason) }),

@@ -11,6 +11,10 @@ import type { GitHubWorkspace } from './useGitHub';
 import { useInboxNotifications } from './useInboxNotifications';
 import { useWorkspace } from './useWorkspace';
 import { notifyDesktop } from './notifications';
+import { playNotificationSound } from './notification-sound';
+vi.mock('./notification-sound', () => ({
+  playNotificationSound: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock('./notifications', () => ({ notifyDesktop: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('./desktop', () => ({ isDesktop: false }));
 
@@ -35,6 +39,7 @@ async function flush() {
   });
 }
 beforeEach(() => {
+  vi.mocked(playNotificationSound).mockClear();
   vi.useFakeTimers();
   vi.setSystemTime(new Date(2026, 9, 29, 12));
 });
@@ -415,3 +420,38 @@ it('does not announce historical records when changing the search range', async 
   });
   expect(result.current.toast).toBe('');
 });
+
+it.each(['enabled', 'disabled', 'quiet', 'self', 'filtered', 'initial'] as const)(
+  'plays one sound per eligible refresh batch: %s',
+  async (mode) => {
+    const saved = defaultWorkspace();
+    saved.preferences.notificationSoundEnabled = mode !== 'disabled';
+    saved.preferences.notificationSound = 'double';
+    saved.preferences.quietStart = mode === 'quiet' ? '00:00' : '22:00';
+    saved.preferences.quietEnd = mode === 'quiet' ? '23:59' : '08:00';
+    if (mode === 'filtered') {
+      saved.preferences.notifyAttention = false;
+      saved.preferences.notifyComments = false;
+      saved.preferences.notifyCommits = false;
+    }
+    if (mode !== 'initial') saved.inboxSeen[key] = [activity.id];
+    const changed = { ...activity, id: `${activity.id}:sound`, selfEvent: mode === 'self' };
+    const repository = { load: async () => saved, save: vi.fn().mockResolvedValue(undefined) };
+    const hook = renderHook(() => {
+      const workspace = useWorkspace(repository);
+      return useInboxNotifications(
+        github,
+        [changed, { ...changed, id: `${changed.id}:2` }],
+        workspace,
+      );
+    });
+    await flush();
+    await flush();
+    if (mode === 'enabled') {
+      expect(playNotificationSound).toHaveBeenCalledExactlyOnceWith('double');
+      hook.rerender();
+      await flush();
+      expect(playNotificationSound).toHaveBeenCalledOnce();
+    } else expect(playNotificationSound).not.toHaveBeenCalled();
+  },
+);

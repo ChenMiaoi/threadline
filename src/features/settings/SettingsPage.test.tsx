@@ -1,3 +1,7 @@
+import { playNotificationSound } from '../../lib/notification-sound';
+vi.mock('../../lib/notification-sound', () => ({
+  playNotificationSound: vi.fn().mockResolvedValue(undefined),
+}));
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -169,4 +173,30 @@ it('disables the notification switch until the permission request completes', as
   await act(async () => resolve());
   expect(toggle.disabled).toBe(false);
   expect(onChange).toHaveBeenCalledExactlyOnceWith({ desktopNotifications: true });
+});
+
+it('controls sound independently of desktop permission and previews the selected effect', async () => {
+  host.isDesktop = false;
+  const onChange = vi.fn();
+  const { result } = renderHook(() => useGitHub(0, createGateway()));
+  await waitFor(() => expect(result.current.session).not.toBeNull());
+  render(
+    <SettingsPage
+      preferences={{ ...defaultWorkspace().preferences, notificationSound: 'bell' }}
+      onChange={onChange}
+      onSync={vi.fn()}
+      github={result.current}
+      onChooseRepository={vi.fn()}
+    />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: '通知' }));
+  fireEvent.click(screen.getByRole('switch', { name: '通知声音' }));
+  expect(onChange).toHaveBeenCalledWith({ notificationSoundEnabled: true });
+  fireEvent.change(screen.getByLabelText('通知音效'), { target: { value: 'double' } });
+  expect(onChange).toHaveBeenCalledWith({ notificationSound: 'double' });
+  fireEvent.click(screen.getByRole('button', { name: '试听' }));
+  await waitFor(() => expect(playNotificationSound).toHaveBeenCalledWith('bell'));
+  expect(screen.getByRole('switch', { name: '通知声音' }).getAttribute('aria-checked')).toBe(
+    'false',
+  );
 });

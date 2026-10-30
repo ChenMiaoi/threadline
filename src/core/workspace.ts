@@ -1,3 +1,4 @@
+import { notificationSounds, type NotificationSound } from './notification-sound';
 import { defaultTypography, normalizeTypography, type TypographyPreferences } from './appearance';
 import type { LanguagePreference } from '../i18n/locale';
 import type { Activity } from '../features/activity/model';
@@ -17,6 +18,8 @@ export interface Preferences {
   notifyCommits: boolean;
   notifyComments: boolean;
   desktopNotifications: boolean;
+  notificationSoundEnabled: boolean;
+  notificationSound: NotificationSound;
   quietStart: string;
   quietEnd: string;
   refreshMinutes: 0 | 1 | 5 | 15;
@@ -61,6 +64,8 @@ export function defaultWorkspace(): WorkspaceData {
       notifyCommits: true,
       notifyComments: true,
       desktopNotifications: false,
+      notificationSoundEnabled: false,
+      notificationSound: 'soft',
       quietStart: '22:00',
       quietEnd: '08:00',
       refreshMinutes: 5,
@@ -146,6 +151,7 @@ export function normalizeWorkspace(value: unknown, now: number): WorkspaceData {
     'notifyCommits',
     'notifyComments',
     'desktopNotifications',
+    'notificationSoundEnabled',
   ] as const)
     if (typeof prefs[key] === 'boolean') settings[key] = prefs[key];
   for (const key of ['quietStart', 'quietEnd'] as const)
@@ -156,6 +162,8 @@ export function normalizeWorkspace(value: unknown, now: number): WorkspaceData {
     typeof prefs.refreshMinutes === 'number'
   )
     settings.refreshMinutes = prefs.refreshMinutes as Preferences['refreshMinutes'];
+  if (notificationSounds.includes(prefs.notificationSound as NotificationSound))
+    settings.notificationSound = prefs.notificationSound as NotificationSound;
   const snoozed: Record<string, number> = {};
   if (object(value.snoozed))
     for (const id of ids(Object.keys(value.snoozed))) {

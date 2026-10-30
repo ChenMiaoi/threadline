@@ -9,6 +9,7 @@ mod github_profile_reviews;
 mod github_workspace;
 #[cfg(target_os = "macos")]
 mod macos;
+mod notification_sound;
 #[cfg(feature = "browser-preview")]
 pub mod preview;
 mod storage;
@@ -79,6 +80,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_app_state,
             get_system_fonts,
+            play_notification_sound,
             updates_configured,
             get_storage_usage,
             clear_cache,
@@ -319,4 +321,9 @@ async fn get_system_fonts() -> Result<Vec<fonts::SystemFont>, String> {
     tauri::async_runtime::spawn_blocking(fonts::system_fonts)
         .await
         .map_err(|_| "FONT_SCAN_FAILED".into())
+}
+
+#[tauri::command]
+fn play_notification_sound(sound: &str) -> Result<bool, String> {
+    notification_sound::play(sound)
 }

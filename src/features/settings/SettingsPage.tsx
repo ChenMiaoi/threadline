@@ -1,3 +1,5 @@
+import { notificationSounds, type NotificationSound } from '../../core/notification-sound';
+import { playNotificationSound } from '../../lib/notification-sound';
 import { useI18n } from '../../i18n/I18n';
 import { UpdatesPanel } from './UpdatesPanel';
 import type { useUpdates } from '../../lib/useUpdates';
@@ -99,6 +101,7 @@ export function SettingsPage({
   const [notificationError, setNotificationError] = useState('');
   const [notificationResult, setNotificationResult] = useState('');
   const [requestingNotifications, setRequestingNotifications] = useState(false);
+  const [previewingSound, setPreviewingSound] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const cancelLogout = useRef<HTMLButtonElement>(null);
   const [section, setSection] = useState<Section>('account');
@@ -341,6 +344,46 @@ export function SettingsPage({
                   </button>
                 </SettingRow>
               )}
+              <SettingRow title={t('通知声音')}>
+                <Toggle
+                  label={t('通知声音')}
+                  checked={preferences.notificationSoundEnabled}
+                  onChange={() =>
+                    onChange({ notificationSoundEnabled: !preferences.notificationSoundEnabled })
+                  }
+                />
+              </SettingRow>
+              <SettingRow title={t('通知音效')}>
+                <div className="notification-sound-controls">
+                  <select
+                    className="setting-value"
+                    aria-label={t('通知音效')}
+                    value={preferences.notificationSound}
+                    onChange={(event) =>
+                      onChange({ notificationSound: event.target.value as NotificationSound })
+                    }
+                  >
+                    {notificationSounds.map((sound, index) => (
+                      <option key={sound} value={sound}>
+                        {t(['轻提示', '清铃', '双音'][index])}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="chip"
+                    disabled={previewingSound}
+                    onClick={() => {
+                      setNotificationError('');
+                      setPreviewingSound(true);
+                      void playNotificationSound(preferences.notificationSound)
+                        .catch((reason) => setNotificationError(String(reason)))
+                        .finally(() => setPreviewingSound(false));
+                    }}
+                  >
+                    {t('试听')}
+                  </button>
+                </div>
+              </SettingRow>
               <SettingRow title={t('静默时段')} description={t('在设定时间内不弹出工具本地提醒。')}>
                 <div className="quiet-hours">
                   <input

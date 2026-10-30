@@ -656,3 +656,10 @@ select.setting-value:hover {
   overflow-wrap: anywhere;
   tab-size: 4;
 }
+
+.notification-sound-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}

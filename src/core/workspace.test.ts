@@ -132,3 +132,19 @@ it('retains bulk read revisions across persistence and clears only targeted over
   expect(updated.unread).toEqual(['untouched']);
   expect(normalizeWorkspace(JSON.parse(JSON.stringify(updated)), now).read).toContain(ids[0]);
 });
+
+it('migrates sound preferences quietly and validates persisted effect names', () => {
+  expect(
+    normalizeWorkspace({ preferences: {} }, Date.now()).preferences.notificationSoundEnabled,
+  ).toBe(false);
+  const restored = normalizeWorkspace(
+    { preferences: { notificationSoundEnabled: true, notificationSound: 'bell' } },
+    Date.now(),
+  );
+  expect(restored.preferences.notificationSoundEnabled).toBe(true);
+  expect(restored.preferences.notificationSound).toBe('bell');
+  expect(
+    normalizeWorkspace({ preferences: { notificationSound: 'outside.wav' } }, Date.now())
+      .preferences.notificationSound,
+  ).toBe('soft');
+});
