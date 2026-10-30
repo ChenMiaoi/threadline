@@ -8,7 +8,7 @@ ThreadLine shows collaboration data for one selected repository. Use the reposit
 | ------------ | ----------------------------------------------------------------------------- |
 | Inbox        | The latest revision of related PR and issue threads, with local unread state. |
 | Snoozed      | Threads deferred locally, plus recently restored items.                       |
-| Authored PRs | Your pull requests, grouped by status and next action.                        |
+| Authored PRs | Your pull requests, grouped by lifecycle and attention status.                |
 | Review work  | Requested reviews, formal reviews, and comment participation.                 |
 | Issues       | Issues involving your GitHub account.                                         |
 | Profile      | Your annual contribution calendar and totals for the selected repository.     |
@@ -29,7 +29,7 @@ Open full details by double-clicking a row, pressing Enter on a focused row, or 
 
 The detail reader loads the overview first. Discussion, file changes, and checks load separately when selected, with their own loading, error, and retry controls. A new PR HEAD can require refreshing the overview before a section is shown. Use the back button to return to the list.
 
-Discussion entries are revealed progressively. Expand a changed file to read its patch, reveal more rows for a long patch, and enable wrapping if long lines are difficult to read. Unwrapped diffs support horizontal scrolling and keyboard left/right navigation when focused. Binary or omitted patches link back to GitHub.
+Discussion entries are revealed progressively. Each formal review groups its code-comment threads and their replies. A version icon shows whether the review targets the current code; hover or focus it for commit details. Replies are labeled without guessing who a participant is addressing. Expand a changed file to read its patch, or reveal more rows for a long patch. Code wraps visually at the configured width without adding source line numbers. Change the wrap width or turn wrapping off in Settings → Appearance; unwrapped diffs support horizontal scrolling. Binary or omitted patches link back to GitHub.
 
 ThreadLine renders sanitized GitHub-flavored Markdown with syntax-highlighted code blocks. Images embedded in discussion content appear as links rather than loading automatically. The signed-in account's GitHub avatar is displayed separately, with an initial as a fallback.
 
@@ -45,7 +45,7 @@ PR state has several independent dimensions:
 | Merge conditions | GitHub-reported conflicts, blocked rules, an outdated base, or readiness. A blocked state does not identify its cause by itself. |
 | My review        | Your formal conclusion and whether it targets the current or an earlier commit. Commenting does not count as approval.           |
 
-Badges, a next-action summary, and the detail-page status explanation help distinguish these states. Check and review results on completed PRs are historical. New commits can invite another review without implying that GitHub dismissed your earlier approval.
+Separate status badges distinguish these states. Open PRs with requested changes also use a yellow leading icon. Check and review results on completed PRs are historical. New commits can invite another review without implying that GitHub dismissed your earlier approval.
 
 Review summaries use the latest 100 reviews and disclose truncated history when your conclusion cannot be established. The full detail reader loads paginated review history.
 
@@ -67,7 +67,7 @@ Choose a year to inspect another period. Focus the calendar and use Up/Down for 
 
 ## Refresh and cached content
 
-ThreadLine restores locally cached responses after checking the saved credential identity, then validates the session in the background. Fresh responses can be reused without a network read. Older responses remain visible during a background update, with their original timestamps and any failure banner.
+ThreadLine restores locally cached responses after checking the saved credential identity, then validates the session in the background. Fresh responses can be reused without a network read. Older responses remain visible during a background update, with their original timestamps. Recoverable errors appear in the lower-right floating warning panel, which collapses to a button after inactivity and disappears when the error clears.
 
 Reuse windows depend on the content: rapidly changing checks refresh sooner than historical profile data. List reuse follows the configured refresh interval, with a five-minute reuse window in manual mode. See the [cache freshness policy](data-and-security.md) for the complete windows and storage limits.
 

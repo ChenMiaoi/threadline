@@ -2,9 +2,21 @@
 
 ThreadLine collects your GitHub collaboration work in a desktop app. It reads GitHub data; read markers, snoozes, and preferences are local.
 
-## Run the app
+## Install the app
 
-ThreadLine is in early development. The supported development path is to build from source. Install the [platform prerequisites](development.md#prerequisites), open a terminal in the repository, and run:
+Open the [latest release](https://github.com/ChenMiaoi/threadline/releases/latest) and select the installer for your computer:
+
+| Platform            | Installer         |
+| ------------------- | ----------------- |
+| Windows x64         | `.exe` setup file |
+| macOS Apple Silicon | `aarch64.dmg`     |
+| macOS Intel         | `x64.dmg`         |
+
+Run the Windows installer, or open the macOS disk image and copy ThreadLine to Applications. The `.app.tar.gz`, `.sig`, and channel JSON assets are used by the updater; they are not the initial installer. Updater signatures are separate from operating-system code signing and notarization.
+
+### Build from source
+
+For local development, install the [platform prerequisites](development.md#prerequisites), open a terminal in the repository, and run:
 
 ```sh
 npm ci
@@ -33,11 +45,11 @@ For a **public repository**, no app installation is required.
 
 For a **private repository**, its owner or organization must install ThreadLine Desktop and grant access to that repository. The optional **Add private repository access** action opens the installation flow. Organization policy may require an administrator's approval. Each user still signs in with their own GitHub identity; installing the app does not replace user authorization.
 
-Use the repository name in the top bar or the sidebar repository control to switch repositories later. Changing repositories updates the workspace; results still arriving for the previous repository are discarded.
+Use the repository name in the top bar to choose another repository. The **+** button beside the sidebar repository heading opens repository selection; the repository row represents the current workspace. Changing repositories updates the workspace; results still arriving for the previous repository are discarded.
 
 ## Find your first task
 
-- **Authored PRs** (**我发起的**): review the status and next action for your pull requests.
+- **Authored PRs** (**我发起的**): review lifecycle, review, check, and merge conditions for your pull requests.
 - **Review work** (**我审阅的**): find requested reviews and follow-up changes.
 - **Issues**: read issues involving you in the selected repository.
 - **Inbox** (**收件箱**): see the latest related PR and issue revisions, ordered by recent activity.
@@ -47,8 +59,8 @@ A single click on an authored PR opens a summary preview. Double-click the row, 
 
 ## Set your preferences
 
-Open **Settings** (**设置**) to choose a refresh interval, theme, and information density. Desktop reminders are optional and require operating-system notification permission when enabled. Quiet hours and reminder categories control popups, while local unread state remains visible in the Inbox.
+Open **Settings** (**设置**) to choose a refresh interval, language, theme, information density, and separate interface, reading, and code fonts and sizes. Desktop reminders require operating-system notification permission. Notification sounds are optional and offer previews. Quiet hours and reminder categories control popups and sounds, while local unread state remains visible in the Inbox.
 
-Cached content may appear before a background refresh completes. Check the displayed read time and any update banner when freshness matters. Use **Refresh** (**刷新**) to request current GitHub data.
+Cached content may appear before a background refresh completes. Check the displayed read time and the floating warning panel when freshness matters. Use **Refresh** (**刷新**) to request current GitHub data.
 
 Continue with [using the workspace](workspace.md), or read [data and security](data-and-security.md) before connecting private repositories.

@@ -2,32 +2,34 @@
 
 [![CI status on main](https://github.com/ChenMiaoi/threadline/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ChenMiaoi/threadline/actions/workflows/ci.yml)
 [![License: GPL-3.0-only](https://img.shields.io/badge/license-GPL--3.0--only-blue)](LICENSE)
-[![Platforms: macOS and Windows](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows-lightgrey)](docs/development.md)
-[![Release: not published](https://img.shields.io/badge/release-not%20published-lightgrey)](https://github.com/ChenMiaoi/threadline/releases)
+[![Platforms: macOS and Windows](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows-blue)](docs/development.md)
+[![Latest release](https://img.shields.io/github/v/release/ChenMiaoi/threadline?label=release)](https://github.com/ChenMiaoi/threadline/releases/latest)
 
 A local-first desktop workspace for GitHub collaboration.
 
 ThreadLine brings the pull requests, reviews, and issues that need your attention into one repository-focused workspace. Read discussions, inspect changes, and keep track of what to return to without changing anything on GitHub.
 
-![ThreadLine authored PR workspace for the public llvm/llvm-project repository](docs/images/workspace.jpg)
+![ThreadLine authored PR workspace for the public llvm/llvm-project repository](docs/images/workspace.png)
 
-_The public `llvm/llvm-project` workspace in the current Simplified Chinese interface._
+_Current development UI, showing the public `llvm/llvm-project` repository in Simplified Chinese._
 
 ## Your repository, in one place
 
 - **Inbox:** related PR and issue threads, with local unread markers and reminders.
-- **Authored PRs:** lifecycle, review, check, and merge-condition summaries with a next action.
+- **Authored PRs:** lifecycle, review, check, and merge-condition summaries.
 - **Review work:** requested reviews, participation, and new commits since your review.
 - **Issues:** searchable discussions and labels for the selected repository.
-- **PR details:** independently loaded discussion, file changes, and checks, with syntax-highlighted code blocks, expandable patches, and line wrapping.
-- **Profile:** your GitHub avatar, annual contribution calendar, and contribution totals for the selected repository.
+- **PR details:** review summaries with their code-comment threads and replies, file changes, checks, syntax highlighting, and visual line wrapping.
+- **Profile:** a responsive dashboard with your GitHub identity, repository-scoped annual contribution calendar, totals, and contribution breakdown.
+- **Preferences:** separate interface, reading, and code typography controls using installed fonts, plus optional notification sounds and quiet hours.
+- **Local storage:** disk-usage categories, targeted cache cleanup, and cache size limits.
 
-Read markers, snoozes, themes, density, and refresh preferences stay on your device. Cached content opens quickly and remains available during temporary connection failures, with timestamps and update errors visible.
+Read markers, snoozes, and preferences stay on your device. Cached content remains available during temporary connection failures. Recoverable warnings appear in a floating panel that can collapse without moving the page.
 
 <details>
 <summary>Profile and contribution calendar</summary>
 
-![ThreadLine Profile showing the selected repository's annual contribution calendar](docs/images/profile.jpg)
+![ThreadLine Profile showing the selected repository's annual contribution calendar](docs/images/profile.png)
 
 _Profile contributions for the public `llvm/llvm-project` repository, shown in the current Simplified Chinese interface._
 
@@ -41,9 +43,17 @@ The Inbox is built from repository searches. It is **not GitHub's Notifications 
 
 See [data and security](docs/data-and-security.md) for authorization, local storage, and cache behavior.
 
-## Try ThreadLine
+## Get ThreadLine
 
-ThreadLine is in early development. Build it from source for local use; the CI workflow also produces unsigned debug installers for testing. These are development artifacts, not signed production releases.
+Download an installer from the [latest release](https://github.com/ChenMiaoi/threadline/releases/latest):
+
+- **Windows x64:** the `.exe` installer.
+- **macOS Apple Silicon:** the `aarch64.dmg` installer.
+- **macOS Intel:** the `x64.dmg` installer.
+
+See [getting started](docs/getting-started.md) for sign-in and installation details. CI debug installers are separate, temporary development artifacts.
+
+### Build from source
 
 Install the [development prerequisites](docs/development.md#prerequisites), then run:
 
@@ -54,6 +64,8 @@ npm ci
 npm run desktop
 ```
 
+### Connect GitHub
+
 In the app:
 
 1. Choose **Log in to GitHub** (**登录 GitHub**) and authorize ThreadLine Desktop using GitHub's device-code page.
@@ -62,7 +74,7 @@ In the app:
 
 Public repositories do not require a GitHub App installation. Private repositories require the repository owner or organization to install the app and allow access to the repository. You do not need GitHub CLI, a personal access token, or your own app registration.
 
-The current interface is in Simplified Chinese. The guides include matching labels where useful.
+The interface supports English, Japanese, Simplified Chinese, and Traditional Chinese (Taiwan and Hong Kong). Choose a language in Settings; the screenshots above use Simplified Chinese.
 
 ## Documentation
 
