@@ -304,8 +304,13 @@ impl AuthManager {
         snapshot(&state)
     }
     fn accept_token(&self, body: Value) -> Result<Credential, String> {
+        let mut credential = self.parse_token(&body)?;
+        credential.user_id = self.validate_token(&credential)?;
+        Ok(credential)
+    }
+    fn parse_token(&self, body: &Value) -> Result<Credential, String> {
         if body.get("error").is_some() {
-            return Err(oauth_error(&body));
+            return Err(oauth_error(body));
         }
         let access = body["access_token"]
             .as_str()
@@ -326,22 +331,24 @@ impl AuthManager {
             .as_u64()
             .filter(|e| *e > 0 && *e <= 15897600)
             .ok_or("GH_TOKEN_REJECTED")?;
-        let client = Client::new(self.http.clone(), access.into());
-        let user = client.account()?;
-        client.validate_app(&self.config.app_slug, &self.config.client_id)?;
-        client.installations()?; // Refuse installations carrying write/admin or unexpected permissions.
-        let user_id = user["id"]
-            .as_u64()
-            .filter(|id| *id > 0)
-            .ok_or("GH_RESPONSE_ERROR")?;
         Ok(Credential {
             client_id: self.config.client_id.clone(),
             access_token: access.into(),
             refresh_token: refresh.into(),
             expires_at: self.clock.now().saturating_add(expires),
             refresh_expires_at: self.clock.now().saturating_add(refresh_expires),
-            user_id,
+            user_id: 0,
         })
+    }
+    fn validate_token(&self, credential: &Credential) -> Result<u64, String> {
+        let client = Client::new(self.http.clone(), credential.access_token.clone());
+        let user = client.account()?;
+        client.validate_app(&self.config.app_slug, &self.config.client_id)?;
+        client.installations()?; // Refuse installations carrying write/admin or unexpected permissions.
+        user["id"]
+            .as_u64()
+            .filter(|id| *id > 0)
+            .ok_or("GH_RESPONSE_ERROR".into())
     }
     pub fn local_account(&self) -> Result<Option<u64>, String> {
         let _guard = self.credential_guard()?;
@@ -390,11 +397,40 @@ impl AuthManager {
                 ],
             ))?;
             if response.status != 200 {
-                return Err("GH_AUTH_REQUIRED: 无法更新 ThreadLine 授权，请重新登录。".into());
+                return Err(match response.status {
+                    401 => "GH_AUTH_REQUIRED: ThreadLine 授权已失效，请重新登录。".into(),
+                    429 => "GH_RATE_LIMIT: GitHub 请求额度已耗尽，请稍后重试。".into(),
+                    500..=599 => format!(
+                        "GH_REQUEST_FAILED: 无法更新 ThreadLine 授权 (HTTP {})，请稍后重试。",
+                        response.status
+                    ),
+                    _ => oauth_error(&response.body),
+                });
             }
-            let updated = self.accept_token(response.body)?;
-            if updated.user_id != credential.user_id {
-                return Err("GH_ACCOUNT_CHANGED: 刷新授权返回了不同账号，请重新登录。".into());
+            let mut updated = self.parse_token(&response.body)?;
+            match self.validate_token(&updated) {
+                Ok(account) if account == credential.user_id => updated.user_id = account,
+                Ok(_) => {
+                    return Err("GH_ACCOUNT_CHANGED: 刷新授权返回了不同账号，请重新登录。".into())
+                }
+                Err(error) => {
+                    if [
+                        "GH_REQUEST_FAILED",
+                        "GH_TIMEOUT",
+                        "GH_RATE_LIMIT",
+                        "GH_RESPONSE_ERROR",
+                    ]
+                    .iter()
+                    .any(|prefix| error.starts_with(prefix))
+                    {
+                        // Rotation has already succeeded: replaying the old refresh token after
+                        // a failed identity read can lose the login. Preserve the new secrets
+                        // under the original account; workspace reads still revalidate live access.
+                        updated.user_id = credential.user_id;
+                        self.store.write(&updated)?;
+                    }
+                    return Err(error);
+                }
             }
             self.store.write(&updated)?;
             credential = updated;
@@ -600,6 +636,95 @@ mod tests {
             .form
             .iter()
             .any(|(k, v)| k == "grant_type" && v == "refresh_token"));
+    }
+    #[test]
+    fn temporary_refresh_failures_preserve_login_and_allow_a_later_retry() {
+        for (status, prefix) in [
+            (429, "GH_RATE_LIMIT"),
+            (500, "GH_REQUEST_FAILED"),
+            (502, "GH_REQUEST_FAILED"),
+            (503, "GH_REQUEST_FAILED"),
+            (504, "GH_REQUEST_FAILED"),
+        ] {
+            let (auth, http, store, clock) = setup();
+            authorize(&auth, &http, &clock);
+            clock.advance(28800 - 60);
+            http.responses.lock().unwrap().push_back(Ok(Response {
+                status,
+                body: Value::Null,
+                next: None,
+            }));
+            assert!(auth.client().err().unwrap().starts_with(prefix));
+            assert_eq!(auth.local_account().unwrap(), Some(7));
+            assert_eq!(
+                store.read().unwrap().unwrap().refresh_token,
+                "ghr_private-test-refresh"
+            );
+            http.push(token());
+            queue_identity(&http);
+            assert!(auth.client().is_ok());
+        }
+    }
+
+    #[test]
+    fn rotated_credentials_survive_a_temporary_failure_during_validation() {
+        for stage in 0..3 {
+            let (auth, http, store, clock) = setup();
+            authorize(&auth, &http, &clock);
+            clock.advance(28800 - 60);
+            let mut rotated = token();
+            rotated["access_token"] = "ghu_rotated".into();
+            rotated["refresh_token"] = "ghr_rotated".into();
+            http.push(rotated);
+            for body in [json!({"id":7}), app()].into_iter().take(stage) {
+                http.push(body);
+            }
+            http.responses
+                .lock()
+                .unwrap()
+                .push_back(Err("GH_TIMEOUT".into()));
+            assert_eq!(auth.client().err().unwrap(), "GH_TIMEOUT");
+            let saved = store.read().unwrap().unwrap();
+            assert_eq!(saved.user_id, 7);
+            assert_eq!(saved.refresh_token, "ghr_rotated");
+            http.push(json!({"id":7}));
+            assert_eq!(auth.client().unwrap().account().unwrap()["id"], 7);
+            let requests = http.requests.lock().unwrap();
+            assert_eq!(requests.iter().filter(|r| r.url == TOKEN).count(), 2); // Login + one rotation.
+            assert_eq!(
+                requests.last().unwrap().bearer.as_deref(),
+                Some("ghu_rotated")
+            );
+        }
+    }
+
+    #[test]
+    fn refresh_still_rejects_revocation_and_a_different_account() {
+        let (auth, http, store, clock) = setup();
+        authorize(&auth, &http, &clock);
+        clock.advance(28800 - 60);
+        http.responses.lock().unwrap().push_back(Ok(Response {
+            status: 400,
+            body: json!({"error":"bad_refresh_token"}),
+            next: None,
+        }));
+        assert!(auth.client().err().unwrap().starts_with("GH_AUTH_REQUIRED"));
+        let mut rotated = token();
+        rotated["refresh_token"] = "ghr_other-account".into();
+        http.push(rotated);
+        http.push(json!({"id":8}));
+        http.push(app());
+        http.push(json!({"installations":[]}));
+        assert!(auth
+            .client()
+            .err()
+            .unwrap()
+            .starts_with("GH_ACCOUNT_CHANGED"));
+        assert_eq!(store.read().unwrap().unwrap().user_id, 7);
+        assert_ne!(
+            store.read().unwrap().unwrap().refresh_token,
+            "ghr_other-account"
+        );
     }
     #[test]
     fn rejects_broad_tokens_missing_expiration_and_non_github_verification_urls() {

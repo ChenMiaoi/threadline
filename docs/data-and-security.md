@@ -6,7 +6,7 @@ ThreadLine reads GitHub data through an independent GitHub App. Local credential
 
 ## Authorization
 
-Users authorize the configured GitHub App through GitHub's device flow. The desktop service stores expiring user access and refresh tokens and rotates them under a cross-process credential lock. Tokens are not returned to React, written to SQLite, or imported from GitHub CLI or token environment variables.
+Users authorize the configured GitHub App through GitHub's device flow. The desktop service stores expiring user access and refresh tokens and rotates them under a cross-process credential lock. Tokens are not returned to React, written to SQLite, or imported from GitHub CLI or token environment variables. Temporary token-service failures preserve the local login. If rotation succeeds but a subsequent validation read temporarily fails, the new credentials are retained under the existing account identity; live workspace reads still validate identity and access before publishing data.
 
 The app checks its identity and permitted read-only permission set. Public repository access does not require repository installation in the implemented flow; private repositories require a matching installation and selected repository access. New network reads validate the user, application, and repository before publishing collaboration data.
 

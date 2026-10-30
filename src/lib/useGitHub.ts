@@ -66,6 +66,7 @@ export function useGitHub(
   const identity = useRef(0);
   const hadSession = useRef(false);
   const inFlight = useRef<{ token: number; force: boolean; promise: Promise<void> } | null>(null);
+  const reconnecting = useRef<Promise<void> | null>(null);
   const key = session && repo ? `${session.user.id}:${repo}` : '';
   const scopeKey = searchDays ? `${key}:days:${searchDays}` : key;
 
@@ -307,6 +308,34 @@ export function useGitHub(
       invalidateRequests();
     };
   }, [refresh, sync, refreshMinutes, invalidateRequests]);
+
+  useEffect(() => {
+    function reconnect() {
+      if (reconnecting.current) return;
+      let recovery: Promise<void>;
+      if (session && repo) {
+        const pending = inFlight.current;
+        const token = generation.current;
+        // A pre-reconnect request can still fail after the online event. Wait for it,
+        // then try a fresh batch; joining it alone can leave the workspace disconnected.
+        recovery =
+          pending?.token === token
+            ? pending.promise.then(() => (token === generation.current ? sync(true) : undefined))
+            : refresh();
+      } else if (
+        !connecting &&
+        /GH_(REQUEST_FAILED|TIMEOUT|RATE_LIMIT|RESPONSE_ERROR)/.test(connectionError)
+      )
+        recovery = connect(true);
+      else return;
+      const current = recovery.finally(() => {
+        if (reconnecting.current === current) reconnecting.current = null;
+      });
+      reconnecting.current = current;
+    }
+    window.addEventListener('online', reconnect);
+    return () => window.removeEventListener('online', reconnect);
+  }, [session, repo, connecting, connectionError, refresh, sync, connect]);
 
   async function listRepositories() {
     if (!session) return;

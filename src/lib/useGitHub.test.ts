@@ -591,6 +591,75 @@ it('clears an offline cached-session connection error after a complete successfu
   expect(result.current.connectionError).toBe('');
 });
 
+it('recovers cached lists on reconnect without periodic polling or duplicate refreshes', async () => {
+  const gateway = createGateway();
+  const request = gateway.request;
+  gateway.cachedSession = vi.fn().mockResolvedValue({ user, selected: repo });
+  gateway.cached = vi.fn().mockImplementation(async (...args: Parameters<typeof request>) => ({
+    ...(await request(...args)),
+    fetchedAt: Date.now(),
+  }));
+  gateway.session = vi.fn().mockRejectedValue('GH_TIMEOUT');
+  gateway.request = vi.fn().mockRejectedValue('GH_REQUEST_FAILED');
+  const { result } = renderHook(() => useGitHub(0, gateway));
+  await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+  await waitFor(() => expect(result.current.syncing).toBe(false));
+  act(() => window.dispatchEvent(new Event('online')));
+  await waitFor(() => expect(result.current.errors.authored).toBe('GH_REQUEST_FAILED'));
+  expect(result.current.pulls).toHaveLength(2);
+  expect(result.current.session?.user.id).toBe(user.id);
+  vi.mocked(gateway.request).mockImplementation(request);
+  act(() => {
+    window.dispatchEvent(new Event('online'));
+    window.dispatchEvent(new Event('online'));
+  });
+  await waitFor(() => expect(result.current.liveReady).toBe(true));
+  expect(gateway.request).toHaveBeenCalledTimes(8);
+  expect(result.current.connectionError).toBe('');
+});
+
+it('retries a failed startup session on reconnect but does not retry revoked authorization', async () => {
+  const gateway = createGateway();
+  gateway.session = vi
+    .fn()
+    .mockRejectedValueOnce('GH_TIMEOUT')
+    .mockResolvedValue({ user, selected: repo });
+  const { result, unmount } = renderHook(() => useGitHub(0, gateway));
+  await waitFor(() => expect(result.current.connectionError).toBe('GH_TIMEOUT'));
+  act(() => window.dispatchEvent(new Event('online')));
+  await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+  expect(gateway.session).toHaveBeenCalledTimes(2);
+  unmount();
+  gateway.session = vi.fn().mockRejectedValue('GH_AUTH_REQUIRED');
+  const signedOut = renderHook(() => useGitHub(0, gateway));
+  await waitFor(() => expect(signedOut.result.current.connecting).toBe(false));
+  act(() => window.dispatchEvent(new Event('online')));
+  expect(gateway.session).toHaveBeenCalledTimes(1);
+});
+
+it('reconnects after an older in-flight batch fails without duplicating online-event retries', async () => {
+  const gateway = createGateway();
+  const request = gateway.request;
+  let fail!: (reason: string) => void;
+  gateway.request = vi.fn().mockImplementation((...args: Parameters<typeof request>) => {
+    if (args[0] === 'authored' && !fail)
+      return new Promise((_, reject) => {
+        fail = reject;
+      });
+    return request(...args);
+  });
+  const { result } = renderHook(() => useGitHub(0, gateway));
+  await waitFor(() => expect(fail).toBeDefined());
+  act(() => {
+    window.dispatchEvent(new Event('online'));
+    window.dispatchEvent(new Event('online'));
+  });
+  await act(async () => fail('GH_REQUEST_FAILED'));
+  await waitFor(() => expect(result.current.liveReady).toBe(true));
+  expect(result.current.pulls).toHaveLength(2);
+  expect(gateway.request).toHaveBeenCalledTimes(8);
+});
+
 it('isolates search ranges and ignores a delayed response from the previous range', async () => {
   const gateway = createGateway();
   const original = gateway.request;

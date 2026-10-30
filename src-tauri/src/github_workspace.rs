@@ -619,6 +619,34 @@ mod isolation_tests {
         );
     }
     #[test]
+    fn a_refresh_service_outage_preserves_the_account_and_cached_records() {
+        let (database, auth, http, store) = setup();
+        let mut credential = store.read().unwrap().unwrap();
+        credential.expires_at = 1000;
+        store.write(&credential).unwrap();
+        let key = response_key(&auth, "issue", "owner/repo", 1, 7, "");
+        let response =
+            json!({"payload":{"body":"cached"},"fetchedAt":42,"stale":false,"error":null});
+        database.set_setting(&key, &response.to_string()).unwrap();
+        http.responses
+            .lock()
+            .unwrap()
+            .push_back(Ok(crate::github_http::Response {
+                status: 503,
+                body: Value::Null,
+                next: None,
+            }));
+        let database = Mutex::new(database);
+        assert!(request(&database, &auth, "issue", "owner/repo", 1, 7)
+            .unwrap_err()
+            .starts_with("GH_REQUEST_FAILED"));
+        assert_eq!(auth.local_account().unwrap(), Some(7));
+        assert_eq!(
+            cached_request(&database, &auth, "issue", "owner/repo", 1, 7, "").unwrap(),
+            response
+        );
+    }
+    #[test]
     fn disk_reads_are_local_even_with_expired_tokens_and_reject_corruption() {
         let (database, auth, http, store) = setup();
         let mut credential = store.read().unwrap().unwrap();
