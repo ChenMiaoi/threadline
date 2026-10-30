@@ -1,5 +1,7 @@
+import { ReviewVersionStatus } from './ReviewVersionStatus';
 import { GitHubAvatar } from '../../components/GitHubAvatar';
-import { reviewThreads } from './reviewThreads';
+import type { ReviewThread } from './reviewThreads';
+import { discussionEntries, discussionCount } from './discussionEntries';
 import { useI18n } from '../../i18n/I18n';
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import { TabList, TabPanel } from '../../components/Tabs';
@@ -106,60 +108,10 @@ function DiscussionSection({
     resource.minFetchedAt,
   );
   const [limit, setLimit] = useState(30);
-  const timeline = useMemo(() => {
-    const data = result.response?.payload;
-    return data
-      ? [
-          ...data.comments.flat().map((c) => ({
-            id: `comment-${c.id}`,
-            author: c.user?.login,
-            avatar: c.user?.avatar_url,
-            body: c.body,
-            date: c.created_at,
-            label: '普通评论',
-            version: '',
-            replies: [],
-            replyTo: undefined,
-            code: undefined as RestComment | undefined,
-          })),
-          ...reviewThreads(data.reviewComments.flat()).map(({ comment: c, replies }) => ({
-            id: `inline-${c.id}`,
-            author: c.user?.login,
-            avatar: c.user?.avatar_url,
-            body: c.body,
-            date: c.created_at,
-            label: t('代码评论 · {0}', [c.path ?? '']),
-            version: '',
-            replies,
-            replyTo: c.in_reply_to_id,
-            code: c,
-          })),
-          ...data.reviews
-            .flat()
-            .filter((r) => r.state !== 'PENDING' && (r.state !== 'COMMENTED' || r.body.trim()))
-            .map((r) => ({
-              id: `review-${r.id}`,
-              replies: [],
-              replyTo: undefined,
-              code: undefined as RestComment | undefined,
-              author: r.user?.login,
-              avatar: r.user?.avatar_url,
-              body: r.body,
-              date: r.submitted_at ?? '',
-              label: t('{0} · 正式评审', [t(reviewLabels[r.state] ?? r.state)]),
-              version: t('评审版本 {0} · 当前 HEAD {1}{2}', [
-                r.commit_id.slice(0, 7),
-                resource.head.slice(0, 7),
-                r.commit_id !== resource.head ? t(' · 代码版本已变化') : '',
-              ]),
-            })),
-        ].sort((a, b) =>
-          (a.replies.at(-1)?.created_at ?? a.date).localeCompare(
-            b.replies.at(-1)?.created_at ?? b.date,
-          ),
-        )
-      : [];
-  }, [result.response, resource.head, t]);
+  const timeline = useMemo(
+    () => (result.response ? discussionEntries(result.response.payload) : []),
+    [result.response],
+  );
   const reviews = result.response?.payload.reviews.flat() ?? [];
   const latestReviews = [
     ...new Map(
@@ -220,61 +172,150 @@ function DiscussionSection({
             )}
           </section>
           <h2 className="section-count">
-            {t('讨论')} {timeline.reduce((count, event) => count + 1 + event.replies.length, 0)}
+            {t('讨论')} {discussionCount(timeline)}
           </h2>
           {timeline.length > limit && (
             <button className="chip" onClick={() => setLimit((n) => n + 30)}>
               {t('显示更早的讨论（还有 {0} 条）', [timeline.length - limit])}
             </button>
           )}
-          {timeline.slice(-limit).map((event) => (
-            <article
-              className={`detail-card ${event.version ? 'formal-review' : ''}`}
-              key={event.id}
-            >
-              <div className="inline-group">
-                <GitHubAvatar login={event.author} url={event.avatar} />
-                <h2>{event.author ?? t('已删除用户')}</h2>
-                <span className="muted">{t(event.label)}</span>
-                <time className="dim">{event.date && shortTime(event.date)}</time>
-              </div>
-              {event.replyTo != null && <p className="reply-context">{t('回复较早的评论')}</p>}
-              {event.code && <ReviewCommentCode comment={event.code} head={resource.head} />}
-              {event.body.trim() && (
-                <GitHubMarkdown repo={resource.repo}>{event.body}</GitHubMarkdown>
-              )}
-              {event.version && <small>{event.version}</small>}
-              {event.replies.length > 0 && (
-                <div className="review-replies" role="group" aria-label={t('代码评论回复')}>
-                  {event.replies.map((reply) => {
-                    const parent = event.replies.find((item) => item.id === reply.in_reply_to_id);
-                    const author = (parent ? parent.user?.login : event.author) ?? t('已删除用户');
-                    return (
-                      <article className="review-reply" key={reply.id}>
-                        <div className="inline-group">
-                          <GitHubAvatar login={reply.user?.login} url={reply.user?.avatar_url} />
-                          <h3>{reply.user?.login ?? t('已删除用户')}</h3>
-                          <span className="reply-context">{t('回复 @{0}', [author])}</span>
-                          <time className="dim">{shortTime(reply.created_at)}</time>
-                        </div>
-                        <GitHubMarkdown repo={resource.repo}>{reply.body}</GitHubMarkdown>
-                      </article>
-                    );
-                  })}
+          {timeline.slice(-limit).map((event) => {
+            if (event.kind === 'thread')
+              return <ReviewThreadCard key={event.id} thread={event.thread} resource={resource} />;
+            const item = event.kind === 'review' ? event.review : event.comment;
+            const review = event.kind === 'review' ? event.review : undefined;
+            const date = review
+              ? review.submitted_at
+              : event.kind === 'comment'
+                ? event.comment.created_at
+                : '';
+            return (
+              <article className={`detail-card ${review ? 'formal-review' : ''}`} key={event.id}>
+                <div className="inline-group">
+                  <GitHubAvatar login={item.user?.login} url={item.user?.avatar_url} />
+                  <h2>{item.user?.login ?? t('已删除用户')}</h2>
+                  <span className="muted">
+                    {review
+                      ? t('{0} · 正式评审', [t(reviewLabels[review.state] ?? review.state)])
+                      : t('普通评论')}
+                  </span>
+                  {review && <ReviewVersionStatus commit={review.commit_id} head={resource.head} />}
+                  <time className="dim">{date && shortTime(date)}</time>
                 </div>
-              )}
-            </article>
-          ))}
+                {item.body.trim() && (
+                  <GitHubMarkdown repo={resource.repo}>{item.body}</GitHubMarkdown>
+                )}
+                {event.kind === 'review' && event.threads.length > 0 && (
+                  <ReviewComments threads={event.threads} resource={resource} />
+                )}
+              </article>
+            );
+          })}
           {!timeline.length && <p className="resource-status">{t('暂无讨论。')}</p>}
         </>
       )}
     </ResourceState>
   );
 }
-function ReviewCommentCode({ comment, head }: { comment: RestComment; head: string }) {
+function ReviewComments({
+  threads,
+  resource,
+}: {
+  threads: ReviewThread[];
+  resource: ResourceProps;
+}) {
+  const { t } = useI18n();
+  const [limit, setLimit] = useState(10);
+  return (
+    <section className="review-comments" aria-label={t('本次评审的代码评论')}>
+      <h3>
+        {t('代码评论')} <span className="dim">{threads.length}</span>
+      </h3>
+      {threads.slice(0, limit).map((thread) => (
+        <ReviewThreadCard key={thread.comment.id} thread={thread} resource={resource} nested />
+      ))}
+      {threads.length > limit && (
+        <button className="chip" onClick={() => setLimit((n) => n + 10)}>
+          {t('显示更多代码评论（还有 {0} 条）', [threads.length - limit])}
+        </button>
+      )}
+    </section>
+  );
+}
+function ReviewThreadCard({
+  thread,
+  resource,
+  nested = false,
+}: {
+  thread: ReviewThread;
+  resource: ResourceProps;
+  nested?: boolean;
+}) {
+  const { t } = useI18n();
+  const { comment, replies } = thread;
+  const Heading = nested ? 'h4' : 'h2';
+  return (
+    <article className={`detail-card ${nested ? 'review-comment-thread' : ''}`}>
+      <div className="inline-group">
+        <GitHubAvatar login={comment.user?.login} url={comment.user?.avatar_url} />
+        <Heading>{comment.user?.login ?? t('已删除用户')}</Heading>
+        <span className="muted">{t('代码评论 · {0}', [comment.path ?? ''])}</span>
+        <time className="dim">{shortTime(comment.created_at)}</time>
+      </div>
+      {comment.in_reply_to_id != null && <p className="reply-context">{t('回复较早的评论')}</p>}
+      <ReviewCommentCode comment={comment} resource={resource} />
+      {comment.body.trim() && <GitHubMarkdown repo={resource.repo}>{comment.body}</GitHubMarkdown>}
+      {replies.length > 0 && (
+        <div className="review-replies" role="group" aria-label={t('代码评论回复')}>
+          {replies.map((reply) => {
+            const parent = replies.find((item) => item.id === reply.in_reply_to_id);
+            const author = (parent ? parent.user?.login : comment.user?.login) ?? t('已删除用户');
+            return (
+              <article className="review-reply" key={reply.id}>
+                <div className="inline-group">
+                  <GitHubAvatar login={reply.user?.login} url={reply.user?.avatar_url} />
+                  <h5>{reply.user?.login ?? t('已删除用户')}</h5>
+                  <span className="reply-context">{t('回复 @{0}', [author])}</span>
+                  <time className="dim">{shortTime(reply.created_at)}</time>
+                </div>
+                <GitHubMarkdown repo={resource.repo}>{reply.body}</GitHubMarkdown>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </article>
+  );
+}
+function ReviewCommentCode({
+  comment,
+  resource,
+}: {
+  comment: RestComment;
+  resource: ResourceProps;
+}) {
+  const head = resource.head;
   const { t } = useI18n();
   const commit = comment.original_commit_id ?? comment.commit_id;
-  const line = comment.original_line ?? comment.line;
+  const fileLevel = comment.subject_type === 'file';
+  const line = fileLevel ? null : (comment.original_line ?? comment.line);
+  const fallback = useGitHubResource<Files>(
+    resource.gateway,
+    resource.cache,
+    'files',
+    resource.repo,
+    resource.account,
+    resource.number,
+    head,
+    resource.ready && !fileLevel && !comment.diff_hunk?.trim() && commit === head,
+    resource.minFetchedAt,
+  );
+  const patch =
+    comment.diff_hunk?.trim() ||
+    (commit === head
+      ? fallback.response?.payload.files.flat().find((file) => file.filename === comment.path)
+          ?.patch
+      : undefined);
   const start = comment.original_start_line ?? comment.start_line ?? line;
   return (
     <div className="review-comment-code">
@@ -283,10 +324,14 @@ function ReviewCommentCode({ comment, head }: { comment: RestComment; head: stri
         {line != null && `:${start === line ? line : `${start}–${line}`}`}
         {commit && ` · ${t(commit === head ? '当前版本' : '旧版本 {0}', [commit.slice(0, 7)])}`}
       </p>
-      {comment.diff_hunk?.trim() ? (
-        <CodeDiff patch={comment.diff_hunk} filename={comment.path ?? ''} />
+      {fileLevel ? (
+        <p className="muted">{t('文件级评论')}</p>
+      ) : patch ? (
+        <CodeDiff patch={patch} filename={comment.path ?? ''} />
       ) : (
-        <p className="muted">{t('此评论的代码片段不可用。')}</p>
+        <p className="muted">
+          {t(fallback.loading ? '正在读取代码…' : '此评论的代码片段不可用。')}
+        </p>
       )}
     </div>
   );
@@ -415,9 +460,9 @@ function ChecksSection({ resource, onReload }: { resource: ResourceProps; onRelo
             </span>
           </p>
           {result.response.payload.checkError && (
-            <p role="alert" className="yellow">
-              {result.response.payload.checkError} {t('· 未能完整获取检查结果')}
-            </p>
+            <div role="alert">
+              <p>{result.response.payload.checkError}</p>
+            </div>
           )}
           <div className="check-list">
             {rows.map((row) => (
@@ -526,10 +571,6 @@ export function PullDetailPage({
         {presentation && (
           <>
             <PullStatusBadges status={presentation} />
-            <p className="pull-next-action">
-              {t('建议：')}
-              {t(presentation.nextAction)}
-            </p>
           </>
         )}
         <div className="inline-group branch-summary">

@@ -2,7 +2,7 @@ import { useI18n } from '../i18n/I18n';
 import type { PullStatus } from '../core/pull-status';
 import './pull-lifecycle-icon.css';
 
-type Lifecycle = Pick<PullStatus, 'state' | 'draft'>;
+type Lifecycle = Pick<PullStatus, 'state' | 'draft'> & Partial<Pick<PullStatus, 'review'>>;
 export function PullLifecycleIcon({ status }: { status: Lifecycle }) {
   const { t } = useI18n();
 
@@ -14,15 +14,18 @@ export function PullLifecycleIcon({ status }: { status: Lifecycle }) {
         : status.draft
           ? 'draft'
           : 'open';
-  const label = {
-    open: '开放的 PR',
-    draft: '草稿 PR',
-    merged: '已合并的 PR',
-    closed: '已关闭未合并的 PR',
-  }[kind];
+  const changesRequested = kind === 'open' && status.review?.tone === 'warning';
+  const label = changesRequested
+    ? '要求变更的 PR'
+    : {
+        open: '开放的 PR',
+        draft: '草稿 PR',
+        merged: '已合并的 PR',
+        closed: '已关闭未合并的 PR',
+      }[kind];
   return (
     <svg
-      className={`pull-lifecycle-icon lifecycle-${kind}`}
+      className={`pull-lifecycle-icon lifecycle-${kind}${changesRequested ? ' lifecycle-changes-requested' : ''}`}
       width="22"
       height="22"
       viewBox="0 0 24 24"

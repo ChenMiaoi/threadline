@@ -412,7 +412,9 @@ export interface RestComment {
   created_at: string;
   path?: string;
   in_reply_to_id?: number;
+  pull_request_review_id?: number;
   diff_hunk?: string;
+  subject_type?: 'line' | 'file';
   line?: number | null;
   original_line?: number | null;
   start_line?: number | null;

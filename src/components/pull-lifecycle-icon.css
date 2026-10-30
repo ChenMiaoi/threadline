@@ -4,6 +4,9 @@
 .lifecycle-open {
   color: var(--green);
 }
+.lifecycle-changes-requested {
+  color: var(--yellow);
+}
 .lifecycle-draft {
   color: var(--muted);
 }

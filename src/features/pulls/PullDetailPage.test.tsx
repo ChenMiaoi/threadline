@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { PullDetailPage } from './PullDetailPage';
 import { createResourceCache } from '../../lib/useGitHubResource';
 import { createGateway, detail, record, repo, response, user } from '../../test/github.fixture';
@@ -27,6 +27,8 @@ it('shows the overview while discussion is pending and requests files/checks onl
     />,
   );
   await screen.findByRole('heading', { name: '说明' });
+  expect(document.querySelector('.pull-next-action')).toBeNull();
+  expect(screen.queryByText(/建议：/)).toBeNull();
   await waitFor(() =>
     expect(vi.mocked(gateway.request).mock.calls.map(([op]) => op)).toEqual(['pull', 'discussion']),
   );
@@ -263,6 +265,9 @@ it('omits empty comment reviews but retains decisions and their code freshness',
   await screen.findByRole('heading', { name: '讨论 2' });
   expect(screen.queryByText('empty-reviewer')).toBeNull();
   expect(screen.queryByText('无正文')).toBeNull();
+  expect(screen.getByRole('img', { name: '评审针对当前版本' })).toBeTruthy();
+  expect(screen.getByRole('img', { name: '评审针对旧版本' })).toBeTruthy();
+  expect(document.querySelector('.formal-review > small')).toBeNull();
   expect(screen.getByTitle('针对当前代码提交的评审')).toBeTruthy();
   expect(screen.getByTitle(/评审后代码已有更新，此结论针对旧版本/)).toBeTruthy();
   expect(screen.queryByText(/批准不代表检查已通过或可以合并/)).toBeNull();
@@ -305,6 +310,7 @@ it('keeps review replies with their parent and names the actual recipient', asyn
                   id: 3,
                   in_reply_to_id: 99,
                   body: 'An orphan reply.',
+                  subject_type: 'file',
                   user: { login: 'other' },
                   created_at: '2026-10-29T11:00:00Z',
                   path: 'test.cpp',
@@ -334,6 +340,71 @@ it('keeps review replies with their parent and names the actual recipient', asyn
   const code = screen.getByRole('region', { name: 'test.cpp 的代码差异' });
   expect(code.textContent).toContain('+new_test();');
   expect(thread?.textContent).toContain('test.cpp:12 · 旧版本 older12');
-  expect(screen.getByText('此评论的代码片段不可用。')).toBeTruthy();
+  expect(screen.getByText('文件级评论')).toBeTruthy();
   expect(screen.getByText('回复较早的评论')).toBeTruthy();
+});
+
+it('places the review summary before its nested code threads without duplicate comments', async () => {
+  const gateway = createGateway();
+  const request = gateway.request;
+  gateway.request = vi.fn().mockImplementation((operation, ...args) =>
+    operation === 'discussion'
+      ? Promise.resolve(
+          response({
+            comments: [],
+            reviews: [
+              [
+                {
+                  id: 99,
+                  state: 'COMMENTED',
+                  body: 'Review summary first.',
+                  user: { login: 'reviewer' },
+                  submitted_at: '2026-10-30T18:25:00Z',
+                  commit_id: detail.pull.head.sha,
+                },
+              ],
+            ],
+            reviewComments: [
+              [
+                {
+                  id: 88,
+                  pull_request_review_id: 99,
+                  body: 'Attached code feedback.',
+                  subject_type: 'file',
+                  user: { login: 'reviewer' },
+                  path: 'test.cpp',
+                  created_at: '2026-10-30T18:23:00Z',
+                },
+                {
+                  id: 89,
+                  in_reply_to_id: 88,
+                  pull_request_review_id: 100,
+                  body: 'A nested reply.',
+                  user: { login: 'author' },
+                  created_at: '2026-10-30T18:26:00Z',
+                },
+              ],
+            ],
+          }),
+        )
+      : request(operation, ...(args as [string, number, number, string])),
+  );
+  render(
+    <PullDetailPage
+      pull={pullFromGitHub(record, user.id, repo)}
+      onBack={vi.fn()}
+      repo={repo}
+      accountId={user.id}
+      gateway={gateway}
+      cache={createResourceCache()}
+    />,
+  );
+  await screen.findByRole('heading', { name: '讨论 3' });
+  const summary = await screen.findByText('Review summary first.');
+  const group = screen.getByRole('region', { name: '本次评审的代码评论' });
+  expect(summary.closest('.formal-review')?.contains(group)).toBe(true);
+  expect(summary.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(within(group).getByText('Attached code feedback.')).toBeTruthy();
+  expect(within(group).getByText('A nested reply.')).toBeTruthy();
+  expect(screen.getAllByText('Attached code feedback.')).toHaveLength(1);
 });

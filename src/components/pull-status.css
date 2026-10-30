@@ -54,8 +54,3 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
-.pull-next-action {
-  color: var(--muted);
-  font-size: calc(12px * var(--ui-scale, 1));
-  line-height: 20px;
-}

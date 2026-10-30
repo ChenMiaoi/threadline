@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { GitHubMarkdown } from './GitHubMarkdown';
+beforeAll(async () => {
+  await import('./MarkdownContent');
+});
 afterEach(cleanup);
 describe('GitHub discussion rendering', () => {
   it('renders bot comments with native foldable details and formatted code', async () => {
