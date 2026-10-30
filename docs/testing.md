@@ -27,6 +27,10 @@ npm run format:check
 
 For documentation-only changes, check Markdown formatting, links, commands, and referenced paths. Do not substitute a formatter for behavior tests on code changes. Before committing, follow the repository's [verification rules](../AGENTS.md).
 
+CI always runs the Ubuntu documentation job (`npm run check:docs`) and change-classifier tests. Branch pushes and pull requests that only change root Markdown files, `LICENSE`, Markdown/images under `docs/`, or Issue/PR templates skip macOS and Windows compilation and installer jobs. Any other path, including workflow, dependency, script, source, or build configuration changes, runs both platform jobs. Manual runs, new branches without a comparison base, and unavailable history also run full checks. Tag pushes use the separate release workflow, which always runs all release gates, rather than duplicating ordinary CI.
+
+The `CI result` job combines the required outcomes, including intentional platform skips, so a failed prerequisite cannot appear as a successful overall check. Branch protection can require this stable check rather than a workflow skipped by path filters. Documentation checks validate Markdown and Issue-template formatting; manually verify links, referenced files, and screenshot content as well.
+
 ## Regression coverage to preserve
 
 | Area                    | Important observable behavior                                                                                                                   | Representative tests                                                                                                                                                                                                      |
