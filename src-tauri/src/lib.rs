@@ -327,3 +327,17 @@ async fn get_system_fonts() -> Result<Vec<fonts::SystemFont>, String> {
 fn play_notification_sound(sound: &str) -> Result<bool, String> {
     notification_sound::play(sound)
 }
+
+#[cfg(test)]
+mod startup_tests {
+    #[test]
+    fn default_build_has_valid_but_unconfigured_updater() {
+        // Plugin initialization deserializes this value even when updates are disabled.
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let updater: tauri_plugin_updater::Config =
+            serde_json::from_value(config["plugins"]["updater"].clone()).unwrap();
+        assert!(updater.pubkey.is_empty());
+        assert!(updater.endpoints.is_empty());
+    }
+}
