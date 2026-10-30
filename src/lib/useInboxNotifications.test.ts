@@ -2,10 +2,15 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { activityFromGitHub } from '../core/github';
-import { legacyActivityRevisionIds } from '../core/activity-revision';
+import { legacyActivityRevisionIds, previousActivityRevisionIds } from '../core/activity-revision';
 import { findLegacyActivityAliases } from '../core/migrate-activity-state';
 import type { Activity } from '../features/activity/model';
-import { defaultWorkspace, MAX_INBOX_REVISIONS, type WorkspaceData } from '../core/workspace';
+import {
+  defaultWorkspace,
+  inboxReadIds,
+  MAX_INBOX_REVISIONS,
+  type WorkspaceData,
+} from '../core/workspace';
 import { record, repo, user } from '../test/github.fixture';
 import type { GitHubWorkspace } from './useGitHub';
 import { useInboxNotifications } from './useInboxNotifications';
@@ -34,6 +39,103 @@ const github = {
   errors: {},
   releaseMigrationSources: () => {},
 } as GitHubWorkspace;
+
+it.each(['fresh-cache', 'syncing', 'offline', 'current-checkpoint'])(
+  'restores exact upgrade read state during %s without waiting for a live notification baseline',
+  async (mode) => {
+    const previous = previousActivityRevisionIds(record, user.id, repo).at(-1)!;
+    let saved: WorkspaceData = {
+      ...defaultWorkspace(),
+      preferences: { ...defaultWorkspace().preferences, notificationSoundEnabled: true },
+      read: [previous],
+      inboxSeen: { [key]: [mode === 'current-checkpoint' ? activity.id : previous] },
+    };
+    const repository = {
+      load: async () => JSON.parse(JSON.stringify(saved)),
+      save: vi.fn(async (data: WorkspaceData) => {
+        saved = JSON.parse(JSON.stringify(data));
+      }),
+    };
+    const source = {
+      ...github,
+      syncing: mode === 'syncing',
+      liveReady: mode === 'current-checkpoint',
+      errors: mode === 'offline' ? { inbox: 'offline' } : {},
+      legacyAliases: (ids: readonly string[], targets: readonly Activity[]) =>
+        findLegacyActivityAliases([record], targets, ids, user.id, repo),
+      releaseMigrationSources: vi.fn(),
+    };
+    const hook = renderHook(() => {
+      const workspace = useWorkspace(repository);
+      return { workspace, notices: useInboxNotifications(source, [activity], workspace) };
+    });
+    await flush();
+    await flush();
+    const data = hook.result.current.workspace.data;
+    expect(inboxReadIds([activity], data.read, data.unread).has(activity.id)).toBe(true);
+    expect(saved.read).toEqual([activity.id]);
+    expect(hook.result.current.notices.toast).toBe('');
+    expect(playNotificationSound).not.toHaveBeenCalled();
+    if (mode !== 'current-checkpoint')
+      expect(source.releaseMigrationSources).not.toHaveBeenCalled();
+    hook.unmount();
+    const restored = renderHook(() => useWorkspace(repository));
+    await flush();
+    expect(restored.result.current.data.read).toEqual([activity.id]);
+  },
+);
+
+it('does not mark genuinely changed cached revisions read or advance the live checkpoint', async () => {
+  const previous = previousActivityRevisionIds(record, user.id, repo).at(-1)!;
+  const changed = activityFromGitHub(
+    { ...record, headRefOid: 'b'.repeat(40) },
+    user.id,
+    repo,
+    user.login,
+  );
+  const original: WorkspaceData = {
+    ...defaultWorkspace(),
+    read: [previous],
+    inboxSeen: { [key]: [previous] },
+  };
+  const repository = { load: async () => original, save: vi.fn(async () => {}) };
+  const source = {
+    ...github,
+    legacyAliases: (ids: readonly string[], targets: readonly Activity[]) =>
+      findLegacyActivityAliases(
+        [record, { ...record, headRefOid: 'b'.repeat(40) }],
+        targets,
+        ids,
+        user.id,
+        repo,
+      ),
+    releaseMigrationSources: vi.fn(),
+  };
+  const hook = renderHook(
+    ({ liveReady }) => {
+      const workspace = useWorkspace(repository);
+      return {
+        workspace,
+        notices: useInboxNotifications({ ...source, liveReady }, [changed], workspace),
+      };
+    },
+    { initialProps: { liveReady: false } },
+  );
+  await flush();
+  await flush();
+  expect(hook.result.current.workspace.data.inboxSeen[key]).toEqual([previous]);
+  expect(hook.result.current.workspace.data.read).toEqual([previous]);
+  expect(hook.result.current.notices.toast).toBe('');
+  expect(repository.save).not.toHaveBeenCalled();
+  expect(source.releaseMigrationSources).not.toHaveBeenCalled();
+  hook.rerender({ liveReady: true });
+  await flush();
+  expect(hook.result.current.workspace.data.inboxSeen[key]).toEqual([changed.id]);
+  expect(inboxReadIds([changed], hook.result.current.workspace.data.read, []).has(changed.id)).toBe(
+    false,
+  );
+  expect(hook.result.current.notices.toast).toBe('PR #1042 有新动态');
+});
 async function flush() {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(0);

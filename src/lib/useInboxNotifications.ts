@@ -18,20 +18,32 @@ export function useInboxNotifications(
   const [toast, setToast] = useState({ key: '', text: '' });
   const [error, setError] = useState({ key: '', text: '' });
   const observe = useEffectEvent(() => {
+    if (!github.key || !workspace.loaded || workspace.error || records.length > MAX_INBOX_REVISIONS)
+      return;
+    const legacy = records.length
+      ? legacyActivityStateIds(workspace.data).filter((id) =>
+          id.startsWith(`github:${github.key}:`),
+        )
+      : [];
+    const aliases = legacy.length
+      ? github.legacyAliases(legacy, records)
+      : new Map<string, Activity>();
+    const persistMigration = () => {
+      if (aliases.size) workspace.update((current) => migrateActivityState(current, aliases));
+    };
+    // Exact identity migration is safe for cached data; notifications still require a live sync.
     if (
-      !github.key ||
       github.syncing ||
       github.liveReady === false ||
       !github.times.inbox ||
       github.errors.inbox ||
       github.errors.authored ||
       github.errors.review ||
-      github.errors.issues ||
-      !workspace.loaded ||
-      workspace.error ||
-      records.length > MAX_INBOX_REVISIONS
-    )
+      github.errors.issues
+    ) {
+      persistMigration();
       return;
+    }
     try {
       const seen = workspace.data.inboxSeen[github.key];
       const scopeChanged = observedScope.current !== github.searchDays;
@@ -39,16 +51,10 @@ export function useInboxNotifications(
       const observed = scopeChanged ? [] : newUpdates(records, seen);
       const ids = records.map((record) => record.id);
       const known = new Set(seen);
-      if (seen && ids.length === seen.length && ids.every((id) => known.has(id))) return;
-      const candidates = seen ? observed : records;
-      const legacy = candidates.length
-        ? legacyActivityStateIds(workspace.data).filter((id) =>
-            id.startsWith(`github:${github.key}:`),
-          )
-        : [];
-      const aliases = legacy.length
-        ? github.legacyAliases(legacy, candidates)
-        : new Map<string, Activity>();
+      if (seen && ids.length === seen.length && ids.every((id) => known.has(id))) {
+        persistMigration();
+        return;
+      }
       const migrated = new Set([...aliases.values()].map((record) => record.id));
       const changes = observed.filter((record) => !migrated.has(record.id));
       const changed = new Set(changes.map((record) => record.id));

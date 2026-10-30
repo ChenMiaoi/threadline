@@ -2,9 +2,60 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { useGitHub } from './useGitHub';
-import { legacyActivityRevisionIds } from '../core/activity-revision';
+import { legacyActivityRevisionIds, previousActivityRevisionIds } from '../core/activity-revision';
+import { activityFromGitHub } from '../core/github';
+import { defaultWorkspace, inboxReadIds, type WorkspaceData } from '../core/workspace';
+import { useInboxNotifications } from './useInboxNotifications';
+import { useWorkspace } from './useWorkspace';
 import { createGateway, record, repo, response, user } from '../test/github.fixture';
 afterEach(cleanup);
+
+it('keeps an upgraded inbox read after restarting into fresh cached data without a live request', async () => {
+  const gateway = createGateway();
+  const readCache = gateway.request;
+  gateway.cached = vi.fn().mockImplementation(async (...args: Parameters<typeof readCache>) => ({
+    ...(await readCache(...args)),
+    fetchedAt: Date.now(),
+  }));
+  gateway.request = vi.fn().mockRejectedValue(new Error('live request should not be needed'));
+  const previous = previousActivityRevisionIds(record, user.id, repo).at(-1)!;
+  const current = activityFromGitHub(record, user.id, repo, user.login);
+  const key = `${user.id}:${repo}`;
+  let saved: WorkspaceData = {
+    ...defaultWorkspace(),
+    read: [previous],
+    inboxSeen: { [key]: [previous] },
+  };
+  const repository = {
+    load: async () => JSON.parse(JSON.stringify(saved)),
+    save: vi.fn(async (data: WorkspaceData) => {
+      saved = JSON.parse(JSON.stringify(data));
+    }),
+  };
+  const mount = () =>
+    renderHook(() => {
+      const github = useGitHub(5, gateway);
+      const workspace = useWorkspace(repository);
+      const notices = useInboxNotifications(github, github.inbox, workspace);
+      return { github, workspace, notices };
+    });
+  const hook = mount();
+  await waitFor(() => expect(hook.result.current.workspace.data.read).toContain(current.id));
+  expect(hook.result.current.github.liveReady).toBe(false);
+  expect(hook.result.current.notices.toast).toBe('');
+  expect(
+    inboxReadIds(hook.result.current.github.inbox, saved.read, saved.unread).has(current.id),
+  ).toBe(true);
+  await waitFor(() => expect(saved.read).toEqual([current.id]));
+  expect(saved.inboxSeen[key]).toEqual([current.id]);
+  expect(gateway.request).not.toHaveBeenCalled();
+  hook.unmount();
+  const reopened = mount();
+  await waitFor(() => expect(reopened.result.current.github.inbox.length).toBeGreaterThan(0));
+  expect(reopened.result.current.workspace.data.read).toEqual([current.id]);
+  expect(reopened.result.current.notices.toast).toBe('');
+  expect(gateway.request).not.toHaveBeenCalled();
+});
 describe('GitHub synchronization', () => {
   it('publishes completed pages while a slow page is pending and coalesces refreshes', async () => {
     const gateway = createGateway();
