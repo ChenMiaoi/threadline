@@ -66,7 +66,9 @@ jobs:
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src-tauri -> target
-          key: ${{ matrix.os }}-${{ matrix.target }}
+          # Tag caches are isolated from other tags; consume the default branch's cache.
+          shared-key: ${{ runner.os == 'Windows' && 'windows-release-v1' || 'macos' }}
+          save-if: false
       - run: npm ci
       - name: Run all project checks
         run: npm run check

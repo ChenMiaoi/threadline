@@ -73,6 +73,7 @@ jobs:
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src-tauri -> target
+          shared-key: macos
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
       - name: Install frontend dependencies
@@ -128,6 +129,7 @@ jobs:
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: src-tauri -> target
+          shared-key: windows-release-v1
           save-if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
       - name: Install frontend dependencies
@@ -144,6 +146,10 @@ jobs:
           if (-not (Test-Path 'src-tauri/target/debug/bundle/nsis/*-setup.exe')) {
             throw 'The Windows NSIS installer was not generated.'
           }
+
+      - name: Warm Windows release dependencies
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: node node_modules/@tauri-apps/cli/tauri.js build --ci --no-bundle --target x86_64-pc-windows-msvc -- --locked
 
       - name: Upload Windows test installer
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
