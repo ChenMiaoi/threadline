@@ -56,46 +56,50 @@ export function ProfilePage({
           {t('在 GitHub 查看')}
         </button>
       </div>
-      <div className="profile-period" role="group" aria-label={t('贡献活动')}>
-        <label>
-          {t('年份')}{' '}
-          <select
-            aria-label={t('贡献年份')}
-            value={year}
-            onChange={(event) => setYear(Number(event.target.value))}
+      <div className="profile-toolbar">
+        <div className="profile-period" role="group" aria-label={t('贡献活动')}>
+          <span className="profile-loading" role="status">
+            {resource.loading && (
+              <>
+                {t('正在读取')}
+                {year} {t('年 GitHub 贡献…')}
+              </>
+            )}
+          </span>
+          <label>
+            {t('年份')}{' '}
+            <select
+              aria-label={t('贡献年份')}
+              value={year}
+              onChange={(event) => setYear(Number(event.target.value))}
+            >
+              {years.map((value) => (
+                <option key={value}>{value}</option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="chip"
+            aria-label={t('刷新个人主页')}
+            disabled={resource.loading}
+            onClick={resource.retry}
           >
-            {years.map((value) => (
-              <option key={value}>{value}</option>
-            ))}
-          </select>
-        </label>
-        <button
-          className="chip"
-          aria-label={t('刷新个人主页')}
-          disabled={resource.loading}
-          onClick={resource.retry}
-        >
-          {t('刷新')}
-        </button>
-      </div>
-      {resource.loading && (
-        <p role="status">
-          {t('正在读取')}
-          {year} {t('年 GitHub 贡献…')}
-        </p>
-      )}
-      {resource.error && (
-        <div className="profile-error" role="alert">
-          <p>
-            {t('暂时无法更新个人主页：')}
-            {resource.error}
-          </p>
-          {profile && <p>{t('当前显示上次读取的数据，可能不是最新。')}</p>}
-          <button className="chip" onClick={resource.retry}>
-            {t('重试个人主页')}
+            {t('刷新')}
           </button>
         </div>
-      )}
+        {resource.error && (
+          <div className="profile-error" role="alert">
+            <p>
+              {t('暂时无法更新个人主页：')}
+              {resource.error}
+            </p>
+            {profile && <p>{t('当前显示上次读取的数据，可能不是最新。')}</p>}
+            <button className="chip" onClick={resource.retry}>
+              {t('重试个人主页')}
+            </button>
+          </div>
+        )}
+      </div>
       {collection && calendar && (
         <>
           <div className="contribution-card">

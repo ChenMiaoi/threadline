@@ -44,6 +44,40 @@ const profile: GitHubProfile = {
     },
   },
 };
+it('keeps the contribution dashboard mounted while refresh status and failures stay in the toolbar', async () => {
+  const gateway = createGateway();
+  let fail!: (reason: Error) => void;
+  gateway.request = vi
+    .fn()
+    .mockResolvedValueOnce(response(profile))
+    .mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          fail = reject;
+        }),
+    );
+  render(
+    <ProfilePage
+      repo={repo}
+      user={user}
+      gateway={gateway}
+      cache={createResourceCache('refresh')}
+    />,
+  );
+  await screen.findByText(/年共 24 次贡献/);
+  const calendar = screen.getByLabelText(/使用方向键选择日期/);
+  const refresh = screen.getByRole('button', { name: '刷新个人主页' });
+  await waitFor(() => expect((refresh as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(refresh);
+  await waitFor(() => expect(fail).toBeTypeOf('function'));
+  expect(
+    within(screen.getByRole('group', { name: '贡献活动' })).getByRole('status').textContent,
+  ).toContain('正在读取');
+  expect(screen.getByLabelText(/使用方向键选择日期/)).toBe(calendar);
+  await act(async () => fail(new Error('GH_TIMEOUT')));
+  expect((await screen.findByRole('alert')).closest('.profile-toolbar')).toBeTruthy();
+  expect(screen.getByLabelText(/使用方向键选择日期/)).toBe(calendar);
+});
 it('reads repository-year contribution shape and supports keyboard day and year selection', async () => {
   const gateway = createGateway();
   gateway.request = vi.fn().mockResolvedValue(response(profile));

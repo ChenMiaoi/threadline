@@ -17,6 +17,15 @@
 .profile-heading {
   margin-bottom: 28px;
 }
+.profile-loading {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 12px;
+  min-width: 0;
+}
+.profile-period {
+  min-height: 36px;
+}
 .profile-page h1 {
   margin: 4px 0 8px;
   font-size: 26px;
@@ -322,11 +331,13 @@
     height: 48px;
     flex-basis: 48px;
   }
-  .profile-period {
+  .profile-toolbar {
     grid-column: 1 / -1;
+    grid-row: 2;
   }
   .contribution-card {
     grid-column: 1 / -1;
+    grid-row: 3;
     min-width: 0;
     padding: 12px 20px;
     align-content: center;
@@ -361,6 +372,7 @@
   }
   .profile-overview {
     grid-column: 1 / -1;
+    grid-row: 4;
     min-height: 0;
     gap: 20px;
   }
@@ -378,10 +390,9 @@
   .contribution-chart svg {
     height: clamp(140px, calc((100dvh - 390px) / 2), 360px);
   }
-  .profile-fetched,
-  .profile-page > [role='status'],
-  .profile-error {
+  .profile-fetched {
     grid-column: 1 / -1;
+    grid-row: 5;
   }
 }
 
