@@ -1,4 +1,5 @@
 mod db;
+mod fonts;
 mod github;
 mod github_auth;
 mod github_credentials;
@@ -77,6 +78,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_app_state,
+            get_system_fonts,
             updates_configured,
             get_storage_usage,
             clear_cache,
@@ -310,4 +312,11 @@ fn updates_configured(app: tauri::AppHandle) -> bool {
                 .as_array()
                 .is_some_and(|items| !items.is_empty())
     })
+}
+
+#[tauri::command]
+async fn get_system_fonts() -> Result<Vec<fonts::SystemFont>, String> {
+    tauri::async_runtime::spawn_blocking(fonts::system_fonts)
+        .await
+        .map_err(|_| "FONT_SCAN_FAILED".into())
 }

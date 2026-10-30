@@ -10,6 +10,8 @@ use zeroize::Zeroizing;
 
 #[derive(Deserialize)]
 enum Command {
+    #[serde(rename = "get_system_fonts")]
+    SystemFonts,
     #[serde(rename = "clear_cache")]
     ClearCache,
     #[serde(rename = "get_storage_usage")]
@@ -68,6 +70,8 @@ fn execute(
     auth: &AuthManager,
 ) -> Result<Value, String> {
     match request.command {
+        Command::SystemFonts => serde_json::to_value(crate::fonts::system_fonts())
+            .map_err(|_| "FONT_SCAN_FAILED".into()),
         Command::ClearCache => {
             if request.args.kind != "responses" {
                 return Err("INVALID_CACHE_KIND".into());

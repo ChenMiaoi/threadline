@@ -1,8 +1,9 @@
+import { typographyStyle } from './lib/appearance';
 import { I18nContext, useLanguage } from './i18n/I18n';
 import { useUpdates } from './lib/useUpdates';
 import { useRepositoryAvatar } from './lib/useRepositoryAvatar';
 import { githubErrorMessage } from './lib/github-errors';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { isDesktop, loadAppState, saveLastView, type AppState, type View } from './lib/desktop';
 import { browserWorkspaceRepository, desktopWorkspaceRepository } from './lib/workspace-storage';
 import { useWorkspace } from './lib/useWorkspace';
@@ -29,7 +30,9 @@ import { IssuePreview } from './features/activity/IssuePreview';
 import { ActivityPage } from './features/activity/ActivityPage';
 import type { Activity } from './features/activity/model';
 import { ProfilePage } from './features/profile/ProfilePage';
-import { SettingsPage } from './features/settings/SettingsPage';
+const SettingsPage = lazy(() =>
+  import('./features/settings/SettingsPage').then((module) => ({ default: module.SettingsPage })),
+);
 import { SnoozeDialog, SnoozedPage } from './features/states/WorkspaceStates';
 import './features/pulls/pulls.css';
 import './features/activity/activity.css';
@@ -286,7 +289,10 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
 
   return (
     <I18nContext.Provider value={language}>
-      <div className={`workspace-root ${className}`}>
+      <div
+        className={`workspace-root ${className}`}
+        style={typographyStyle(data.preferences.typography)}
+      >
         {notices.toast && (
           <div className="inbox-toast" role="status">
             <button
@@ -475,19 +481,21 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                       onRead={toggleRead}
                     />
                   ) : view === 'settings' ? (
-                    <SettingsPage
-                      updates={updates}
-                      flush={async () => {
-                        await workspace.flush();
-                        await writeQueue.current;
-                        if (isDesktop) await saveLastView(view);
-                      }}
-                      preferences={data.preferences}
-                      onChange={changePreferences}
-                      onSync={() => void github.refresh()}
-                      github={github}
-                      onChooseRepository={chooseRepository}
-                    />
+                    <Suspense fallback={<p role="status">{t('正在读取内容…')}</p>}>
+                      <SettingsPage
+                        updates={updates}
+                        flush={async () => {
+                          await workspace.flush();
+                          await writeQueue.current;
+                          if (isDesktop) await saveLastView(view);
+                        }}
+                        preferences={data.preferences}
+                        onChange={changePreferences}
+                        onSync={() => void github.refresh()}
+                        github={github}
+                        onChooseRepository={chooseRepository}
+                      />
+                    </Suspense>
                   ) : view === 'snoozed' ? (
                     <SnoozedPage
                       data={{

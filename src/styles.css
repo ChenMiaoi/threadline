@@ -79,7 +79,7 @@ button:hover {
   min-width: 182px;
 }
 .brand strong {
-  font-size: 18px;
+  font-size: calc(18px * var(--ui-scale, 1));
   font-weight: 600;
 }
 .desktop-app-bar {
@@ -156,7 +156,7 @@ button:hover {
   display: flex;
   gap: 18px;
   align-items: center;
-  font-size: 15px;
+  font-size: calc(15px * var(--ui-scale, 1));
   color: var(--muted);
 }
 .avatar {
@@ -182,7 +182,7 @@ button:hover {
 }
 .section-label {
   color: var(--dim);
-  font-size: 14px;
+  font-size: calc(14px * var(--ui-scale, 1));
   line-height: 22px;
 }
 nav {
@@ -200,7 +200,7 @@ nav {
   background: transparent;
   border-radius: 8px;
   text-align: left;
-  font-size: 14px;
+  font-size: calc(14px * var(--ui-scale, 1));
 }
 .nav-item.selected {
   background: var(--raised);
@@ -221,7 +221,7 @@ nav {
   height: 28px;
   border-radius: 6px;
   color: var(--muted);
-  font-size: 22px;
+  font-size: calc(22px * var(--ui-scale, 1));
   line-height: 1;
 }
 .repository-add:hover {
@@ -235,7 +235,7 @@ nav {
   padding: 10px 12px;
   margin-top: 8px;
   color: var(--dim);
-  font-size: 15px;
+  font-size: calc(15px * var(--ui-scale, 1));
 }
 .repository-empty:hover {
   background: var(--raised);
@@ -253,13 +253,13 @@ nav {
   text-overflow: ellipsis;
 }
 .repository-name strong {
-  font-size: 14px;
+  font-size: calc(14px * var(--ui-scale, 1));
   font-weight: 600;
   line-height: 21px;
 }
 .repository-name small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-scale, 1));
   line-height: 18px;
 }
 .settings-link {
@@ -282,7 +282,7 @@ nav {
   display: flex;
   align-items: center;
   gap: 24px;
-  font-size: 14px;
+  font-size: calc(14px * var(--ui-scale, 1));
 }
 .separator {
   color: var(--dim);
@@ -296,7 +296,7 @@ nav {
   border-radius: 7px;
   background: var(--raised);
   color: var(--dim);
-  font-size: 14px;
+  font-size: calc(14px * var(--ui-scale, 1));
   white-space: nowrap;
 }
 .empty-state {
@@ -321,12 +321,12 @@ p {
   margin: 0;
 }
 h1 {
-  font-size: 26px;
+  font-size: calc(26px * var(--ui-scale, 1));
   line-height: 35px;
   font-weight: 500;
 }
 h2 {
-  font-size: 16px;
+  font-size: calc(16px * var(--ui-scale, 1));
   line-height: 25px;
   font-weight: 500;
 }
@@ -344,7 +344,7 @@ p {
 }
 .context-card p {
   margin-top: 12px;
-  font-size: 14px;
+  font-size: calc(14px * var(--ui-scale, 1));
   color: var(--muted);
   line-height: 23px;
 }
@@ -377,7 +377,7 @@ p {
 .nav-count {
   margin-left: auto;
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-scale, 1));
 }
 .nav-count.unread-bubble {
   display: inline-flex;
@@ -453,7 +453,7 @@ p {
     gap: 10px;
   }
   .brand strong {
-    font-size: 18px;
+    font-size: calc(18px * var(--ui-scale, 1));
   }
   .app-bar > .icon-button {
     order: 1;
@@ -477,7 +477,7 @@ p {
   .workspace-switcher .workspace-current {
     flex: 1;
     text-align: left;
-    font-size: 14px;
+    font-size: calc(14px * var(--ui-scale, 1));
     padding: 8px 14px;
   }
   .sidebar {
@@ -508,7 +508,7 @@ p {
     padding-inline: 3px;
     background: var(--surface);
     border-radius: 4px;
-    font-size: 10px;
+    font-size: calc(10px * var(--ui-scale, 1));
     line-height: 16px;
   }
   .repository-section {
@@ -520,7 +520,7 @@ p {
   .location {
     padding: 14px 16px;
     gap: 10px;
-    font-size: 15px;
+    font-size: calc(15px * var(--ui-scale, 1));
     min-height: 64px;
   }
   .location .connection-badge {
@@ -575,13 +575,13 @@ p {
   min-width: 0;
 }
 .page-heading h1 {
-  font-size: 22px;
+  font-size: calc(22px * var(--ui-scale, 1));
   line-height: 30px;
   font-weight: 600;
 }
 .page-heading p {
   color: var(--dim);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-scale, 1));
   line-height: 20px;
   margin-top: 0;
 }
@@ -641,7 +641,7 @@ select {
     top: 0;
     min-width: 16px;
     padding-inline: 3px;
-    font-size: 10px;
+    font-size: calc(10px * var(--ui-scale, 1));
     line-height: 16px;
     background: var(--surface);
     border-radius: 8px;
@@ -660,7 +660,7 @@ select {
     gap: 8px;
   }
   .page-heading h1 {
-    font-size: 20px;
+    font-size: calc(20px * var(--ui-scale, 1));
   }
 }
 @media (max-width: 760px) {
@@ -699,4 +699,18 @@ select {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 6px 8px;
+}
+
+.workspace-root {
+  font-family: var(
+    --ui-font,
+    'Inter Variable',
+    'Noto Sans SC Variable',
+    'Microsoft YaHei',
+    sans-serif
+  );
+}
+
+.workspace-root {
+  font-size: calc(14px * var(--ui-scale, 1));
 }

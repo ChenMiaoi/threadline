@@ -2,7 +2,7 @@ import { useI18n } from '../../i18n/I18n';
 import { UpdatesPanel } from './UpdatesPanel';
 import type { useUpdates } from '../../lib/useUpdates';
 import { Modal } from '../../components/Modal';
-import { useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useRef, useState, type ReactNode } from 'react';
 import type { Preferences } from '../../core/workspace';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
 import { enableDesktopNotifications, notifyDesktop } from '../../lib/notifications';
@@ -10,6 +10,10 @@ import { PageHeader } from '../../components/PageHeader';
 import { GitHubLoginButton } from '../states/GitHubLogin';
 import { isDesktop } from '../../lib/desktop';
 import { StoragePanel } from './StoragePanel';
+
+const AppearanceSettings = lazy(() =>
+  import('./AppearanceSettings').then((module) => ({ default: module.AppearanceSettings })),
+);
 
 const sections = [
   ['account', '账号与连接'],
@@ -365,60 +369,9 @@ export function SettingsPage({
               {notificationResult && <p role="status">{t(notificationResult)}</p>}
             </>
           ) : (
-            <>
-              <h2 className="settings-section-heading">{t('主题预览')}</h2>
-              <div className="theme-options" role="group" aria-label={t('主题')}>
-                {(
-                  [
-                    ['dark', '深色'],
-                    ['light', '浅色'],
-                    ['system', '跟随系统'],
-                  ] as const
-                ).map(([theme, label]) => (
-                  <button
-                    key={theme}
-                    className={`theme-option ${preferences.theme === theme ? 'active' : ''}`}
-                    aria-pressed={preferences.theme === theme}
-                    onClick={() => onChange({ theme })}
-                  >
-                    <span className={`theme-miniature preview-${theme}`} aria-hidden="true">
-                      <span className="mini-sidebar" />
-                      <span className="mini-content">
-                        <i />
-                        <i />
-                        <i />
-                      </span>
-                    </span>
-                    <span>
-                      {t(label)}
-                      {preferences.theme === theme ? ' ✓' : ''}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <h2 className="settings-section-heading">{t('界面偏好')}</h2>
-              <SettingRow title={t('信息密度')}>
-                <select
-                  className="setting-value accent"
-                  aria-label={t('信息密度')}
-                  value={preferences.density}
-                  onChange={(event) =>
-                    onChange({ density: event.target.value as Preferences['density'] })
-                  }
-                >
-                  <option value="comfortable">{t('舒适')}</option>
-                  <option value="compact">{t('紧凑')}</option>
-                </select>
-              </SettingRow>
-
-              <SettingRow title={t('减少动效')}>
-                <Toggle
-                  label={t('减少动效')}
-                  checked={preferences.reducedMotion}
-                  onChange={() => onChange({ reducedMotion: !preferences.reducedMotion })}
-                />
-              </SettingRow>
-            </>
+            <Suspense fallback={<p role="status">{t('正在显示内容…')}</p>}>
+              <AppearanceSettings preferences={preferences} onChange={onChange} />
+            </Suspense>
           )}
         </section>
       </div>

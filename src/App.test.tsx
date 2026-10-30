@@ -128,7 +128,7 @@ describe('workspace interactions', () => {
     render(<App gateway={gateway} />);
     await screen.findByRole('textbox', { name: '搜索 PR' });
     fireEvent.click(screen.getByRole('button', { name: '设置' }));
-    fireEvent.click(screen.getByRole('button', { name: '仓库与同步' }));
+    fireEvent.click(await screen.findByRole('button', { name: '仓库与同步' }));
     fireEvent.click(screen.getByRole('button', { name: '选择仓库' }));
     await screen.findByRole('radio', { name: /owner\/other/ });
     fireEvent.change(screen.getByRole('textbox', { name: '搜索仓库' }), {
@@ -188,7 +188,7 @@ describe('workspace interactions', () => {
     render(<App gateway={createGateway()} />);
     await screen.findByRole('textbox', { name: '搜索 PR' });
     fireEvent.click(screen.getByRole('button', { name: '设置' }));
-    fireEvent.click(screen.getByRole('button', { name: '仓库与同步' }));
+    fireEvent.click(await screen.findByRole('button', { name: '仓库与同步' }));
     fireEvent.click(screen.getByRole('button', { name: '选择仓库' }));
     fireEvent.click(await screen.findByRole('button', { name: '关闭弹窗' }));
     expect(screen.getByRole('heading', { name: '仓库与同步', level: 1 })).toBeTruthy();
@@ -358,8 +358,8 @@ describe('workspace interactions', () => {
     const app = render(<App gateway={createGateway()} />);
     await screen.findByRole('textbox', { name: '搜索 PR' });
     fireEvent.click(screen.getByRole('button', { name: '设置' }));
-    fireEvent.click(screen.getByRole('button', { name: '外观' }));
-    fireEvent.click(screen.getByRole('button', { name: '浅色' }));
+    fireEvent.click(await screen.findByRole('button', { name: '外观' }));
+    fireEvent.click(await screen.findByRole('button', { name: '浅色' }));
     await waitFor(() =>
       expect(
         JSON.parse(window.localStorage.getItem('threadline.workspace.v1')!).preferences.theme,
@@ -369,7 +369,7 @@ describe('workspace interactions', () => {
     render(<App gateway={createGateway()} />);
     await screen.findByRole('textbox', { name: '搜索 PR' });
     fireEvent.click(screen.getByRole('button', { name: '设置' }));
-    fireEvent.click(screen.getByRole('button', { name: '外观' }));
+    fireEvent.click(await screen.findByRole('button', { name: '外观' }));
     expect(screen.getByRole('button', { name: '浅色 ✓' }).getAttribute('aria-pressed')).toBe(
       'true',
     );
@@ -484,7 +484,7 @@ it('retains edited preferences after save failure and saves them on retry', asyn
   render(<App gateway={createGateway()} />);
   await screen.findByRole('textbox', { name: '搜索 PR' });
   fireEvent.click(screen.getByRole('button', { name: '设置' }));
-  fireEvent.click(screen.getByRole('button', { name: '外观' }));
+  fireEvent.click(await screen.findByRole('button', { name: '外观' }));
   const save = vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
     throw new Error('disk full');
   });

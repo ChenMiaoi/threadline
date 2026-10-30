@@ -2,7 +2,9 @@
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--muted);
-  line-height: 1.65;
+  font-family: var(--reading-font, inherit);
+  font-size: var(--reading-size, 14px);
+  line-height: var(--reading-line-height, 1.65);
 }
 .github-markdown > :first-child {
   margin-top: 0;
@@ -26,13 +28,13 @@
   line-height: 1.4;
 }
 .github-markdown h1 {
-  font-size: 22px;
+  font-size: calc(22px * var(--reading-scale, 1));
 }
 .github-markdown h2 {
-  font-size: 19px;
+  font-size: calc(19px * var(--reading-scale, 1));
 }
 .github-markdown h3 {
-  font-size: 16px;
+  font-size: calc(16px * var(--reading-scale, 1));
 }
 .github-markdown a {
   color: var(--accent);
@@ -48,12 +50,15 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--raised);
-  font-size: 14px;
-  line-height: 24px;
+  font-family: var(--code-font, monospace);
+  font-size: var(--code-size, 14px);
+  line-height: var(--code-line-height, 1.7);
 }
 .github-markdown pre code {
-  white-space: pre;
-  overflow-wrap: normal;
+  white-space: var(--code-wrap, pre-wrap);
+  display: block;
+  max-width: var(--code-width, calc(80ch + 24px));
+  overflow-wrap: anywhere;
   font-size: inherit;
 }
 .github-markdown :not(pre) > code {
@@ -84,4 +89,19 @@
   border: 1px solid var(--border);
   padding: 10px 14px;
   border-radius: 8px;
+}
+
+.github-markdown {
+  max-width: var(--reading-width, 1120px);
+}
+.github-markdown pre code {
+  font-family: var(--code-font, monospace);
+}
+
+.detail-card .github-markdown p {
+  font-size: inherit;
+  line-height: inherit;
+}
+.detail-card .github-markdown h2 {
+  font-size: calc(19px * var(--reading-scale, 1));
 }

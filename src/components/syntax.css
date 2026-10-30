@@ -1,32 +1,59 @@
-/* Theme variables already adapt to the app's light and dark palettes. */
+/* Syntax colors are independent of status colors and diff backgrounds. */
+:root {
+  --syntax-keyword: #ff7b72;
+  --syntax-string: #a5d6ff;
+  --syntax-function: #d2a8ff;
+  --syntax-type: #79c0ff;
+  --syntax-number: #79c0ff;
+  --syntax-attribute: #ffa657;
+  --syntax-comment: #919ba8;
+}
+.theme-light {
+  --syntax-keyword: #cf222e;
+  --syntax-string: #0a3069;
+  --syntax-function: #8250df;
+  --syntax-type: #0550ae;
+  --syntax-number: #0550ae;
+  --syntax-attribute: #953800;
+  --syntax-comment: #57606a;
+}
 .hljs-keyword,
 .hljs-selector-tag,
-.hljs-literal,
-.hljs-deletion {
-  color: var(--danger);
+.hljs-literal {
+  color: var(--syntax-keyword);
 }
 .hljs-string,
 .hljs-regexp,
-.hljs-addition,
 .hljs-template-tag {
-  color: var(--green);
+  color: var(--syntax-string);
 }
 .hljs-title,
 .hljs-section,
 .hljs-selector-class,
 .hljs-selector-id {
-  color: var(--accent);
+  color: var(--syntax-function);
 }
-.hljs-number,
-.hljs-symbol,
-.hljs-attr,
-.hljs-attribute,
 .hljs-built_in,
 .hljs-type,
+.hljs-title.class_ {
+  color: var(--syntax-type);
+}
+.hljs-number,
+.hljs-symbol {
+  color: var(--syntax-number);
+}
+.hljs-attr,
+.hljs-attribute,
 .hljs-meta {
-  color: var(--blue);
+  color: var(--syntax-attribute);
 }
 .hljs-comment,
 .hljs-quote {
-  color: var(--dim);
+  color: var(--syntax-comment);
+}
+.hljs-addition {
+  color: var(--green);
+}
+.hljs-deletion {
+  color: var(--danger);
 }

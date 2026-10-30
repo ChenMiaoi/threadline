@@ -10,7 +10,7 @@
   align-items: center;
   border-radius: 4px;
   padding: 1px 6px;
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-scale, 1));
   line-height: 20px;
   white-space: nowrap;
   background: color-mix(in srgb, currentColor 7%, transparent);
@@ -43,7 +43,7 @@
   margin-right: 4px;
 }
 .status-compact .status-badge {
-  font-size: 11px;
+  font-size: calc(11px * var(--ui-scale, 1));
   padding: 1px 5px;
 }
 .status-compact .status-dimension {
@@ -56,6 +56,6 @@
 }
 .pull-next-action {
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--ui-scale, 1));
   line-height: 20px;
 }

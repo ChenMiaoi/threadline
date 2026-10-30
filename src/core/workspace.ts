@@ -1,3 +1,4 @@
+import { defaultTypography, normalizeTypography, type TypographyPreferences } from './appearance';
 import type { LanguagePreference } from '../i18n/locale';
 import type { Activity } from '../features/activity/model';
 
@@ -6,6 +7,7 @@ import type { Activity } from '../features/activity/model';
 export const MAX_INBOX_REVISIONS = 6200;
 
 export interface Preferences {
+  typography: TypographyPreferences;
   language: LanguagePreference;
   theme: 'dark' | 'light' | 'system';
   density: 'comfortable' | 'compact';
@@ -50,6 +52,7 @@ export function defaultWorkspace(): WorkspaceData {
     version: 1,
     preferences: {
       language: 'system',
+      typography: { ...defaultTypography },
       theme: 'dark',
       density: 'comfortable',
       reducedMotion: true,
@@ -129,7 +132,7 @@ export function normalizeWorkspace(value: unknown, now: number): WorkspaceData {
   if ('version' in value && value.version !== 1)
     throw new Error('Unsupported workspace data version');
   const prefs = object(value.preferences) ? value.preferences : {};
-  const settings = { ...defaults.preferences };
+  const settings = { ...defaults.preferences, typography: normalizeTypography(prefs.typography) };
   if (['system', 'zh-CN', 'zh-TW', 'zh-HK', 'ja', 'en'].includes(String(prefs.language)))
     settings.language = prefs.language as LanguagePreference;
   if (['dark', 'light', 'system'].includes(String(prefs.theme)))
