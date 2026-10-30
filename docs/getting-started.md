@@ -2,6 +2,8 @@
 
 ThreadLine collects your GitHub collaboration work in a desktop app. It reads GitHub data; read markers, snoozes, and preferences are local.
 
+Closing the main window keeps ThreadLine running in the background, including automatic refresh and notifications according to your settings. Click the system tray icon (the menu bar icon on macOS), choose **Open ThreadLine**, or launch the app again to restore the existing window. Choose **Quit ThreadLine** from the tray menu or **Settings → About & updates** to save local changes and fully exit. On macOS, the Dock icon also restores the window and the application menu's Quit action saves before exiting.
+
 ## Install the app
 
 Open the [latest release](https://github.com/ChenMiaoi/threadline/releases/latest) and select the installer for your computer:

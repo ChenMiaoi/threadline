@@ -1,4 +1,5 @@
 mod db;
+mod desktop;
 mod fonts;
 mod github;
 mod github_auth;
@@ -57,6 +58,9 @@ fn save_last_view(view: String, workspace: State<'_, Workspace>) -> Result<(), S
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            desktop::show_main(app);
+        }))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -70,15 +74,28 @@ pub fn run() {
                 database: Mutex::new(database),
                 database_path: path.to_string_lossy().into_owned(),
             });
+            desktop::setup(app)?;
             Ok(())
         })
         .on_window_event(|window, event| {
+            if window.label() == "main" {
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    if let Err(error) = window.hide() {
+                        eprintln!("Unable to hide ThreadLine: {error}");
+                    }
+                    return;
+                }
+            }
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 window.state::<github_auth::AuthManager>().cancel();
             }
         })
         .invoke_handler(tauri::generate_handler![
             get_app_state,
+            desktop::set_desktop_menu,
+            desktop::complete_quit,
+            desktop::show_main_window,
             get_system_fonts,
             play_notification_sound,
             updates_configured,
@@ -98,8 +115,9 @@ pub fn run() {
             github_open,
             github_select_repository
         ])
-        .run(tauri::generate_context!())
-        .expect("Unable to start ThreadLine");
+        .build(tauri::generate_context!())
+        .expect("Unable to start ThreadLine")
+        .run(desktop::on_run_event);
 }
 
 #[tauri::command]

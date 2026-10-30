@@ -66,6 +66,27 @@ it('does not offer native notifications in a browser even with a saved enabled p
 });
 afterEach(cleanup);
 
+it('offers an explicit application quit action without signing out', async () => {
+  const { result } = renderHook(() => useGitHub(0, createGateway()));
+  await waitFor(() => expect(result.current.session).not.toBeNull());
+  const onQuit = vi.fn().mockResolvedValue(undefined);
+  const disconnect = vi.fn();
+  render(
+    <SettingsPage
+      preferences={defaultWorkspace().preferences}
+      onChange={vi.fn()}
+      onSync={vi.fn()}
+      github={{ ...result.current, disconnect }}
+      onChooseRepository={vi.fn()}
+      onQuit={onQuit}
+    />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: '关于与更新' }));
+  fireEvent.click(screen.getByRole('button', { name: '退出 ThreadLine' }));
+  expect(onQuit).toHaveBeenCalledOnce();
+  expect(disconnect).not.toHaveBeenCalled();
+});
+
 async function settings() {
   const { result } = renderHook(() => useGitHub(0, createGateway()));
   await waitFor(() => expect(result.current.session).not.toBeNull());

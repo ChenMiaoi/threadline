@@ -62,7 +62,7 @@ export function WindowControls() {
       <button
         className="window-close"
         aria-label={t('关闭窗口')}
-        title={t('关闭')}
+        title={t('关闭窗口后在后台运行')}
         onClick={() => run('close')}
       >
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">

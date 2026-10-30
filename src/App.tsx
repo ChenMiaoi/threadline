@@ -2,6 +2,7 @@ import { FloatingWarning, FloatingWarnings } from './components/FloatingWarnings
 import { typographyStyle } from './lib/appearance';
 import { I18nContext, useLanguage } from './i18n/I18n';
 import { useUpdates } from './lib/useUpdates';
+import { useDesktopLifecycle } from './lib/useDesktopLifecycle';
 import { useRepositoryAvatar } from './lib/useRepositoryAvatar';
 import { githubErrorMessage } from './lib/github-errors';
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -86,6 +87,20 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   }, [openedPull]);
   const completedLogin = useRef(false);
   const writeQueue = useRef(Promise.resolve());
+  async function flushWorkspace() {
+    await workspace.flush();
+    await writeQueue.current;
+    if (isDesktop) await saveLastView(view);
+  }
+  const desktopLifecycle = useDesktopLifecycle(
+    async () => {
+      if (updates.status === 'installing')
+        throw new Error(t('正在保存数据并安装更新，请勿关闭应用。'));
+      await flushWorkspace();
+    },
+    t('打开 ThreadLine'),
+    t('退出 ThreadLine'),
+  );
   const { restored, snoozeRecords } = data;
   const inbox = useMemo(
     () =>
@@ -318,6 +333,12 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
               </button>
             </FloatingWarning>
           )}
+          {desktopLifecycle.error.message && (
+            <FloatingWarning title={t('桌面操作未完成')} key={desktopLifecycle.error.message}>
+              <p>{desktopLifecycle.error.message}</p>
+              {desktopLifecycle.error.quitting && <p>{t('更改尚未保存。请重试保存后再退出。')}</p>}
+            </FloatingWarning>
+          )}
           <WorkspaceShell
             repo={github.repo}
             login={github.session?.user.login}
@@ -491,11 +512,8 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                       <Suspense fallback={<p role="status">{t('正在读取内容…')}</p>}>
                         <SettingsPage
                           updates={updates}
-                          flush={async () => {
-                            await workspace.flush();
-                            await writeQueue.current;
-                            if (isDesktop) await saveLastView(view);
-                          }}
+                          flush={flushWorkspace}
+                          onQuit={isDesktop ? desktopLifecycle.quit : undefined}
                           preferences={data.preferences}
                           onChange={changePreferences}
                           onSync={() => void github.refresh()}

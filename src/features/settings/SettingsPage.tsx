@@ -88,6 +88,7 @@ export function SettingsPage({
   onSync,
   github,
   onChooseRepository,
+  onQuit,
 }: {
   preferences: Preferences;
   updates?: ReturnType<typeof useUpdates>;
@@ -96,6 +97,7 @@ export function SettingsPage({
   onSync: () => void;
   github: GitHubWorkspace;
   onChooseRepository: () => void;
+  onQuit?: () => Promise<void>;
 }) {
   const { t, locale } = useI18n();
 
@@ -173,6 +175,16 @@ export function SettingsPage({
           ) : section === 'updates' ? (
             <>
               {updates && <UpdatesPanel updates={updates} flush={flush} />}
+              {onQuit && (
+                <SettingRow
+                  title={t('退出 ThreadLine')}
+                  description={t('关闭窗口后继续后台运行；从这里可完全退出。')}
+                >
+                  <button className="chip" onClick={() => void onQuit()}>
+                    {t('退出 ThreadLine')}
+                  </button>
+                </SettingRow>
+              )}
               <StoragePanel />
               <SettingRow
                 title={t('自动检查更新')}
