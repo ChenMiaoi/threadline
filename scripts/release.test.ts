@@ -32,7 +32,8 @@ function fixture(version = '1.2.3') {
     join(root, 'src-tauri/Cargo.lock'),
     `[[package]]\nname = "threadline"\nversion = "${version}"\n`,
   );
-  writeFileSync(join(root, 'docs/release/v1.2.3-releasenote.md'), '# Release\n\nChanges');
+  const noteTag = `v${version.replace('-rc.', '-rc')}`;
+  writeFileSync(join(root, `docs/release/${noteTag}-releasenote.md`), '# Release\n\nChanges');
   return root;
 }
 afterEach(() => {
@@ -49,16 +50,31 @@ describe('release policy', () => {
     );
     expect(() => releaseNotesBody('# ThreadLine 1.2.3')).toThrow('empty');
   });
-  it('accepts stable and RC tags with a required base-version note', () => {
+  it('requires a release note matching the complete stable or RC tag', () => {
     expect(validateRelease(fixture(), 'v1.2.3')).toMatchObject({
       channel: 'stable',
       prerelease: false,
+      notes: 'docs/release/v1.2.3-releasenote.md',
     });
     expect(validateRelease(fixture('1.2.3-rc.10'), 'v1.2.3-rc10')).toMatchObject({
       version: '1.2.3-rc.10',
       channel: 'preview',
-      notes: 'docs/release/v1.2.3-releasenote.md',
+      notes: 'docs/release/v1.2.3-rc10-releasenote.md',
     });
+  });
+  it('does not use stable or another candidate note when the exact RC note is missing', () => {
+    const root = fixture('1.2.3-rc.2');
+    const note = join(root, 'docs/release/v1.2.3-rc2-releasenote.md');
+    rmSync(note);
+    writeFileSync(join(root, 'docs/release/v1.2.3-releasenote.md'), 'Stable changes');
+    writeFileSync(join(root, 'docs/release/v1.2.3-rc1-releasenote.md'), 'Earlier candidate');
+    expect(() => validateRelease(root, 'v1.2.3-rc2')).toThrow();
+    writeFileSync(note, '# Candidate 2');
+    expect(() => validateRelease(root, 'v1.2.3-rc2')).toThrow('empty');
+    writeFileSync(note, 'Candidate 2 changes');
+    expect(validateRelease(root, 'v1.2.3-rc2').notes).toBe(
+      'docs/release/v1.2.3-rc2-releasenote.md',
+    );
   });
   it.each([
     '1.2.3',

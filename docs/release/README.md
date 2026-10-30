@@ -1,6 +1,6 @@
 # Release publishing
 
-Push a version tag to run the release workflow. Accepted tags are `vX.Y.Z` and `vX.Y.Z-rcX`. Every release requires a nonempty `docs/release/vX.Y.Z-releasenote.md`; RC builds and the final release share that base-version file. Unsupported tags beginning with `v` fail validation.
+Push a version tag to run the release workflow. Accepted tags are `vX.Y.Z` and `vX.Y.Z-rcX`. Every release requires its own nonempty `docs/release/<tag>-releasenote.md`, matching the complete Git tag. For example, `v1.2.3-rc1` uses `docs/release/v1.2.3-rc1-releasenote.md`, `v1.2.3-rc2` uses a separate `docs/release/v1.2.3-rc2-releasenote.md`, and the final `v1.2.3` uses `docs/release/v1.2.3-releasenote.md`. There is no fallback to another candidate or the final version's note. Unsupported tags beginning with `v` fail validation.
 
 Release notes may start with a document title such as `# ThreadLine 1.2.3`, followed by change sections such as `## Workspace`. Publishing automatically removes the leading level-one title from both the GitHub release body and updater notes, because their surrounding UI already identifies the version. Files without a leading title are also supported. Validation rejects empty or title-only notes; the source document keeps its title.
 

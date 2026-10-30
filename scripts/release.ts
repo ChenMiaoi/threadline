@@ -25,7 +25,7 @@ export function releaseIdentity(tag: string) {
   return {
     tag,
     version: match[1] + (match[2] === undefined ? '' : `-rc.${match[2]}`),
-    notes: `docs/release/v${match[1]}-releasenote.md`,
+    notes: `docs/release/${tag}-releasenote.md`,
     channel: match[2] === undefined ? 'stable' : 'preview',
     prerelease: match[2] !== undefined,
   };
