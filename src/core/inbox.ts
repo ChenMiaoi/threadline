@@ -26,11 +26,14 @@ export function quietHours(preferences: Preferences, now: Date) {
 }
 
 export function shouldNotify(record: Activity, preferences: Preferences) {
-  return record.changeType === 'comment'
-    ? preferences.notifyComments
-    : record.changeType === 'commit'
-      ? preferences.notifyCommits
-      : preferences.notifyAttention;
+  return (
+    !record.selfEvent &&
+    (record.changeType === 'comment'
+      ? preferences.notifyComments
+      : record.changeType === 'commit'
+        ? preferences.notifyCommits
+        : preferences.notifyAttention)
+  );
 }
 
 // GitHub can change checks or HEAD without advancing the thread's updatedAt.
@@ -44,6 +47,30 @@ export function observeUpdates(records: Activity[], previous: Activity[], fetche
   return records.map((record) => {
     const before = observed.get(`${record.kind}:${record.number}`);
     if (!before?.updatedAt) return record;
+    if (
+      record.selfEvent &&
+      record.collaborationKey === before.collaborationKey &&
+      (record.externalEventAt ?? '') <= (before.externalEventAt ?? '') &&
+      record.externalRevision === before.externalRevision
+    ) {
+      return {
+        ...record,
+        id: before.id,
+        updatedAt: before.updatedAt,
+        updated: before.updated,
+        summary: before.summary,
+        serverRead: before.serverRead,
+        selfEvent: before.selfEvent,
+      };
+    }
+    if (
+      record.selfEvent &&
+      (record.collaborationKey !== before.collaborationKey ||
+        (record.externalEventAt ?? '') > (before.externalEventAt ?? '') ||
+        record.externalRevision !== before.externalRevision)
+    )
+      record = { ...record, selfEvent: false, serverRead: false };
+
     const updatedAt =
       before.id === record.id
         ? before.updatedAt

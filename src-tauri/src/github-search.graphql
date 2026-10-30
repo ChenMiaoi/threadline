@@ -22,7 +22,7 @@ query ($search: String!, $endCursor: String) {
         author {
           login
         }
-        comments(last: 1) {
+        comments(last: 20) {
           totalCount
           nodes {
             body
@@ -91,7 +91,7 @@ query ($search: String!, $endCursor: String) {
             login
           }
         }
-        comments(last: 1) {
+        comments(last: 20) {
           totalCount
           nodes {
             body

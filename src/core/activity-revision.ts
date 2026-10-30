@@ -27,7 +27,7 @@ function fingerprint(record: SearchRecord) {
     record.comments,
   ];
 }
-function hash(fields: unknown[]) {
+export function revisionFingerprint(fields: unknown[]) {
   const text = JSON.stringify(fields);
   let value = 2166136261;
   for (let index = 0; index < text.length; index++)
@@ -60,7 +60,7 @@ export function activityRevisionId(
   updatedAt = activityUpdatedAt(record),
 ) {
   // Merge conditions are recomputed by GitHub without a collaboration event.
-  return `github:${account}:${repo}:activity:${activityKind(record)}-${record.number}-v3-${hash(fingerprint(record))}:${updatedAt}`;
+  return `github:${account}:${repo}:activity:${activityKind(record)}-${record.number}-v3-${revisionFingerprint(fingerprint(record))}:${updatedAt}`;
 }
 export function legacyActivityRevisionIds(record: SearchRecord, account: number, repo: string) {
   const fields = fingerprint(record);
@@ -69,7 +69,7 @@ export function legacyActivityRevisionIds(record: SearchRecord, account: number,
     ...new Set(
       mergeStates.map((mergeState) => {
         const previous = [...fields.slice(0, 6), mergeState, ...fields.slice(6)];
-        return `github:${account}:${repo}:activity:${activityKind(record)}-${record.number}-${hash(previous)}:${updatedAt}`;
+        return `github:${account}:${repo}:activity:${activityKind(record)}-${record.number}-${revisionFingerprint(previous)}:${updatedAt}`;
       }),
     ),
   ];

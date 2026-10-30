@@ -105,3 +105,69 @@ describe('unified activity inbox', () => {
     expect(shouldNotify({ ...activity, changeType: 'commit' }, prefs)).toBe(true);
   });
 });
+
+it('does not resurface an unchanged thread after my own comment, but keeps concurrent code changes', () => {
+  const before = activityFromGitHub(
+    { ...record, comments: { totalCount: 0, nodes: [] } },
+    user.id,
+    repo,
+    user.login,
+  );
+  const ownRecord = {
+    ...record,
+    updatedAt: '2026-10-30T10:05:00Z',
+    comments: {
+      totalCount: 1,
+      nodes: [
+        { body: 'My reply', author: { login: user.login }, createdAt: '2026-10-30T10:05:00Z' },
+      ],
+    },
+  };
+  const own = activityFromGitHub(ownRecord, user.id, repo, user.login);
+  expect(own.selfEvent).toBe(true);
+  expect(shouldNotify(own, defaultWorkspace().preferences)).toBe(false);
+  const observed = observeUpdates([own], [before], Date.now())[0];
+  expect(observed.id).toBe(before.id);
+  expect(newUpdates([observed], [before.id])).toEqual([]);
+  const withCommit = activityFromGitHub(
+    { ...ownRecord, headRefOid: 'new-commit' },
+    user.id,
+    repo,
+    user.login,
+  );
+  const changed = observeUpdates([withCommit], [before], Date.now())[0];
+  expect(changed.selfEvent).toBe(false);
+  expect(changed.serverRead).toBe(false);
+  expect(changed.id).not.toBe(before.id);
+});
+
+it('keeps external comments received before my reply in the same synchronization unread', () => {
+  const before = activityFromGitHub(
+    { ...record, comments: { totalCount: 0, nodes: [] } },
+    user.id,
+    repo,
+    user.login,
+  );
+  const time = '2026-10-30T10:05:00Z';
+  const after = activityFromGitHub(
+    {
+      ...record,
+      updatedAt: time,
+      comments: {
+        totalCount: 2,
+        nodes: [
+          { body: 'Please update this', author: { login: 'another-reviewer' }, createdAt: time },
+          { body: 'My acknowledgement', author: { login: user.login }, createdAt: time },
+        ],
+      },
+    },
+    user.id,
+    repo,
+    user.login,
+  );
+  const observed = observeUpdates([after], [before], Date.now())[0];
+  expect(observed.id).not.toBe(before.id);
+  expect(observed.selfEvent).toBe(false);
+  expect(observed.serverRead).toBe(false);
+  expect(shouldNotify(observed, defaultWorkspace().preferences)).toBe(true);
+});

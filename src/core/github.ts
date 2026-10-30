@@ -1,5 +1,5 @@
 import { describePull } from './pull-status';
-import { activityRevisionId } from './activity-revision';
+import { activityRevisionId, revisionFingerprint } from './activity-revision';
 import type { StatusBadge } from './pull-status';
 import type { Activity } from '../features/activity/model';
 import type { PullRequest } from '../features/pulls/model';
@@ -513,9 +513,66 @@ export function activityFromGitHub(
     .at(-1)!;
   const recentComment = comment && (comment.updatedAt ?? comment.createdAt) === latest;
   const recentReview = review && (review.updatedAt ?? review.submittedAt) === latest;
+  const latestEvent = [
+    ...record.comments.nodes.map((c) => ({
+      actor: c.author?.login,
+      date: c.updatedAt ?? c.createdAt,
+    })),
+    ...(record.reviews?.nodes ?? []).map((r) => ({
+      actor: r.author?.login,
+      date: r.updatedAt ?? r.submittedAt,
+    })),
+  ]
+    .filter((e) => e.date)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .at(-1);
+  const externalEventAt =
+    [
+      ...record.comments.nodes
+        .filter((c) => c.author?.login?.toLowerCase() !== login.toLowerCase())
+        .map((c) => c.updatedAt ?? c.createdAt),
+      ...(record.reviews?.nodes ?? [])
+        .filter((r) => r.author?.login?.toLowerCase() !== login.toLowerCase())
+        .map((r) => r.updatedAt ?? r.submittedAt),
+    ]
+      .filter(Boolean)
+      .sort()
+      .at(-1) ?? '';
+  const externalRevision = revisionFingerprint([
+    record.comments.nodes.filter(
+      (c) =>
+        c.author?.login?.toLowerCase() !== login.toLowerCase() &&
+        (c.updatedAt ?? c.createdAt) === externalEventAt,
+    ),
+    record.reviews?.nodes.filter(
+      (r) =>
+        r.author?.login?.toLowerCase() !== login.toLowerCase() &&
+        (r.updatedAt ?? r.submittedAt) === externalEventAt,
+    ),
+  ]);
+  const selfEvent =
+    latestEvent?.actor?.toLowerCase() === login.toLowerCase() &&
+    Math.abs(Date.parse(record.updatedAt) - Date.parse(latestEvent.date)) < 10000;
+  const collaborationKey = revisionFingerprint([
+    record.title,
+    record.body,
+    record.state,
+    record.isDraft,
+    record.headRefOid,
+    record.commits,
+    record.labels,
+    record.reviewRequests?.nodes.filter(
+      (r) => r.requestedReviewer?.login?.toLowerCase() !== login.toLowerCase(),
+    ),
+  ]);
   return {
     ...activity,
     id: activityRevisionId(record, account, repo, latest),
+    selfEvent,
+    collaborationKey,
+    externalEventAt,
+    externalRevision,
+    serverRead: selfEvent,
     updatedAt: latest,
     updated: shortTime(latest),
     summary: recentComment
