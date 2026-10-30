@@ -169,6 +169,7 @@ export function ActivityPage({
   const [query, setQuery] = useState('');
   const [attention, setAttention] = useState(false);
   const [label, setLabel] = useState('');
+  const [mergedExpanded, setMergedExpanded] = useState(false);
   function showAll() {
     setFilter('all');
     setQuery('');
@@ -281,25 +282,48 @@ export function ActivityPage({
         </div>
       </div>
       <TabPanel id={tabsId} value={filter} className="activity-list">
-        {groups.map(([group, items]) => (
-          <section key={group}>
-            <h2 className="activity-group">
-              {t(group)}
-              <span>{items.length}</span>
-            </h2>
-            {items.map((record) => (
-              <ActivityRecord
-                key={record.id}
-                record={record}
-                showKind={view === 'inbox'}
-                onOpen={onOpen}
-                onRead={view === 'inbox' ? onRead : undefined}
-                onSnooze={view === 'inbox' ? onSnooze : undefined}
-                isRead={readIds.has(record.id)}
-              />
-            ))}
-          </section>
-        ))}
+        {groups.map(([group, items]) => {
+          const collapsible =
+            view === 'review' && group === '已合并' && filter === 'all' && !query.trim();
+          return (
+            <section key={group}>
+              <h2 className="activity-group">
+                {collapsible ? (
+                  <button
+                    className="activity-group-toggle"
+                    aria-expanded={mergedExpanded}
+                    aria-controls={`${tabsId}-merged-records`}
+                    onClick={() => setMergedExpanded(!mergedExpanded)}
+                  >
+                    <span aria-hidden="true">{mergedExpanded ? '▾' : '▸'}</span>
+                    {t(group)} <span>{items.length}</span>
+                  </button>
+                ) : (
+                  <>
+                    {t(group)}
+                    <span>{items.length}</span>
+                  </>
+                )}
+              </h2>
+              <div
+                id={collapsible ? `${tabsId}-merged-records` : undefined}
+                hidden={collapsible && !mergedExpanded}
+              >
+                {items.map((record) => (
+                  <ActivityRecord
+                    key={record.id}
+                    record={record}
+                    showKind={view === 'inbox'}
+                    onOpen={onOpen}
+                    onRead={view === 'inbox' ? onRead : undefined}
+                    onSnooze={view === 'inbox' ? onSnooze : undefined}
+                    isRead={readIds.has(record.id)}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
         {!groups.length && (
           <section className="activity-empty">
             <div className="empty-symbol">✓</div>

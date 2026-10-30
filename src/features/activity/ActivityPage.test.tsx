@@ -7,6 +7,52 @@ import { describePull } from '../../core/pull-status';
 import { issueFromGitHub } from '../../core/github';
 import { record, repo, user } from '../../test/github.fixture';
 afterEach(cleanup);
+
+it('collapses merged reviews by default but reveals them on demand, search, or the finished tab', () => {
+  const merged = {
+    ...demoActivities.review[0],
+    id: 'merged-review',
+    number: 9000,
+    title: 'Merged change',
+    group: '已合并',
+    category: 'finished',
+    state: 'merged' as const,
+  };
+  const onOpen = vi.fn();
+  render(
+    <ActivityPage
+      view="review"
+      items={[demoActivities.review[0], merged]}
+      repo={repo}
+      read={[]}
+      onRead={vi.fn()}
+      onSnooze={vi.fn()}
+      onOpen={onOpen}
+    />,
+  );
+  const toggle = screen.getByRole('button', { name: '已合并 1' });
+  expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  expect(screen.queryByRole('button', { name: /#9000/ })).toBeNull();
+  expect(
+    screen.getByRole('button', { name: new RegExp(`#${demoActivities.review[0].number}`) }),
+  ).toBeTruthy();
+  fireEvent.click(toggle);
+  expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  fireEvent.click(screen.getByRole('button', { name: /#9000/ }));
+  expect(onOpen).toHaveBeenCalledWith(merged);
+  fireEvent.click(toggle);
+  expect(screen.queryByRole('button', { name: /#9000/ })).toBeNull();
+  fireEvent.change(screen.getByRole('textbox', { name: '搜索协作记录' }), {
+    target: { value: 'Merged change' },
+  });
+  expect(screen.getByRole('button', { name: /#9000/ })).toBeTruthy();
+  fireEvent.change(screen.getByRole('textbox', { name: '搜索协作记录' }), {
+    target: { value: '' },
+  });
+  expect(screen.queryByRole('button', { name: /#9000/ })).toBeNull();
+  fireEvent.click(screen.getByRole('tab', { name: '已结束 1' }));
+  expect(screen.getByRole('button', { name: /#9000/ })).toBeTruthy();
+});
 describe('activity empty-state recovery', () => {
   it('keeps tab totals independent of search and refreshes them with read and snooze changes', () => {
     const props = {
