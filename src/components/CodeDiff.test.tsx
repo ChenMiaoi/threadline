@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { CodeDiff } from './CodeDiff';
 afterEach(cleanup);
@@ -15,26 +15,19 @@ it('keeps large patches responsive while letting the reader reveal all remaining
   expect(screen.queryByRole('button', { name: /显示更多差异/ })).toBeNull();
 });
 
-it('lets keyboard readers move across long lines and opt into wrapping without altering the patch', () => {
+it('preserves one logical row and line number per source line when long code wraps visually', () => {
   const text = '+' + 'long_identifier '.repeat(80);
-  render(<CodeDiff filename="long.ts" patch={'@@ -0,0 +1 @@\n' + text} />);
-  const region = screen.getByRole('region', { name: 'long.ts 的代码差异' });
-  Object.defineProperty(region, 'scrollBy', {
-    value: vi.fn(({ left }: { left: number }) => {
-      region.scrollLeft += left;
-    }),
-  });
-  fireEvent.keyDown(region, { key: 'ArrowRight' });
-  expect(region.scrollLeft).toBe(160);
-  fireEvent.keyDown(region, { key: 'ArrowLeft' });
-  expect(region.scrollLeft).toBe(0);
-  fireEvent.click(screen.getByRole('button', { name: '自动换行' }));
-  expect(screen.getByRole('button', { name: '自动换行' }).getAttribute('aria-pressed')).toBe(
-    'true',
+  const { container } = render(
+    <CodeDiff filename="long.unknown" patch={'@@ -0,0 +40,2 @@\n' + text + '\n+next();'} />,
   );
-  fireEvent.keyDown(region, { key: 'ArrowRight' });
-  expect(region.scrollLeft).toBe(0);
-  expect(region.textContent).toContain(text);
+  expect(screen.queryByRole('button', { name: '自动换行' })).toBeNull();
+  const rows = container.querySelectorAll('.diff-added');
+  expect(rows).toHaveLength(2);
+  expect(rows[0].querySelector('.diff-source')?.textContent).toBe(text + '\n');
+  expect([...rows].map((row) => row.querySelector('.diff-number')?.textContent)).toEqual([
+    '40',
+    '41',
+  ]);
 });
 
 it('highlights old and new hunk streams independently without changing signs, numbers, or literal HTML', async () => {

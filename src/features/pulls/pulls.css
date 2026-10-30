@@ -418,6 +418,10 @@
   max-width: 1120px;
   margin-inline: auto;
 }
+.review-comment-code {
+  min-width: 0;
+  margin: 12px 0;
+}
 .detail-timeline:has(.github-patch),
 .detail-timeline:has(.check-list) {
   max-width: none;

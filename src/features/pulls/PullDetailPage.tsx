@@ -10,7 +10,12 @@ import { describeChecks } from '../../core/checks';
 import { describePull } from '../../core/pull-status';
 import { GitHubMarkdown } from '../../components/GitHubMarkdown';
 import type { PullRequest } from './model';
-import { shortTime, type GitHubGateway, type PullDetail } from '../../core/github';
+import {
+  shortTime,
+  type GitHubGateway,
+  type PullDetail,
+  type RestComment,
+} from '../../core/github';
 import {
   invalidateRecord,
   useGitHubResource,
@@ -115,6 +120,7 @@ function DiscussionSection({
             version: '',
             replies: [],
             replyTo: undefined,
+            code: undefined as RestComment | undefined,
           })),
           ...reviewThreads(data.reviewComments.flat()).map(({ comment: c, replies }) => ({
             id: `inline-${c.id}`,
@@ -126,6 +132,7 @@ function DiscussionSection({
             version: '',
             replies,
             replyTo: c.in_reply_to_id,
+            code: c,
           })),
           ...data.reviews
             .flat()
@@ -134,6 +141,7 @@ function DiscussionSection({
               id: `review-${r.id}`,
               replies: [],
               replyTo: undefined,
+              code: undefined as RestComment | undefined,
               author: r.user?.login,
               avatar: r.user?.avatar_url,
               body: r.body,
@@ -231,6 +239,7 @@ function DiscussionSection({
                 <time className="dim">{event.date && shortTime(event.date)}</time>
               </div>
               {event.replyTo != null && <p className="reply-context">{t('回复较早的评论')}</p>}
+              {event.code && <ReviewCommentCode comment={event.code} head={resource.head} />}
               {event.body.trim() && (
                 <GitHubMarkdown repo={resource.repo}>{event.body}</GitHubMarkdown>
               )}
@@ -260,6 +269,26 @@ function DiscussionSection({
         </>
       )}
     </ResourceState>
+  );
+}
+function ReviewCommentCode({ comment, head }: { comment: RestComment; head: string }) {
+  const { t } = useI18n();
+  const commit = comment.original_commit_id ?? comment.commit_id;
+  const line = comment.original_line ?? comment.line;
+  const start = comment.original_start_line ?? comment.start_line ?? line;
+  return (
+    <div className="review-comment-code">
+      <p className="reply-context">
+        {comment.path}
+        {line != null && `:${start === line ? line : `${start}–${line}`}`}
+        {commit && ` · ${t(commit === head ? '当前版本' : '旧版本 {0}', [commit.slice(0, 7)])}`}
+      </p>
+      {comment.diff_hunk?.trim() ? (
+        <CodeDiff patch={comment.diff_hunk} filename={comment.path ?? ''} />
+      ) : (
+        <p className="muted">{t('此评论的代码片段不可用。')}</p>
+      )}
+    </div>
   );
 }
 function FilePatch({ file }: { file: Files['files'][number][number] }) {

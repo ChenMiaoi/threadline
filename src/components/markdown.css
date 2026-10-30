@@ -48,11 +48,13 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--raised);
+  font-size: 14px;
+  line-height: 24px;
 }
 .github-markdown pre code {
   white-space: pre;
   overflow-wrap: normal;
-  font-size: 12px;
+  font-size: inherit;
 }
 .github-markdown :not(pre) > code {
   background: var(--raised);

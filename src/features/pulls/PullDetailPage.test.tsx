@@ -296,6 +296,10 @@ it('keeps review replies with their parent and names the actual recipient', asyn
                   user: { login: 'reviewer' },
                   created_at: '2026-10-28T10:00:00Z',
                   path: 'test.cpp',
+                  diff_hunk: '@@ -12,2 +12,2 @@\n-old_test();\n+new_test();\n unchanged();',
+                  original_line: 12,
+                  original_commit_id: 'older123456',
+                  commit_id: 'older123456',
                 },
                 {
                   id: 3,
@@ -327,5 +331,9 @@ it('keeps review replies with their parent and names the actual recipient', asyn
   expect(thread?.textContent).toContain('Use this test instead.');
   expect(thread?.textContent).toContain('Changed the test.');
   expect(thread?.textContent).not.toContain('An orphan reply.');
+  const code = screen.getByRole('region', { name: 'test.cpp 的代码差异' });
+  expect(code.textContent).toContain('+new_test();');
+  expect(thread?.textContent).toContain('test.cpp:12 · 旧版本 older12');
+  expect(screen.getByText('此评论的代码片段不可用。')).toBeTruthy();
   expect(screen.getByText('回复较早的评论')).toBeTruthy();
 });

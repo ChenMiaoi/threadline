@@ -412,6 +412,14 @@ export interface RestComment {
   created_at: string;
   path?: string;
   in_reply_to_id?: number;
+  diff_hunk?: string;
+  line?: number | null;
+  original_line?: number | null;
+  start_line?: number | null;
+  original_start_line?: number | null;
+  side?: 'LEFT' | 'RIGHT';
+  commit_id?: string;
+  original_commit_id?: string;
 }
 export interface RestReview {
   id: number;
