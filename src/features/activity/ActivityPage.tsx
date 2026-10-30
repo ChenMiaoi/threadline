@@ -60,6 +60,7 @@ export function ActivityRecord({
   onSnooze,
   isRead,
   showKind = false,
+  showSummary = true,
 }: {
   record: Activity;
   selected?: boolean;
@@ -68,11 +69,15 @@ export function ActivityRecord({
   onSnooze?: (id: string) => void;
   isRead?: boolean;
   showKind?: boolean;
+  showSummary?: boolean;
 }) {
   const { t, locale } = useI18n();
+  const issueList = record.kind === 'issue' && !showSummary;
 
   return (
-    <div className={`activity-record ${selected ? 'selected' : ''} ${isRead ? 'is-read' : ''}`}>
+    <div
+      className={`activity-record ${issueList ? 'issue-list-record' : ''} ${selected ? 'selected' : ''} ${isRead ? 'is-read' : ''}`}
+    >
       <button className="record-main" onClick={() => onOpen(record)}>
         {record.pullStatus && <PullLifecycleIcon status={record.pullStatus} />}
         {!record.pullStatus &&
@@ -83,29 +88,54 @@ export function ActivityRecord({
           ))}
         <span className="record-body">
           <span className="record-title" title={record.title}>
-            {showKind
-              ? record.kind === 'pull'
-                ? 'PR '
-                : 'Issue '
-              : record.kind === 'issue' && record.id.includes(':notification:')
-                ? 'Issue '
-                : ''}
-            #{record.number}&nbsp; {record.title}
+            {issueList ? (
+              <>
+                <span className="issue-row-number">#{record.number}</span>
+                <span className="issue-row-title">{record.title}</span>
+              </>
+            ) : (
+              <>
+                {showKind
+                  ? record.kind === 'pull'
+                    ? 'PR '
+                    : 'Issue '
+                  : record.kind === 'issue' && record.id.includes(':notification:')
+                    ? 'Issue '
+                    : ''}
+                #{record.number}&nbsp; {record.title}
+              </>
+            )}
           </span>
           {record.pullStatus && !showKind && (
             <PullStatusBadges status={record.pullStatus} personal={record.personalReview} compact />
           )}
-          {(!record.pullStatus || showKind) && (
-            <>
-              <span className="record-summary">{record.summary}</span>
-              <span className="record-detail" title={t(record.detail)}>
-                {t(record.detail)}
+          {issueList ? (
+            <span className="issue-row-meta">
+              <span className={`issue-row-state ${record.state === 'closed' ? 'is-closed' : ''}`}>
+                {t(record.status)}
               </span>
-            </>
+              <span className="issue-row-author">
+                {!record.author || record.author === '已删除用户' ? t('已删除用户') : record.author}
+              </span>
+              {record.labels?.map((label) => (
+                <span className="issue-row-label" key={label} title={label}>
+                  {label}
+                </span>
+              ))}
+            </span>
+          ) : (
+            (!record.pullStatus || showKind) && (
+              <>
+                {showSummary && <span className="record-summary">{record.summary}</span>}
+                <span className="record-detail" title={t(record.detail)}>
+                  {t(record.detail)}
+                </span>
+              </>
+            )
           )}
         </span>
         <span className="record-status">
-          {(!record.pullStatus || onRead) && (
+          {!issueList && (!record.pullStatus || onRead) && (
             <span className={record.tone}>
               {onRead ? (isRead ? t('已读') : t('未读')) : t(record.status)}
             </span>
@@ -314,6 +344,7 @@ export function ActivityPage({
                     key={record.id}
                     record={record}
                     showKind={view === 'inbox'}
+                    showSummary={view !== 'issues'}
                     onOpen={onOpen}
                     onRead={view === 'inbox' ? onRead : undefined}
                     onSnooze={view === 'inbox' ? onSnooze : undefined}

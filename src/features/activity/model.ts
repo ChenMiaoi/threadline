@@ -1,6 +1,7 @@
 import type { PullStatus, StatusBadge } from '../../core/pull-status';
 export type ActivityView = 'inbox' | 'review' | 'issues';
 export interface Activity {
+  author?: string;
   selfEvent?: boolean;
   collaborationKey?: string;
   externalEventAt?: string;

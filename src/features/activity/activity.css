@@ -124,6 +124,65 @@
   font-size: calc(12px * var(--ui-scale, 1));
   white-space: nowrap;
 }
+.issue-list-record .record-main {
+  min-height: 78px;
+  padding-block: 12px;
+}
+.issue-list-record .record-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.issue-row-number {
+  flex-shrink: 0;
+  color: var(--dim);
+  font-size: calc(13px * var(--ui-scale, 1));
+  font-weight: 400;
+}
+.issue-row-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.issue-row-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  min-width: 0;
+  font-size: calc(12px * var(--ui-scale, 1));
+  line-height: 19px;
+}
+.issue-row-state,
+.issue-row-label {
+  padding-inline: 6px;
+  border-radius: 4px;
+}
+.issue-row-state {
+  color: var(--green);
+  background: color-mix(in srgb, var(--green) 9%, var(--surface));
+}
+.issue-row-state.is-closed {
+  color: var(--merged);
+  background: color-mix(in srgb, var(--merged) 9%, var(--surface));
+}
+.issue-row-author {
+  max-width: min(24ch, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--dim);
+}
+.issue-row-label {
+  max-width: min(34ch, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  background: var(--raised);
+}
+.issue-list-record .record-status {
+  flex-basis: 48px;
+  padding-top: 2px;
+}
 .record-actions {
   display: none;
   position: absolute;
@@ -319,6 +378,16 @@
   }
 }
 @media (max-width: 760px) {
+  .issue-list-record .record-title {
+    display: block;
+    white-space: normal;
+  }
+  .issue-row-number {
+    margin-inline-end: 8px;
+  }
+  .issue-row-title {
+    overflow-wrap: anywhere;
+  }
   .record-main {
     gap: 10px;
     padding: 12px 8px;

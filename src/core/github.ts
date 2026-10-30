@@ -232,6 +232,7 @@ export function issueFromGitHub(
   return {
     id: recordId(account, repo, 'issue', record.number, record.updatedAt),
     kind: 'issue',
+    author: record.author?.login ?? '已删除用户',
     number: record.number,
     title: record.title,
     url: record.url,

@@ -1,12 +1,39 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { ActivityPage, ActivityRecord } from './ActivityPage';
 import { demoActivities } from '../../test/activities.fixture';
 import { describePull } from '../../core/pull-status';
 import { issueFromGitHub } from '../../core/github';
 import { record, repo, user } from '../../test/github.fixture';
 afterEach(cleanup);
+
+it('keeps Issue list rows concise while retaining metadata, opening and Inbox summaries', () => {
+  const item = {
+    ...issueFromGitHub(record, user.id, repo, user.login),
+    summary: 'Latest discussion preview',
+    detail: 'contributor · crash',
+    labels: ['crash'],
+  };
+  const props = {
+    items: [item],
+    repo,
+    read: [],
+    onRead: vi.fn(),
+    onSnooze: vi.fn(),
+    onOpen: vi.fn(),
+  };
+  const { rerender } = render(<ActivityPage key="issues" view="issues" {...props} />);
+  expect(screen.queryByText(item.summary)).toBeNull();
+  expect(screen.getByText(user.login)).toBeTruthy();
+  expect(within(screen.getByRole('button', { name: /#1042/ })).getByText('crash')).toBeTruthy();
+  expect(screen.queryByText(item.detail)).toBeNull();
+  expect(screen.getByText('开放')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: /#1042/ }));
+  expect(props.onOpen).toHaveBeenCalledWith(item);
+  rerender(<ActivityPage key="inbox" view="inbox" {...props} />);
+  expect(screen.getByText(item.summary)).toBeTruthy();
+});
 
 it('collapses merged reviews by default but reveals them on demand, search, or the finished tab', () => {
   const merged = {
