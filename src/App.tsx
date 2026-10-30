@@ -1,5 +1,6 @@
 import { I18nContext, useLanguage } from './i18n/I18n';
 import { useUpdates } from './lib/useUpdates';
+import { useRepositoryAvatar } from './lib/useRepositoryAvatar';
 import { githubErrorMessage } from './lib/github-errors';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { isDesktop, loadAppState, saveLastView, type AppState, type View } from './lib/desktop';
@@ -58,6 +59,11 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   const { t } = language;
   const updates = useUpdates(workspace.loaded && data.preferences.autoCheckUpdates);
   const github = useGitHub(data.preferences.refreshMinutes, gateway, 30);
+  const repositoryAvatarUrl = useRepositoryAvatar(
+    github.gateway,
+    github.repo,
+    github.session?.user.id,
+  );
   const resourceCache = useMemo(() => createResourceCache(github.key), [github.key]);
   const profileCache = useMemo(
     () => createResourceCache(`profile-v2:${github.session?.user.id}:${github.repo}`),
@@ -306,6 +312,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
           repo={github.repo}
           login={github.session?.user.login}
           avatarUrl={github.session?.user.avatar_url}
+          repositoryAvatarUrl={repositoryAvatarUrl}
           counts={{ review: github.review.length, issues: github.issues.length }}
           onChooseRepository={chooseRepository}
           view={view}

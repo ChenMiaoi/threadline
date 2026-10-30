@@ -131,7 +131,12 @@ describe('workspace interactions', () => {
     fireEvent.click(screen.getByRole('button', { name: '仓库与同步' }));
     fireEvent.click(screen.getByRole('button', { name: '选择仓库' }));
     await screen.findByRole('radio', { name: /owner\/other/ });
-    fireEvent.change(screen.getByRole('textbox', { name: '仓库完整名称' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: '搜索仓库' }), {
+      target: { value: 'not-a-repository' },
+    });
+    expect(screen.getByRole('button', { name: '打开仓库' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.queryByRole('radio')).toBeNull();
+    fireEvent.change(screen.getByRole('textbox', { name: '搜索仓库' }), {
       target: { value: 'owner/missing' },
     });
     fireEvent.click(screen.getByRole('button', { name: '打开仓库' }));
@@ -284,7 +289,12 @@ describe('workspace interactions', () => {
     render(<App gateway={gateway} />);
     await screen.findByRole('heading', { name: `已连接 @${user.login}` });
     fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: '选择仓库' }));
-    fireEvent.click(await screen.findByRole('radio', { name: /owner\/other.*私有/ }));
+    await screen.findByRole('radio', { name: /owner\/other.*私有/ });
+    fireEvent.change(screen.getByRole('textbox', { name: '搜索仓库' }), {
+      target: { value: 'owner/other' },
+    });
+    fireEvent.click(screen.getByRole('radio', { name: /owner\/other.*私有/ }));
+    expect(screen.getByRole('textbox', { name: '搜索仓库' })).toHaveProperty('value', '');
     fireEvent.click(screen.getByRole('button', { name: '打开仓库' }));
     await waitFor(() => expect(gateway.select).toHaveBeenCalledWith('owner/other', user.id));
     await screen.findByRole('textbox', { name: '搜索 PR' });

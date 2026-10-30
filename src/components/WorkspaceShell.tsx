@@ -25,6 +25,7 @@ export function WorkspaceShell({
   repo,
   login,
   avatarUrl,
+  repositoryAvatarUrl,
   counts,
   onChooseRepository,
   notificationsAvailable,
@@ -39,6 +40,7 @@ export function WorkspaceShell({
   repo: string;
   login?: string;
   avatarUrl?: string | null;
+  repositoryAvatarUrl?: string | null;
   counts: { review: number; issues: number };
   onChooseRepository: () => void;
   notificationsAvailable: boolean;
@@ -46,6 +48,7 @@ export function WorkspaceShell({
   const { t } = useI18n();
 
   const dragRegion = isDesktop && !isMacDesktop ? true : undefined;
+  const [repositoryOwner, repositoryName] = repo.split('/');
   return (
     <div className={`app ${className}`}>
       <header
@@ -114,14 +117,34 @@ export function WorkspaceShell({
             ))}
           </nav>
           <div className="repository-section">
-            <div className="section-label">{t('仓库')}</div>
+            <div className="repository-section-heading">
+              <div className="section-label">{t('仓库')}</div>
+              <button
+                type="button"
+                className="repository-add"
+                aria-label={t('添加仓库')}
+                title={t('添加仓库')}
+                onClick={onChooseRepository}
+              >
+                +
+              </button>
+            </div>
             <button
               className="repository-empty"
-              title={repo || '选择仓库'}
-              onClick={onChooseRepository}
+              aria-label={repo || t('选择仓库')}
+              title={repo || t('选择仓库')}
+              disabled={loading}
+              onClick={() => (repo ? onNavigate('authored') : onChooseRepository())}
             >
-              <Icon name="repo" />
-              <span className="repository-name">{repo || '选择仓库'}</span>
+              {repositoryOwner ? (
+                <GitHubAvatar login={repositoryOwner} url={repositoryAvatarUrl} />
+              ) : (
+                <Icon name="repo" />
+              )}
+              <span className="repository-name">
+                <strong>{repositoryName || t('选择仓库')}</strong>
+                {repositoryOwner && <small>{repositoryOwner}</small>}
+              </span>
             </button>
           </div>
           <button

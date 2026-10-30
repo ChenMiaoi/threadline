@@ -209,14 +209,58 @@ nav {
 .repository-section {
   margin-top: 38px;
 }
+.repository-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.repository-add {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+}
+.repository-add:hover {
+  background: var(--raised);
+  color: var(--text);
+}
 .repository-empty {
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 12px 16px;
+  gap: 10px;
+  padding: 10px 12px;
   margin-top: 8px;
   color: var(--dim);
   font-size: 15px;
+}
+.repository-empty:hover {
+  background: var(--raised);
+}
+.repository-empty .avatar {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+.repository-name strong,
+.repository-name small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.repository-name strong {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 21px;
+}
+.repository-name small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 18px;
 }
 .settings-link {
   margin-top: auto;

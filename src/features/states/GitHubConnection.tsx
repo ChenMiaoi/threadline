@@ -1,6 +1,7 @@
 import { useI18n } from '../../i18n/I18n';
 import { githubErrorMessage } from '../../lib/github-errors';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { Icon } from '../../components/Icon';
 import { Modal } from '../../components/Modal';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
 import { GitHubLoginButton } from './GitHubLogin';
@@ -83,30 +84,51 @@ export function RepositoryPicker({
   const [query, setQuery] = useState('');
   const [choice, setChoice] = useState(github.repo);
   const [error, setError] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+  const target = query.trim() ? (query.includes('/') ? query.trim() : '') : choice;
+  const validTarget = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(target);
   const rows = github.repositories.filter((repo) =>
     repo.full_name.toLowerCase().includes(query.toLowerCase()),
   );
   return (
-    <Modal className="repository-modal" title={t('选择仓库')} onClose={onClose}>
+    <Modal
+      className="repository-modal"
+      title={t('选择仓库')}
+      onClose={onClose}
+      initialFocusRef={searchRef}
+    >
       <form
         className="repository-picker"
         onSubmit={(event) => {
           event.preventDefault();
+          if (!validTarget) return;
           void github
-            .selectRepository(choice)
+            .selectRepository(target)
             .then(onSelected)
             .catch((reason) => setError(String(reason)));
         }}
       >
-        <p className="dim">
-          @{github.session?.user.login} {t('· 选择工作仓库，或输入公开仓库名称')}
-        </p>
-        <input
-          aria-label={t('搜索仓库')}
-          placeholder={t('搜索仓库')}
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
+        <div className="repository-search">
+          <Icon name="search" />
+          <input
+            ref={searchRef}
+            aria-label={t('搜索仓库')}
+            placeholder={t('搜索仓库或输入 owner/repository')}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </div>
+        <div className="repository-list-heading">
+          <span>@{github.session?.user.login}</span>
+          <button
+            type="button"
+            className="text-button"
+            disabled={github.picking}
+            onClick={() => void github.listRepositories()}
+          >
+            {t('刷新仓库列表')}
+          </button>
+        </div>
         {github.picking && <p role="status">{t('正在读取 GitHub 仓库…')}</p>}
         {(error || github.repositoryError) && (
           <p role="alert" className="yellow">
@@ -118,43 +140,39 @@ export function RepositoryPicker({
             <label className="repository-choice" key={repo.id}>
               <input
                 type="radio"
+                aria-label={`${repo.full_name} ${repo.private ? t('私有') : t('公开')}`}
                 name="repository"
                 value={repo.full_name}
                 checked={choice === repo.full_name}
-                onChange={() => setChoice(repo.full_name)}
+                onChange={() => {
+                  setChoice(repo.full_name);
+                  setQuery('');
+                }}
               />
               <span>
-                {repo.full_name}
-                {repo.full_name === github.repo && <small className="accent"> {t('· 当前')}</small>}
+                <strong>{repo.full_name.split('/').slice(1).join('/')}</strong>
+                <small>{repo.full_name.split('/')[0]}</small>
               </span>
-              <span className="dim">{repo.private ? t('私有') : t('公开')}</span>
+              <span className="repository-badges">
+                {repo.full_name === github.repo && (
+                  <small className="accent">{t('当前仓库')}</small>
+                )}
+                <small className="dim">{repo.private ? t('私有') : t('公开')}</small>
+              </span>
             </label>
           ))}
         </div>
         {!github.picking && !rows.length && (
-          <p>{t('没有匹配的仓库。可输入公开仓库完整名称，或为私有仓库添加授权后刷新列表。')}</p>
+          <p className="repository-empty">
+            {validTarget && query.includes('/') ? target : t('没有匹配的仓库')}
+          </p>
         )}
-        <label>
-          {t('仓库完整名称')}
-          <input
-            aria-label={t('仓库完整名称')}
-            placeholder="owner/repository"
-            value={choice}
-            onChange={(event) => setChoice(event.target.value.trim())}
-            required
-            pattern="[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+"
-          />
-        </label>
         <div className="inline-group repository-picker-footer">
-          <button
-            type="button"
-            className="chip"
-            disabled={github.picking}
-            onClick={() => void github.listRepositories()}
-          >
-            {t('刷新仓库列表')}
-          </button>
-          <button type="submit" className="chip accent" disabled={github.picking || !choice}>
+          <span className="repository-target">
+            <Icon name="repo" />
+            {target}
+          </span>
+          <button type="submit" className="chip accent" disabled={github.picking || !validTarget}>
             {t('打开仓库')}
           </button>
         </div>

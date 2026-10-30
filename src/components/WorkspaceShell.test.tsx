@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceShell } from './WorkspaceShell';
+import { loadGitHubAvatar } from '../lib/avatar-cache';
+
+vi.mock('../lib/avatar-cache', async (original) => ({
+  ...(await original<typeof import('../lib/avatar-cache')>()),
+  loadGitHubAvatar: vi.fn().mockResolvedValue(null),
+}));
 
 const desktop = vi.hoisted(() => ({ isDesktop: true, isMacDesktop: false }));
 vi.mock('../lib/desktop', () => desktop);
@@ -13,19 +19,20 @@ beforeEach(() => {
   desktop.isMacDesktop = false;
 });
 
-function renderShell() {
+function renderShell(onNavigate = vi.fn(), onChooseRepository = vi.fn()) {
   return render(
     <WorkspaceShell
       view="inbox"
       unread={0}
       notificationsAvailable={true}
-      onNavigate={vi.fn()}
+      onNavigate={onNavigate}
       onSearch={vi.fn()}
       className=""
       loading={false}
       repo="owner/repo"
+      repositoryAvatarUrl="https://avatars.githubusercontent.com/u/1714999?v=4"
       counts={{ review: 0, issues: 0 }}
-      onChooseRepository={vi.fn()}
+      onChooseRepository={onChooseRepository}
     >
       Workspace
     </WorkspaceShell>,
@@ -63,4 +70,30 @@ it('keeps workspace navigation in the sidebar without a duplicate header menu', 
   const { container } = renderShell();
   expect(container.querySelector('header details')).toBeNull();
   expect(screen.getByRole('button', { name: '查看稍后处理' })).toBeTruthy();
+});
+
+it('opens the current repository from its name and reserves adding for the plus button', () => {
+  const navigate = vi.fn();
+  const choose = vi.fn();
+  renderShell(navigate, choose);
+  const sidebar = within(screen.getByRole('complementary'));
+  fireEvent.click(sidebar.getByRole('button', { name: 'owner/repo' }));
+  expect(navigate).toHaveBeenCalledWith('authored');
+  expect(choose).not.toHaveBeenCalled();
+  fireEvent.click(sidebar.getByRole('button', { name: '添加仓库' }));
+  expect(choose).toHaveBeenCalledOnce();
+});
+
+it('shows the repository and its owner separately with the owner avatar', async () => {
+  renderShell();
+  const repository = within(screen.getByRole('complementary')).getByRole('button', {
+    name: 'owner/repo',
+  });
+  expect(within(repository).getByText('repo')).toBeTruthy();
+  expect(within(repository).getByText('owner')).toBeTruthy();
+  const image = await within(repository).findByRole('img', { name: 'owner 的头像' });
+  expect(image.getAttribute('src')).toBe('https://avatars.githubusercontent.com/u/1714999?v=4');
+  expect(loadGitHubAvatar).toHaveBeenCalledWith(
+    'https://avatars.githubusercontent.com/u/1714999?v=4',
+  );
 });
