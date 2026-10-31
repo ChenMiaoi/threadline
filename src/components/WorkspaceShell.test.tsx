@@ -45,10 +45,14 @@ describe('platform titlebar dragging', () => {
     expect(screen.getByText('ThreadLine').hasAttribute('data-tauri-drag-region')).toBe(true);
   });
 
-  it('leaves macOS dragging to the native titlebar', () => {
+  it('makes the integrated macOS header draggable while keeping its actions interactive', () => {
     desktop.isMacDesktop = true;
     const { container } = renderShell();
-    expect(container.querySelector('[data-tauri-drag-region]')).toBeNull();
+    expect(container.querySelector('header')?.hasAttribute('data-tauri-drag-region')).toBe(true);
+    expect(screen.getByText('ThreadLine').hasAttribute('data-tauri-drag-region')).toBe(true);
+    for (const button of container.querySelectorAll('header button')) {
+      expect(button.hasAttribute('data-tauri-drag-region')).toBe(false);
+    }
     expect(container.querySelector('.macos-app-bar')).toBeTruthy();
   });
 

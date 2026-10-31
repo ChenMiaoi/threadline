@@ -100,8 +100,9 @@ button:hover {
   padding-inline: 8px;
 }
 .macos-app-bar {
+  /* Reserve the leading area for the native controls overlaid by the macOS window. */
+  padding-left: 96px;
   padding-right: 28px;
-  app-region: no-drag;
 }
 .window-controls {
   position: relative;

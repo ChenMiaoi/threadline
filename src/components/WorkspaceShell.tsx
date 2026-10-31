@@ -45,7 +45,7 @@ export function WorkspaceShell({
 }) {
   const { t } = useI18n();
 
-  const dragRegion = isDesktop && !isMacDesktop ? true : undefined;
+  const dragRegion = isDesktop ? true : undefined;
   const [repositoryOwner, repositoryName] = repo.split('/');
   return (
     <div className="app">
