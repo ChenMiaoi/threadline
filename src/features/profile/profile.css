@@ -378,16 +378,6 @@
       )
     );
   }
-  .contribution-week {
-    flex: 1 0 var(--contribution-size);
-    grid-template-columns: 1fr;
-  }
-  .contribution-weekdays {
-    flex: 0 0 17px;
-  }
-  .contribution-calendar .contribution-day {
-    width: 100%;
-  }
   .contribution-scroll {
     padding-block: 0;
   }
