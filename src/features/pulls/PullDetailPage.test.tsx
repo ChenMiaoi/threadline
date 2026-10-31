@@ -1,10 +1,17 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { PullDetailPage } from './PullDetailPage';
 import { createResourceCache } from '../../lib/useGitHubResource';
 import { createGateway, detail, record, repo, response, user } from '../../test/github.fixture';
 import { pullFromGitHub } from '../../core/github';
+import { loadMarkdown } from '../../lib/markdown';
+
+beforeAll(async () => {
+  // Keep cold Markdown imports outside the discussion assertions' wait budget.
+  await loadMarkdown();
+});
+
 afterEach(cleanup);
 it('shows the overview while discussion is pending and requests files/checks only when selected', async () => {
   const gateway = createGateway();
@@ -76,9 +83,14 @@ it('limits initial discussion rendering while preserving access to earlier entri
     />,
   );
   await screen.findByRole('heading', { name: '讨论 40' });
+  expect(screen.getAllByRole('heading', { name: /^author-/ })).toHaveLength(30);
   expect(screen.queryByRole('heading', { name: 'author-0' })).toBeNull();
+  expect(await screen.findByText('Comment 39')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: '显示更早的讨论（还有 10 条）' }));
   await waitFor(() => expect(screen.getByRole('heading', { name: 'author-0' })).toBeTruthy());
+  expect(screen.getAllByRole('heading', { name: /^author-/ })).toHaveLength(40);
+  expect(await screen.findByText('Comment 0')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: /显示更早的讨论/ })).toBeNull();
 });
 
 it('browses detail tabs with arrows without loading a section until activation', async () => {
