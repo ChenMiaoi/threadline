@@ -10,6 +10,8 @@ mod github_profile_reviews;
 mod github_workspace;
 #[cfg(target_os = "macos")]
 mod macos;
+#[cfg(target_os = "macos")]
+mod macos_notifications;
 mod notification_sound;
 #[cfg(feature = "browser-preview")]
 pub mod preview;
@@ -75,6 +77,8 @@ pub fn run() {
                 database_path: path.to_string_lossy().into_owned(),
             });
             desktop::setup(app)?;
+            #[cfg(target_os = "macos")]
+            macos_notifications::setup();
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -93,6 +97,10 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_app_state,
+            #[cfg(target_os = "macos")]
+            macos_notifications::macos_notification_permission,
+            #[cfg(target_os = "macos")]
+            macos_notifications::macos_notify,
             desktop::set_desktop_menu,
             desktop::complete_quit,
             desktop::show_main_window,

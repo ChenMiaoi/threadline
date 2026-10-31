@@ -15,7 +15,7 @@ import {
   within,
 } from '@testing-library/react';
 import { SettingsPage } from './SettingsPage';
-import { enableDesktopNotifications } from '../../lib/notifications';
+import { enableDesktopNotifications, notifyDesktop } from '../../lib/notifications';
 const host = vi.hoisted(() => ({ isDesktop: true }));
 vi.mock('../../lib/desktop', () => host);
 
@@ -29,6 +29,8 @@ import { defaultWorkspace } from '../../core/workspace';
 
 beforeEach(() => {
   host.isDesktop = true;
+  vi.mocked(enableDesktopNotifications).mockResolvedValue(undefined);
+  vi.mocked(notifyDesktop).mockResolvedValue(undefined);
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
     configurable: true,
     value(this: HTMLDialogElement) {
@@ -65,6 +67,70 @@ it('does not offer native notifications in a browser even with a saved enabled p
   expect(screen.getByText('桌面通知需要在 ThreadLine 桌面程序中开启。')).toBeTruthy();
 });
 afterEach(cleanup);
+
+async function openNotificationTest() {
+  const { result } = renderHook(() => useGitHub(0, createGateway()));
+  await waitFor(() => expect(result.current.session).not.toBeNull());
+  render(
+    <SettingsPage
+      preferences={{ ...defaultWorkspace().preferences, desktopNotifications: true }}
+      onChange={vi.fn()}
+      onSync={vi.fn()}
+      github={result.current}
+      onChooseRepository={vi.fn()}
+    />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: '通知' }));
+  return screen.getByRole('button', { name: '发送测试通知' }) as HTMLButtonElement;
+}
+
+it('shows pending and completion feedback beside the test button and prevents duplicate sends', async () => {
+  let complete!: () => void;
+  vi.mocked(notifyDesktop).mockReturnValueOnce(
+    new Promise<void>((resolve) => {
+      complete = resolve;
+    }),
+  );
+  const button = await openNotificationTest();
+  const row = button.closest('.setting-row')! as HTMLElement;
+  fireEvent.click(button);
+  expect(button.disabled).toBe(true);
+  expect(within(row).getByRole('status').textContent).toBe('正在发送测试通知…');
+  fireEvent.click(button);
+  await waitFor(() => expect(notifyDesktop).toHaveBeenCalledTimes(1));
+  await act(async () => complete());
+  expect(within(row).getByRole('status').textContent).toBe(
+    '已向系统发送测试通知，请查看通知中心。',
+  );
+  expect(button.disabled).toBe(false);
+});
+
+it('shows failed delivery next to the control and allows retrying', async () => {
+  vi.mocked(notifyDesktop)
+    .mockRejectedValueOnce(new Error('系统通知权限不可用，请在通知设置中重新开启桌面通知。'))
+    .mockResolvedValueOnce(undefined);
+  const button = await openNotificationTest();
+  const row = button.closest('.setting-row')! as HTMLElement;
+  fireEvent.click(button);
+  await within(row).findByText('测试通知未能发送，请查看提醒详情。');
+  expect(screen.getByRole('alert').textContent).toContain('系统通知权限不可用');
+  expect(screen.queryByText('已向系统发送测试通知，请查看通知中心。')).toBeNull();
+  expect(button.disabled).toBe(false);
+  fireEvent.click(button);
+  await within(row).findByText('已向系统发送测试通知，请查看通知中心。');
+});
+
+it('requests permission for an explicit test and does not send after denial', async () => {
+  vi.mocked(enableDesktopNotifications).mockRejectedValueOnce(
+    new Error('系统未允许 ThreadLine 通知。'),
+  );
+  const button = await openNotificationTest();
+  fireEvent.click(button);
+  await screen.findByText('测试通知未能发送，请查看提醒详情。');
+  expect(enableDesktopNotifications).toHaveBeenCalledOnce();
+  expect(notifyDesktop).not.toHaveBeenCalled();
+  expect(button.disabled).toBe(false);
+});
 
 it('offers an explicit application quit action without signing out', async () => {
   const { result } = renderHook(() => useGitHub(0, createGateway()));

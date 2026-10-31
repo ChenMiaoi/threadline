@@ -32,10 +32,12 @@ type Section = (typeof sections)[number][0];
 function SettingRow({
   title,
   description,
+  status,
   children,
 }: {
   title: string;
   description?: string;
+  status?: string;
   children: ReactNode;
 }) {
   const { t } = useI18n();
@@ -45,6 +47,7 @@ function SettingRow({
       <div className="setting-text">
         <h3>{t(title)}</h3>
         {description && <p>{t(description)}</p>}
+        {status && <p role="status">{t(status)}</p>}
       </div>
       <div className="setting-control">{children}</div>
     </div>
@@ -106,6 +109,7 @@ export function SettingsPage({
 
   const [notificationError, setNotificationError] = useState('');
   const [notificationResult, setNotificationResult] = useState('');
+  const [sendingTestNotification, setSendingTestNotification] = useState(false);
   const [requestingNotifications, setRequestingNotifications] = useState(false);
   const [previewingSound, setPreviewingSound] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
@@ -339,24 +343,33 @@ export function SettingsPage({
                 />
               </SettingRow>
               {isDesktop && preferences.desktopNotifications && (
-                <SettingRow title={t('测试桌面通知')}>
+                <SettingRow title={t('测试桌面通知')} status={notificationResult}>
                   <button
-                    className="setting-value"
+                    className="chip"
+                    disabled={sendingTestNotification}
                     onClick={() => {
+                      if (sendingTestNotification) return;
+                      setSendingTestNotification(true);
                       setNotificationError('');
                       setNotificationResult('正在发送测试通知…');
-                      void notifyDesktop(
-                        'ThreadLine · 测试通知',
-                        '桌面通知已连接。真实新动态将在同步后按你的提醒设置发送。',
-                      )
+                      void enableDesktopNotifications()
+                        .then(() =>
+                          notifyDesktop(
+                            t('ThreadLine · 测试通知'),
+                            t('桌面通知已连接。真实新动态将在同步后按你的提醒设置发送。'),
+                          ),
+                        )
                         .then(() => setNotificationResult('已向系统发送测试通知，请查看通知中心。'))
                         .catch((reason) => {
-                          setNotificationResult('');
-                          setNotificationError(String(reason));
-                        });
+                          setNotificationResult('测试通知未能发送，请查看提醒详情。');
+                          setNotificationError(
+                            reason instanceof Error ? reason.message : String(reason),
+                          );
+                        })
+                        .finally(() => setSendingTestNotification(false));
                     }}
                   >
-                    {t('发送测试通知')}
+                    {t(sendingTestNotification ? '正在发送…' : '发送测试通知')}
                   </button>
                 </SettingRow>
               )}
@@ -429,7 +442,6 @@ export function SettingsPage({
                   <p>{t(notificationError)}</p>
                 </FloatingWarning>
               )}
-              {notificationResult && <p role="status">{t(notificationResult)}</p>}
             </>
           ) : (
             <Suspense fallback={<p role="status">{t('正在显示内容…')}</p>}>

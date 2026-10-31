@@ -45,7 +45,7 @@ A missing avatar can be a network or image-loading failure. The initial fallback
 
 ## Desktop reminders do not appear
 
-Check that desktop notifications are enabled in **Settings → Notifications** (**设置 → 通知**) and permitted in the operating system. Check quiet hours, reminder categories, and whether the thread is snoozed. Use the notification test control to distinguish delivery problems from an absence of new updates.
+Check that desktop notifications are enabled in **Settings → Notifications** (**设置 → 通知**) and permitted in the operating system. Check quiet hours, reminder categories, and whether the thread is snoozed. Use the notification test control to distinguish delivery problems from an absence of new updates. Its sending state and result appear directly beside the control; delivery failures also appear in the floating warning dock. On macOS, ThreadLine checks the actual [system authorization](https://developer.apple.com/documentation/usernotifications/asking-permission-to-use-notifications) and requests permission only when you explicitly enable notifications or send a test. Foreground delivery is enabled, but banner visibility still depends on system notification settings and Focus mode.
 
 The first successful synchronization establishes a baseline without historical popups. Restoring a cache does not trigger reminders. The Inbox is based on repository searches, not the GitHub Notifications API, so its contents and unread counts can differ from GitHub's notification inbox.
 
