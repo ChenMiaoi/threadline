@@ -14,7 +14,7 @@ it('integrates macOS window controls into the app header without an extra titleb
     decorations: true,
     titleBarStyle: 'Overlay',
     hiddenTitle: true,
-    trafficLightPosition: { x: 16, y: 22 },
+    trafficLightPosition: { x: 16, y: 26 },
   });
 });
 

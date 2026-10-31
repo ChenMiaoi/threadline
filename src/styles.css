@@ -69,17 +69,16 @@ button:hover {
   padding: 0 28px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 18px;
+  gap: 20px;
 }
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-width: 182px;
+  gap: 8px;
+  flex: 0 0 168px;
 }
 .brand strong {
-  font-size: calc(18px * var(--ui-scale, 1));
+  font-size: calc(15px * var(--ui-scale, 1));
   font-weight: 600;
 }
 .desktop-app-bar {
@@ -96,8 +95,12 @@ button:hover {
 .desktop-app-bar .brand .icon {
   pointer-events: none;
 }
-.desktop-app-bar .account {
-  padding-inline: 8px;
+.app-bar .brand .icon {
+  width: 20px;
+  height: 20px;
+}
+.macos-app-bar .brand {
+  flex-basis: 120px;
 }
 .macos-app-bar {
   /* Reserve the leading area for the native controls overlaid by the macOS window. */
@@ -140,25 +143,76 @@ button:hover {
   border: 1px solid var(--error-border);
   border-radius: 8px;
 }
-.workspace-switcher {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  height: 36px;
+.header-tools {
+  min-width: 0;
+  flex: 1;
   display: flex;
   align-items: center;
-  background: var(--surface);
+  gap: 8px;
 }
-.workspace-switcher .workspace-current {
-  color: var(--accent-ink, var(--accent));
-  background: var(--raised);
-  border-radius: 7px;
-}
-.account {
-  display: flex;
-  gap: 18px;
-  align-items: center;
-  font-size: calc(15px * var(--ui-scale, 1));
+.header-tools > .icon-button {
+  width: 32px;
+  height: 32px;
   color: var(--muted-ink, var(--muted));
+}
+.header-tools > .icon-button .icon {
+  width: 18px;
+  height: 18px;
+}
+.workspace-switcher {
+  display: flex;
+  min-width: 0;
+  max-width: min(40vw, 480px);
+}
+.workspace-current {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-ink, var(--text));
+  font-size: calc(13px * var(--ui-scale, 1));
+}
+.workspace-current > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-current .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--muted-ink, var(--muted));
+}
+.app-bar .account {
+  background: transparent;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  height: 36px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  font-size: calc(13px * var(--ui-scale, 1));
+  color: var(--muted-ink, var(--muted));
+}
+.app-bar .account:hover {
+  background: var(--hover);
+}
+.app-bar .account .avatar {
+  width: 26px;
+  height: 26px;
+}
+.app-bar .account .icon {
+  width: 14px;
+  height: 14px;
+}
+.account-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .avatar {
   display: grid;
@@ -361,9 +415,6 @@ p {
   .sidebar {
     flex-basis: 220px;
   }
-  .brand {
-    min-width: 192px;
-  }
   .account {
     gap: 10px;
   }
@@ -394,9 +445,6 @@ p {
   line-height: 20px;
   font-variant-numeric: tabular-nums;
 }
-.app-bar > .workspace-switcher {
-  margin-inline: auto;
-}
 .account {
   white-space: nowrap;
 }
@@ -410,13 +458,6 @@ p {
 .account-name,
 .sidebar {
   min-width: 0;
-}
-.workspace-switcher {
-  max-width: min(48vw, 600px);
-}
-.workspace-switcher .workspace-current {
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .account,
 .brand {
@@ -456,9 +497,6 @@ p {
   .brand strong {
     font-size: calc(18px * var(--ui-scale, 1));
   }
-  .app-bar > .icon-button {
-    order: 1;
-  }
   .account {
     order: 2;
     gap: 8px;
@@ -468,18 +506,12 @@ p {
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .app-bar > .workspace-switcher {
+  .header-tools {
     order: 3;
-    flex: 1 0 100%;
-    max-width: 100%;
-    margin: 0;
-    height: 38px;
+    flex-basis: 100%;
   }
-  .workspace-switcher .workspace-current {
-    flex: 1;
-    text-align: left;
-    font-size: calc(14px * var(--ui-scale, 1));
-    padding: 8px 14px;
+  .workspace-switcher {
+    max-width: calc(100% - 40px);
   }
   .sidebar {
     flex: 0 0 68px;

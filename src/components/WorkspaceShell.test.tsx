@@ -19,14 +19,14 @@ beforeEach(() => {
   desktop.isMacDesktop = false;
 });
 
-function renderShell(onNavigate = vi.fn(), onChooseRepository = vi.fn()) {
+function renderShell(onNavigate = vi.fn(), onChooseRepository = vi.fn(), onSearch = vi.fn()) {
   return render(
     <WorkspaceShell
       view="inbox"
       unread={0}
       notificationsAvailable={true}
       onNavigate={onNavigate}
-      onSearch={vi.fn()}
+      onSearch={onSearch}
       loading={false}
       repo="owner/repo"
       repositoryAvatarUrl="https://avatars.githubusercontent.com/u/1714999?v=4"
@@ -99,4 +99,17 @@ it('shows the repository and its owner separately with the owner avatar', async 
   expect(loadGitHubAvatar).toHaveBeenCalledWith(
     'https://avatars.githubusercontent.com/u/1714999?v=4',
   );
+});
+
+it('keeps the grouped header search and repository switcher interactive', () => {
+  desktop.isMacDesktop = true;
+  const choose = vi.fn();
+  const search = vi.fn();
+  const { container } = renderShell(vi.fn(), choose, search);
+  const header = within(container.querySelector('header')!);
+  fireEvent.click(header.getByRole('button', { name: '搜索我发起的 PR' }));
+  expect(search).toHaveBeenCalledOnce();
+  expect(choose).not.toHaveBeenCalled();
+  fireEvent.click(header.getByRole('button', { name: 'owner/repo' }));
+  expect(choose).toHaveBeenCalledOnce();
 });

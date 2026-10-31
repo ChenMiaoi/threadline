@@ -59,15 +59,19 @@ export function WorkspaceShell({
           </span>
           <strong data-tauri-drag-region={dragRegion}>ThreadLine</strong>
         </div>
-        <IconButton name="search" label={t('搜索我发起的 PR')} onClick={onSearch} />
-        <div className="workspace-switcher">
-          <button
-            className="workspace-current"
-            title={repo || '选择仓库'}
-            onClick={onChooseRepository}
-          >
-            {repo || '选择仓库'}
-          </button>
+        <div className="header-tools" data-tauri-drag-region={dragRegion}>
+          <IconButton name="search" label={t('搜索我发起的 PR')} onClick={onSearch} />
+          <div className="workspace-switcher">
+            <button
+              className="workspace-current"
+              title={repo || t('选择仓库')}
+              onClick={onChooseRepository}
+            >
+              <Icon name="repo" />
+              <span>{repo || t('选择仓库')}</span>
+              <Icon name="chev" />
+            </button>
+          </div>
         </div>
         <button
           className="account"

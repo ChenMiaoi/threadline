@@ -290,21 +290,6 @@
 .snooze-form > .inline-group {
   justify-content: flex-end;
 }
-.workspace-switcher > button {
-  padding: 10px 27px;
-  background: var(--raised);
-  color: var(--accent-ink, var(--accent));
-  font-size: calc(17px * var(--ui-scale, 1));
-  border-radius: 7px;
-  white-space: nowrap;
-}
-.account {
-  background: transparent;
-  padding: 0;
-}
-.account:hover {
-  background: transparent;
-}
 .repository-empty {
   background: transparent;
   width: 100%;
@@ -334,9 +319,6 @@
   }
   .connection-steps {
     gap: 12px;
-  }
-  .workspace-switcher > button {
-    padding-inline: 16px;
   }
 }
 .page-view {
