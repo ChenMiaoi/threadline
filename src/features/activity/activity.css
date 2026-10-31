@@ -188,10 +188,21 @@
   position: absolute;
   right: 112px;
   top: 7px;
-  gap: 6px;
-  padding-left: 8px;
-  background: var(--surface);
-  border-radius: 6px;
+  gap: 4px;
+  padding: 2px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.record-actions .chip {
+  min-height: 26px;
+  padding: 2px 8px;
+  background: transparent;
+  border-radius: 4px;
+}
+.record-actions .chip:hover {
+  background: var(--hover);
+  color: var(--text-ink, var(--text));
 }
 .activity-record:hover .record-actions,
 .activity-record:focus-within .record-actions {
@@ -405,6 +416,8 @@
   .record-actions {
     position: static;
     padding: 0 8px 10px 38px;
+    border: 0;
+    background: transparent;
   }
   .activity-record:has(.record-actions):hover .record-title,
   .activity-record:has(.record-actions):focus-within .record-title {
