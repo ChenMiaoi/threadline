@@ -3,12 +3,8 @@
     "windows": [
       {
         "label": "main",
-        "create": false,
         "title": "ThreadLine",
-        "decorations": true,
-        "titleBarStyle": "Overlay",
-        "hiddenTitle": true,
-        "trafficLightPosition": { "x": 16, "y": 26 },
+        "decorations": false,
         "center": true,
         "width": 1100,
         "height": 740,

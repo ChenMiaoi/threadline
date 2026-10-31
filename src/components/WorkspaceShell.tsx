@@ -1,7 +1,7 @@
 import { useI18n } from '../i18n/I18n';
 import type { ReactNode } from 'react';
 import { Icon, IconButton } from './Icon';
-import { isDesktop, isMacDesktop, type View } from '../lib/desktop';
+import { isDesktop, isMacOS, type View } from '../lib/desktop';
 import { GitHubAvatar } from './GitHubAvatar';
 import { WindowControls } from './WindowControls';
 
@@ -50,17 +50,13 @@ export function WorkspaceShell({
   return (
     <div className="app">
       <header
-        className={`app-bar${isDesktop ? ' desktop-app-bar' : ''}${isMacDesktop ? ' macos-app-bar' : ''}`}
+        className={`app-bar${isDesktop ? ' desktop-app-bar' : ''}${isMacOS ? ' macos-app-bar' : ''}`}
         data-tauri-drag-region={dragRegion}
       >
-        <div className="brand" data-tauri-drag-region={dragRegion}>
-          <span data-tauri-drag-region={dragRegion}>
-            <Icon name="brand" />
-          </span>
-          <strong data-tauri-drag-region={dragRegion}>ThreadLine</strong>
+        <div className="header-identity" data-tauri-drag-region={dragRegion}>
+          {isMacOS && <WindowControls />}
         </div>
-        <div className="header-tools" data-tauri-drag-region={dragRegion}>
-          <IconButton name="search" label={t('搜索我发起的 PR')} onClick={onSearch} />
+        <div className="header-context" data-tauri-drag-region={dragRegion}>
           <div className="workspace-switcher">
             <button
               className="workspace-current"
@@ -73,21 +69,28 @@ export function WorkspaceShell({
             </button>
           </div>
         </div>
-        <button
-          className="account"
-          onClick={() => onNavigate('settings')}
-          aria-label={t('账号与连接设置')}
-        >
-          <GitHubAvatar login={login} url={avatarUrl} />
-          <span className="account-name" title={login}>
-            {login ?? '未连接'}
-          </span>
-          <Icon name="chev" />
-        </button>
-        <WindowControls />
+        <div className="header-actions">
+          <IconButton name="search" label={t('搜索我发起的 PR')} onClick={onSearch} />
+          <button
+            className="account"
+            onClick={() => onNavigate('settings')}
+            aria-label={t('账号与连接设置')}
+          >
+            <GitHubAvatar login={login} url={avatarUrl} />
+            <span className="account-name" title={login}>
+              {login ?? '未连接'}
+            </span>
+            <Icon name="chev" />
+          </button>
+          {!isMacOS && <WindowControls />}
+        </div>
       </header>
       <div className="workspace">
         <aside className="sidebar">
+          <div className="brand" title="ThreadLine">
+            <Icon name="brand" />
+            <strong>ThreadLine</strong>
+          </div>
           <div className="section-label">{t('工作区')}</div>
           <nav aria-label={t('工作区')}>
             {navigation.map((item) => (

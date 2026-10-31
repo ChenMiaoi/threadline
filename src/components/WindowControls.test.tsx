@@ -10,14 +10,14 @@ const windowApi = vi.hoisted(() => ({
   toggleMaximize: vi.fn(),
   close: vi.fn(),
 }));
-const desktop = vi.hoisted(() => ({ isDesktop: true, isMacDesktop: false }));
+const desktop = vi.hoisted(() => ({ isDesktop: true, isMacOS: false }));
 vi.mock('../lib/desktop', () => desktop);
 vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => windowApi }));
 afterEach(cleanup);
 beforeEach(() => {
   vi.resetAllMocks();
   desktop.isDesktop = true;
-  desktop.isMacDesktop = false;
+  desktop.isMacOS = false;
   windowApi.isMaximized.mockResolvedValue(false);
   windowApi.onResized.mockResolvedValue(vi.fn());
   windowApi.minimize.mockResolvedValue(undefined);
@@ -63,18 +63,33 @@ describe('desktop window controls', () => {
     expect(unlisten).toHaveBeenCalledOnce();
   });
 
-  it('omits desktop actions in browser previews', () => {
+  it('shows disabled controls in browser previews without invoking desktop APIs', () => {
     desktop.isDesktop = false;
-    render(<WindowControls />);
-    expect(screen.queryByRole('button')).toBeNull();
+    desktop.isMacOS = true;
+    const { container } = render(<WindowControls />);
+    expect(container.querySelector('.macos-window-controls')).toBeTruthy();
+    for (const button of screen.getAllByRole('button')) {
+      expect(button.hasAttribute('disabled')).toBe(true);
+      fireEvent.click(button);
+    }
     expect(windowApi.onResized).not.toHaveBeenCalled();
+    expect(windowApi.close).not.toHaveBeenCalled();
+    expect(windowApi.minimize).not.toHaveBeenCalled();
+    expect(windowApi.toggleMaximize).not.toHaveBeenCalled();
   });
 
-  it('leaves macOS window actions to the native traffic lights', () => {
-    desktop.isMacDesktop = true;
+  it('orders the macOS controls close, minimize, maximize and invokes their actions', async () => {
+    desktop.isMacOS = true;
     render(<WindowControls />);
-    expect(screen.queryByRole('button')).toBeNull();
-    expect(windowApi.onResized).not.toHaveBeenCalled();
-    expect(windowApi.isMaximized).not.toHaveBeenCalled();
+    await waitFor(() => expect(windowApi.onResized).toHaveBeenCalled());
+    expect(
+      screen.getAllByRole('button').map((button) => button.getAttribute('aria-label')),
+    ).toEqual(['关闭窗口', '最小化窗口', '最大化窗口']);
+    fireEvent.click(screen.getByRole('button', { name: '关闭窗口' }));
+    fireEvent.click(screen.getByRole('button', { name: '最小化窗口' }));
+    fireEvent.click(screen.getByRole('button', { name: '最大化窗口' }));
+    expect(windowApi.close).toHaveBeenCalledOnce();
+    expect(windowApi.minimize).toHaveBeenCalledOnce();
+    expect(windowApi.toggleMaximize).toHaveBeenCalledOnce();
   });
 });

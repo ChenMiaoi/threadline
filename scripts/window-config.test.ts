@@ -8,15 +8,12 @@ const macos = JSON.parse(
   readFileSync(new URL('../src-tauri/tauri.macos.conf.json', import.meta.url), 'utf8'),
 );
 
-it('integrates macOS window controls into the app header without an extra titlebar', () => {
+it('uses a frameless macOS window for the shared HTML controls', () => {
   const main = macos.app.windows.find((window: { label: string }) => window.label === 'main');
-  expect(main).toMatchObject({
-    create: false,
-    decorations: true,
-    titleBarStyle: 'Overlay',
-    hiddenTitle: true,
-    trafficLightPosition: { x: 16, y: 26 },
-  });
+  expect(main.decorations).toBe(false);
+  expect(main.create).not.toBe(false);
+  expect(main.titleBarStyle).toBeUndefined();
+  expect(main.trafficLightPosition).toBeUndefined();
 });
 
 it('keeps Windows and Linux frameless for the existing custom window controls', () => {

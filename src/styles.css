@@ -66,46 +66,65 @@ button:hover {
 .app-bar {
   height: 58px;
   flex-shrink: 0;
-  padding: 0 28px;
+  display: grid;
+  grid-template-columns: 216px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+}
+.header-identity {
+  min-width: 0;
+  height: 100%;
+  padding-inline: 20px;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
 }
 .brand {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 0 0 168px;
 }
 .brand strong {
   font-size: calc(15px * var(--ui-scale, 1));
   font-weight: 600;
+  white-space: nowrap;
+}
+.sidebar .brand {
+  padding: 4px 12px;
+  min-height: 32px;
+  margin-bottom: 16px;
+}
+.header-context {
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-right: 24px;
+  height: 100%;
 }
 .desktop-app-bar {
-  padding-right: 0;
   user-select: none;
-  gap: 12px;
   app-region: drag;
+}
+.desktop-app-bar .header-actions {
+  padding-right: 0;
 }
 .desktop-app-bar button,
 .desktop-app-bar details,
 .window-controls {
   app-region: no-drag;
 }
-.desktop-app-bar .brand .icon {
-  pointer-events: none;
+.macos-app-bar .header-identity {
+  padding-inline: 16px 0;
 }
-.app-bar .brand .icon {
-  width: 20px;
-  height: 20px;
-}
-.macos-app-bar .brand {
-  flex-basis: 120px;
-}
-.macos-app-bar {
-  /* Reserve the leading area for the native controls overlaid by the macOS window. */
-  padding-left: 96px;
-  padding-right: 28px;
+.macos-app-bar .header-actions {
+  padding-right: 24px;
 }
 .window-controls {
   position: relative;
@@ -131,6 +150,54 @@ button:hover {
 .window-controls button:focus-visible {
   outline-offset: -4px;
 }
+.macos-window-controls {
+  align-self: center;
+  gap: 2px;
+}
+.macos-window-controls button {
+  position: relative;
+  width: 20px;
+  height: 28px;
+  border-radius: 4px;
+  --window-symbol: #502e00;
+  --window-dot: #ffbd2e;
+}
+.macos-window-controls .window-close {
+  --window-dot: #ff6058;
+  --window-symbol: #6a100b;
+}
+.macos-window-controls .window-maximize {
+  --window-dot: #28c840;
+  --window-symbol: #064d12;
+}
+.macos-window-controls button::before {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--window-dot);
+  border: 1px solid rgb(0 0 0 / 10%);
+}
+.macos-window-controls button,
+.macos-window-controls button:hover,
+.macos-window-controls .window-close:hover {
+  background: transparent;
+  color: var(--window-symbol);
+}
+.macos-window-controls button svg {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  opacity: 0;
+}
+.macos-window-controls:is(:hover, :focus-within) button svg {
+  opacity: 1;
+}
+.window-controls button:disabled {
+  opacity: 1;
+  cursor: default;
+}
 .window-error {
   position: absolute;
   right: 8px;
@@ -143,26 +210,19 @@ button:hover {
   border: 1px solid var(--error-border);
   border-radius: 8px;
 }
-.header-tools {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.header-tools > .icon-button {
+.header-actions > .icon-button {
   width: 32px;
   height: 32px;
   color: var(--muted-ink, var(--muted));
 }
-.header-tools > .icon-button .icon {
+.header-actions > .icon-button .icon {
   width: 18px;
   height: 18px;
 }
 .workspace-switcher {
   display: flex;
   min-width: 0;
-  max-width: min(40vw, 480px);
+  max-width: min(100%, 480px);
 }
 .workspace-current {
   display: flex;
@@ -412,6 +472,9 @@ p {
   overflow-wrap: anywhere;
 }
 @media (max-width: 1100px) {
+  .app-bar {
+    grid-template-columns: 220px minmax(0, 1fr) auto;
+  }
   .sidebar {
     flex-basis: 220px;
   }
@@ -483,35 +546,34 @@ p {
     min-height: 0;
   }
   .app-bar {
-    min-height: 112px;
     height: auto;
-    flex-wrap: wrap;
-    padding: 12px 16px;
-    gap: 10px;
+    min-height: 104px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 8px;
+    padding-block: 8px;
   }
-  .brand {
-    min-width: 0;
-    flex: 1;
-    gap: 10px;
+  .header-identity {
+    padding-inline: 16px 0;
   }
   .brand strong {
-    font-size: calc(18px * var(--ui-scale, 1));
+    font-size: calc(14px * var(--ui-scale, 1));
   }
-  .account {
-    order: 2;
-    gap: 8px;
+  .header-actions,
+  .macos-app-bar .header-actions {
+    padding-right: 12px;
+    gap: 4px;
   }
   .account-name {
-    max-width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: none;
   }
-  .header-tools {
-    order: 3;
-    flex-basis: 100%;
+  .header-context {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+    padding-inline: 16px;
   }
   .workspace-switcher {
-    max-width: calc(100% - 40px);
+    max-width: 100%;
   }
   .sidebar {
     flex: 0 0 68px;
@@ -648,6 +710,18 @@ select {
   white-space: nowrap;
 }
 @media (max-width: 1000px) {
+  .sidebar .brand {
+    justify-content: center;
+    padding-inline: 0;
+    margin-bottom: 12px;
+  }
+  .sidebar .brand strong {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
   .sidebar {
     flex: 0 0 72px;
     padding: 16px 6px;

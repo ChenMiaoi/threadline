@@ -9,14 +9,14 @@ vi.mock('../lib/avatar-cache', async (original) => ({
   loadGitHubAvatar: vi.fn().mockResolvedValue(null),
 }));
 
-const desktop = vi.hoisted(() => ({ isDesktop: true, isMacDesktop: false }));
+const desktop = vi.hoisted(() => ({ isDesktop: true, isMacOS: false }));
 vi.mock('../lib/desktop', () => desktop);
 vi.mock('./WindowControls', () => ({ WindowControls: () => null }));
 
 afterEach(cleanup);
 beforeEach(() => {
   desktop.isDesktop = true;
-  desktop.isMacDesktop = false;
+  desktop.isMacOS = false;
 });
 
 function renderShell(onNavigate = vi.fn(), onChooseRepository = vi.fn(), onSearch = vi.fn()) {
@@ -42,14 +42,16 @@ describe('platform titlebar dragging', () => {
   it('keeps the custom desktop header draggable on Windows and Linux', () => {
     const { container } = renderShell();
     expect(container.querySelector('header')?.hasAttribute('data-tauri-drag-region')).toBe(true);
-    expect(screen.getByText('ThreadLine').hasAttribute('data-tauri-drag-region')).toBe(true);
+    expect(within(screen.getByRole('complementary')).getByText('ThreadLine')).toBeTruthy();
+    expect(container.querySelector('header .brand')).toBeNull();
   });
 
   it('makes the integrated macOS header draggable while keeping its actions interactive', () => {
-    desktop.isMacDesktop = true;
+    desktop.isMacOS = true;
     const { container } = renderShell();
     expect(container.querySelector('header')?.hasAttribute('data-tauri-drag-region')).toBe(true);
-    expect(screen.getByText('ThreadLine').hasAttribute('data-tauri-drag-region')).toBe(true);
+    expect(within(screen.getByRole('complementary')).getByText('ThreadLine')).toBeTruthy();
+    expect(container.querySelector('header .brand')).toBeNull();
     for (const button of container.querySelectorAll('header button')) {
       expect(button.hasAttribute('data-tauri-drag-region')).toBe(false);
     }
@@ -102,7 +104,7 @@ it('shows the repository and its owner separately with the owner avatar', async 
 });
 
 it('keeps the grouped header search and repository switcher interactive', () => {
-  desktop.isMacDesktop = true;
+  desktop.isMacOS = true;
   const choose = vi.fn();
   const search = vi.fn();
   const { container } = renderShell(vi.fn(), choose, search);
@@ -112,4 +114,13 @@ it('keeps the grouped header search and repository switcher interactive', () => 
   expect(choose).not.toHaveBeenCalled();
   fireEvent.click(header.getByRole('button', { name: 'owner/repo' }));
   expect(choose).toHaveBeenCalledOnce();
+});
+
+it('keeps the brand icon and name in the sidebar, separate from the window controls', () => {
+  desktop.isMacOS = true;
+  const { container } = renderShell();
+  const brand = container.querySelector('aside .brand');
+  expect(brand?.querySelector('.icon-brand')).toBeTruthy();
+  expect(brand?.textContent).toBe('ThreadLine');
+  expect(container.querySelector('header .brand')).toBeNull();
 });

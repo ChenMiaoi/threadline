@@ -2,7 +2,7 @@ import { FloatingWarning } from './FloatingWarnings';
 import { useI18n } from '../i18n/I18n';
 import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { isDesktop, isMacDesktop } from '../lib/desktop';
+import { isDesktop, isMacOS } from '../lib/desktop';
 
 export function WindowControls() {
   const { t } = useI18n();
@@ -10,7 +10,7 @@ export function WindowControls() {
   const [maximized, setMaximized] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
-    if (!isDesktop || isMacDesktop) return;
+    if (!isDesktop) return;
     const appWindow = getCurrentWindow();
     let disposed = false;
     const update = () => {
@@ -33,42 +33,62 @@ export function WindowControls() {
       void listener.then((unlisten) => unlisten());
     };
   }, []);
-  if (!isDesktop || isMacDesktop) return null;
   function run(action: 'minimize' | 'toggleMaximize' | 'close') {
+    if (!isDesktop) return;
     setError('');
     const appWindow = getCurrentWindow();
     void appWindow[action]().catch(() => setError('窗口操作未成功，请重试。'));
   }
+  const minimize = (
+    <button
+      disabled={!isDesktop}
+      aria-label={t('最小化窗口')}
+      title={t('最小化')}
+      onClick={() => run('minimize')}
+    >
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+        <path d="M1 6h10" fill="none" stroke="currentColor" />
+      </svg>
+    </button>
+  );
+  const maximize = (
+    <button
+      disabled={!isDesktop}
+      className="window-maximize"
+      aria-label={maximized ? t('还原窗口') : t('最大化窗口')}
+      title={maximized ? t('还原') : t('最大化')}
+      onClick={() => run('toggleMaximize')}
+    >
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+        {maximized ? (
+          <path d="M3.5 3.5v-2h7v7h-2m-7-5h7v7h-7z" fill="none" stroke="currentColor" />
+        ) : (
+          <rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor" />
+        )}
+      </svg>
+    </button>
+  );
+  const close = (
+    <button
+      disabled={!isDesktop}
+      className="window-close"
+      aria-label={t('关闭窗口')}
+      title={t('关闭窗口后在后台运行')}
+      onClick={() => run('close')}
+    >
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+        <path d="m1 1 10 10M11 1 1 11" fill="none" stroke="currentColor" />
+      </svg>
+    </button>
+  );
   return (
-    <div className="window-controls" aria-label={t('窗口控制')}>
-      <button aria-label={t('最小化窗口')} title={t('最小化')} onClick={() => run('minimize')}>
-        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-          <path d="M1 6h10" fill="none" stroke="currentColor" />
-        </svg>
-      </button>
-      <button
-        aria-label={maximized ? t('还原窗口') : t('最大化窗口')}
-        title={maximized ? t('还原') : t('最大化')}
-        onClick={() => run('toggleMaximize')}
-      >
-        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-          {maximized ? (
-            <path d="M3.5 3.5v-2h7v7h-2m-7-5h7v7h-7z" fill="none" stroke="currentColor" />
-          ) : (
-            <rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor" />
-          )}
-        </svg>
-      </button>
-      <button
-        className="window-close"
-        aria-label={t('关闭窗口')}
-        title={t('关闭窗口后在后台运行')}
-        onClick={() => run('close')}
-      >
-        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-          <path d="m1 1 10 10M11 1 1 11" fill="none" stroke="currentColor" />
-        </svg>
-      </button>
+    <div
+      className={`window-controls${isMacOS ? ' macos-window-controls' : ''}`}
+      aria-label={t('窗口控制')}
+    >
+      {isMacOS ? close : minimize}
+      {isMacOS ? minimize : maximize}
+      {isMacOS ? maximize : close}
       {error && (
         <FloatingWarning title={t('窗口操作未完成')}>
           <p>{error}</p>
