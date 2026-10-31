@@ -1,5 +1,5 @@
 import type { Preferences } from '../../core/workspace';
-import { colorThemes } from '../../core/themes';
+import { colorThemes, getColorTheme, type ColorThemeId } from '../../core/themes';
 import { themeStyle, useColorMode } from '../../lib/theme';
 import { useI18n } from '../../i18n/I18n';
 
@@ -12,6 +12,8 @@ export function ThemePicker({
 }) {
   const { t } = useI18n();
   const mode = useColorMode(preferences.theme);
+  const theme = getColorTheme(preferences.colorTheme);
+  const palette = theme[mode];
   return (
     <div className="theme-picker">
       <div className="theme-modes" role="group" aria-label={t('明暗模式')}>
@@ -27,46 +29,68 @@ export function ThemePicker({
         ))}
       </div>
       <p className="theme-description">{t('每组主题都包含深色与浅色版本。')}</p>
-      <div className="theme-options" role="group" aria-label={t('色彩主题')}>
-        {colorThemes.map((theme) => (
-          <button
-            key={theme.id}
-            className="theme-option"
-            aria-label={t(theme.name)}
-            aria-pressed={preferences.colorTheme === theme.id}
-            onClick={() => onChange({ colorTheme: theme.id })}
+      <div className="theme-selection">
+        <div className="theme-selection-controls">
+          <label className="theme-select-label" htmlFor="color-theme">
+            {t('色彩主题')}
+          </label>
+          <select
+            id="color-theme"
+            value={theme.id}
+            onChange={(event) => onChange({ colorTheme: event.target.value as ColorThemeId })}
           >
-            <span
-              className="theme-miniature"
-              style={themeStyle(theme.id, mode, preferences.themeGradient)}
-              aria-hidden="true"
-            >
-              <span className="mini-sidebar">
-                <b />
-              </span>
-              <span className="mini-content">
-                <i />
-                <i />
-                <i />
-              </span>
-              <span className="mini-swatches">
-                <i />
-                <i />
-                <i />
-              </span>
+            {colorThemes.map((item) => (
+              <option key={item.id} value={item.id}>
+                {t(item.name)}
+              </option>
+            ))}
+          </select>
+          {theme.variants && <span className="theme-variant">{theme.variants[mode]}</span>}
+          <p className="theme-description">{t(theme.description)}</p>
+        </div>
+        <div
+          className="theme-preview"
+          role="group"
+          aria-label={t('主题预览')}
+          style={themeStyle(theme.id, mode, preferences.themeGradient)}
+        >
+          <div className="theme-miniature" aria-hidden="true">
+            <span className="mini-sidebar">
+              <b />
             </span>
-            <span className="theme-option-name">
-              <span>
-                {t(theme.name)}
-                {theme.variants && <small className="theme-variant">{theme.variants[mode]}</small>}
-              </span>
-              <span className="theme-check" aria-hidden="true">
-                {preferences.colorTheme === theme.id ? '✓' : ''}
-              </span>
+            <span className="mini-content">
+              <i />
+              <i />
+              <i />
             </span>
-            <span className="theme-option-description">{t(theme.description)}</span>
-          </button>
-        ))}
+            <span className="mini-swatches">
+              <i />
+              <i />
+              <i />
+            </span>
+          </div>
+          <div className="theme-palette">
+            {(
+              [
+                ['canvas', '背景色'],
+                ['surface', '面板色'],
+                ['text', '文字色'],
+                ['accent', '强调色'],
+                ['blue', '辅助色'],
+              ] as const
+            ).map(([role, label]) => (
+              <div className="theme-color" key={role}>
+                <span
+                  className="theme-color-swatch"
+                  style={{ background: palette[role] }}
+                  role="img"
+                  aria-label={`${t(label)} ${palette[role]}`}
+                />
+                <span>{t(label)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
       <label className="theme-gradient-option">
         <input

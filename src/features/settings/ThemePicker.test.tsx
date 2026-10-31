@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { ThemePicker } from './ThemePicker';
 import { defaultWorkspace } from '../../core/workspace';
 import { colorThemes } from '../../core/themes';
@@ -26,28 +26,24 @@ it('selects every theme without resetting the selected mode or gradient option',
   render(<Harness />);
   fireEvent.click(screen.getByRole('button', { name: '浅色' }));
   fireEvent.click(screen.getByRole('checkbox', { name: '柔和渐变' }));
-  const gallery = screen.getByRole('group', { name: '色彩主题' });
+  const selector = screen.getByRole('combobox', { name: '色彩主题' });
   for (const theme of colorThemes) {
-    const button = within(gallery).getByRole('button', { name: theme.name });
-    fireEvent.click(button);
-    expect(button.getAttribute('aria-pressed')).toBe('true');
-    expect(
-      within(gallery)
-        .getAllByRole('button')
-        .filter((item) => item.getAttribute('aria-pressed') === 'true'),
-    ).toHaveLength(1);
-    const preview = button.querySelector<HTMLElement>('.theme-miniature')!;
+    fireEvent.change(selector, { target: { value: theme.id } });
+    expect(selector).toHaveProperty('value', theme.id);
+    const previews = screen.getAllByRole('group', { name: '主题预览' });
+    expect(previews).toHaveLength(1);
+    const preview = previews[0] as HTMLElement;
     expect(preview.style.getPropertyValue('--surface')).toBe(theme.light.surface);
     expect(preview.style.getPropertyValue('--content-bg')).toBe(theme.light.canvas);
-    if (theme.variants) {
-      expect(button.querySelector('.theme-variant')?.textContent).toBe(theme.variants.light);
-    }
+    expect(screen.getByRole('img', { name: `强调色 ${theme.light.accent}` })).toBeTruthy();
+    expect(screen.getByText(theme.description)).toBeTruthy();
+    if (theme.variants) expect(screen.getByText(theme.variants.light)).toBeTruthy();
   }
   expect(screen.getByRole('button', { name: '浅色' }).getAttribute('aria-pressed')).toBe('true');
   expect(screen.getByRole('checkbox', { name: '柔和渐变' })).toHaveProperty('checked', false);
 });
 
-it('updates all previews when system appearance changes and releases its subscription', () => {
+it('updates the selected preview when system appearance changes and releases its subscription', () => {
   const listeners = new Set<() => void>();
   const media = {
     matches: false,
@@ -57,10 +53,10 @@ it('updates all previews when system appearance changes and releases its subscri
   vi.stubGlobal('matchMedia', () => media);
   const view = render(<Harness />);
   fireEvent.click(screen.getByRole('button', { name: '跟随系统' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Nord' }));
-  const preview = screen
-    .getByRole('button', { name: 'Nord' })
-    .querySelector<HTMLElement>('.theme-miniature')!;
+  fireEvent.change(screen.getByRole('combobox', { name: '色彩主题' }), {
+    target: { value: 'nord' },
+  });
+  const preview = screen.getByRole('group', { name: '主题预览' });
   expect(preview.style.getPropertyValue('--surface')).toBe('#3b4252');
   act(() => {
     media.matches = true;

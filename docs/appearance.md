@@ -15,11 +15,11 @@ Open **Settings → Appearance** to choose a color theme and a **Dark**, **Light
 | Ocean      | Deep blue and mist cyan                |
 | Carbon     | Crisp grays with blue accents          |
 
-Theme previews follow the selected display mode. Selection applies immediately and is saved locally. **Subtle gradients** controls the content and discussion backgrounds independently of the theme. **Restore defaults** in Theme and layout restores ThreadLine, dark mode, subtle gradients, comfortable density, and reduced motion, leaving typography unchanged.
+The theme selector displays one theme at a time. Choose a theme from the dropdown to update the adjacent layout and color previews. Previews follow the selected display mode. Selection applies immediately and is saved locally. **Subtle gradients** controls the content and discussion backgrounds independently of the theme. **Restore defaults** in Theme and layout restores ThreadLine, dark mode, subtle gradients, comfortable density, and reduced motion, leaving typography unchanged.
 
 Themes cover surfaces, text, links, status indicators, diff backgrounds, syntax highlighting, and contribution-calendar colors. Status labels retain their meaning across themes. Reference themes preserve their source accent colors for fills, charts, and swatches. Separate text-ink roles are adjusted only when needed for at least 4.5:1 contrast across application, canvas, panel, and raised surfaces, including tinted status badges. Canvas and panel roles remain distinct, and optional gradients transition from a 14% accent tint through the canvas color to a 9% blue tint; discussion panels use a 6% accent tint.
 
-The gallery identifies the source variants: Rosé Pine Moon/Dawn, Catppuccin Macchiato/Latte, Everforest Medium, Nord Polar Night/Snow Storm, and Carbon Gray 100/Gray 10. These palettes are applied to ThreadLine’s layout; they do not reproduce the reference websites’ typography or composition.
+The selector identifies the source variants: Rosé Pine Moon/Dawn, Catppuccin Macchiato/Latte, Everforest Medium, Nord Polar Night/Snow Storm, and Carbon Gray 100/Gray 10. These palettes are applied to ThreadLine’s layout; they do not reproduce the reference websites’ typography or composition.
 
 ## References
 

@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import App from './App';
 import { createGateway } from './test/github.fixture';
-import { colorThemes, getColorTheme } from './core/themes';
+import { getColorTheme } from './core/themes';
 import { defaultWorkspace } from './core/workspace';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: () => false }));
@@ -32,7 +32,9 @@ it('applies theme changes to the application and restores them after reopening',
   await screen.findByText('Preserve leading-space flags');
   fireEvent.click(screen.getByRole('button', { name: '设置' }));
   fireEvent.click(await screen.findByRole('button', { name: '外观' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Everforest' }));
+  fireEvent.change(await screen.findByRole('combobox', { name: '色彩主题' }), {
+    target: { value: 'everforest' },
+  });
   fireEvent.click(screen.getByRole('button', { name: '浅色' }));
   fireEvent.click(screen.getByRole('checkbox', { name: '柔和渐变' }));
   const root = document.querySelector<HTMLElement>('.workspace-root')!;
@@ -62,7 +64,7 @@ it('applies theme changes to the application and restores them after reopening',
   });
 });
 
-it('updates the application and preview gallery together when system appearance changes', async () => {
+it('updates the application and selected preview together when system appearance changes', async () => {
   const listeners = new Set<() => void>();
   const media = {
     matches: false,
@@ -77,18 +79,14 @@ it('updates the application and preview gallery together when system appearance 
   await screen.findByText('Preserve leading-space flags');
   fireEvent.click(screen.getByRole('button', { name: '设置' }));
   fireEvent.click(await screen.findByRole('button', { name: '外观' }));
-  await screen.findByRole('button', { name: 'Nord' });
+  await screen.findByRole('combobox', { name: '色彩主题' });
   act(() => {
     media.matches = true;
     listeners.forEach((listener) => listener());
   });
   expect(document.querySelector<HTMLElement>('.workspace-root')!.style.colorScheme).toBe('light');
-  for (const theme of colorThemes) {
-    const preview = screen
-      .getByRole('button', { name: theme.name })
-      .querySelector<HTMLElement>('.theme-miniature')!;
-    expect(preview.style.getPropertyValue('--surface')).toBe(theme.light.surface);
-  }
+  const preview = screen.getByRole('group', { name: '主题预览' });
+  expect(preview.style.getPropertyValue('--surface')).toBe(getColorTheme('nord').light.surface);
   view.unmount();
   expect(listeners.size).toBe(0);
 });
