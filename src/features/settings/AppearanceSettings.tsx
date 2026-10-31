@@ -1,3 +1,4 @@
+import { Select } from '../../components/Select';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { loadSystemFonts, type SystemFont } from '../../lib/system-fonts';
 import type { Preferences } from '../../core/workspace';
@@ -59,7 +60,7 @@ export function AppearanceSettings({
     return (
       <label className="appearance-field" key={key}>
         <span>{t(label)}</span>
-        <select
+        <Select
           aria-label={t(label)}
           value={prefs[key]}
           onChange={(e) => change(key, e.target.value)}
@@ -109,7 +110,7 @@ export function AppearanceSettings({
               {t(fontState === 'loading' ? '正在读取本机字体…' : '无法读取本机字体')}
             </option>
           )}
-        </select>
+        </Select>
       </label>
     );
   }
@@ -176,14 +177,14 @@ export function AppearanceSettings({
         <div className="appearance-fields">
           <label className="appearance-field">
             <span>{t('信息密度')}</span>
-            <select
+            <Select
               aria-label={t('信息密度')}
               value={preferences.density}
               onChange={(e) => onChange({ density: e.target.value as Preferences['density'] })}
             >
               <option value="comfortable">{t('舒适')}</option>
               <option value="compact">{t('紧凑')}</option>
-            </select>
+            </Select>
           </label>
           <div className="appearance-field">
             <span>{t('减少动效')}</span>

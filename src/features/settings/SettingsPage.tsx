@@ -1,3 +1,4 @@
+import { Select } from '../../components/Select';
 import { FloatingWarning } from '../../components/FloatingWarnings';
 import { notificationSounds, type NotificationSound } from '../../core/notification-sound';
 import { playNotificationSound } from '../../lib/notification-sound';
@@ -158,7 +159,7 @@ export function SettingsPage({
         <section className="settings-content">
           {section === 'language' ? (
             <SettingRow title={t('界面语言')}>
-              <select
+              <Select
                 className="setting-value accent"
                 aria-label={t('界面语言')}
                 value={preferences.language}
@@ -172,7 +173,7 @@ export function SettingsPage({
                 <option value="zh-HK">繁體中文（香港）</option>
                 <option value="ja">日本語</option>
                 <option value="en">English</option>
-              </select>
+              </Select>
             </SettingRow>
           ) : section === 'updates' ? (
             <>
@@ -243,7 +244,7 @@ export function SettingsPage({
               </SettingRow>
               <h2 className="settings-section-heading">{t('同步偏好')}</h2>
               <SettingRow title={t('自动刷新')}>
-                <select
+                <Select
                   className="setting-value accent"
                   aria-label={t('自动刷新频率')}
                   value={preferences.refreshMinutes}
@@ -257,7 +258,7 @@ export function SettingsPage({
                   <option value={1}>{t('每 1 分钟')}</option>
                   <option value={5}>{t('每 5 分钟')}</option>
                   <option value={15}>{t('每 15 分钟')}</option>
-                </select>
+                </Select>
               </SettingRow>
               <SettingRow title={t('最近同步')}>
                 <span className="muted">
@@ -370,7 +371,7 @@ export function SettingsPage({
               </SettingRow>
               <SettingRow title={t('通知音效')}>
                 <div className="notification-sound-controls">
-                  <select
+                  <Select
                     className="setting-value"
                     aria-label={t('通知音效')}
                     value={preferences.notificationSound}
@@ -383,7 +384,7 @@ export function SettingsPage({
                         {t(['轻提示', '清铃', '双音'][index])}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                   <button
                     className="chip"
                     disabled={previewingSound}

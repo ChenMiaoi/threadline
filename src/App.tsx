@@ -1,3 +1,4 @@
+import { Select } from './components/Select';
 import { FloatingUpdate, FloatingWarning, FloatingWarnings } from './components/FloatingWarnings';
 import { typographyStyle } from './lib/appearance';
 import { themeStyle, useColorMode } from './lib/theme';
@@ -439,7 +440,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                 {currentPage && !openedPull && (
                   <label className="inline-group">
                     {t('更新范围')}
-                    <select
+                    <Select
                       aria-label={t('更新范围')}
                       value={github.searchDays}
                       onChange={(event) => github.setSearchDays(Number(event.target.value))}
@@ -450,7 +451,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                       <option value={90}>{t('最近 90 天')}</option>
                       <option value={365}>{t('最近一年')}</option>
                       <option value={0}>{t('全部时间')}</option>
-                    </select>
+                    </Select>
                   </label>
                 )}
                 <button

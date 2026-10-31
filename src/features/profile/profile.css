@@ -118,8 +118,10 @@
   font-size: calc(12px * var(--ui-scale, 1));
   color: var(--muted-ink, var(--muted));
 }
-.profile-period select {
+.profile-period .select-control {
   margin-left: 8px;
+}
+.profile-period select {
   padding: 7px 12px;
   color: var(--text-ink, var(--text));
   background: var(--surface);

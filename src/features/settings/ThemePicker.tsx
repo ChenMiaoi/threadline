@@ -1,3 +1,4 @@
+import { Select } from '../../components/Select';
 import type { Preferences } from '../../core/workspace';
 import { colorThemes, getColorTheme, type ColorThemeId } from '../../core/themes';
 import { themeStyle, useColorMode } from '../../lib/theme';
@@ -34,7 +35,7 @@ export function ThemePicker({
           <label className="theme-select-label" htmlFor="color-theme">
             {t('色彩主题')}
           </label>
-          <select
+          <Select
             id="color-theme"
             value={theme.id}
             onChange={(event) => onChange({ colorTheme: event.target.value as ColorThemeId })}
@@ -44,7 +45,7 @@ export function ThemePicker({
                 {t(item.name)}
               </option>
             ))}
-          </select>
+          </Select>
           {theme.variants && <span className="theme-variant">{theme.variants[mode]}</span>}
           <p className="theme-description">{t(theme.description)}</p>
         </div>

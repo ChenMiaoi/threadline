@@ -1,3 +1,4 @@
+import { Select } from '../../components/Select';
 import { FloatingWarning } from '../../components/FloatingWarnings';
 import { ContributionChart } from './ContributionChart';
 import { useI18n } from '../../i18n/I18n';
@@ -89,7 +90,7 @@ export function ProfilePage({
           </span>
           <label>
             {t('年份')}{' '}
-            <select
+            <Select
               aria-label={t('贡献年份')}
               value={year}
               onChange={(event) => setYear(Number(event.target.value))}
@@ -97,7 +98,7 @@ export function ProfilePage({
               {years.map((value) => (
                 <option key={value}>{value}</option>
               ))}
-            </select>
+            </Select>
           </label>
           <button
             className="chip"

@@ -1,0 +1,34 @@
+.select-control {
+  position: relative;
+  display: inline-grid;
+  width: max-content;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.select-control > .select-input {
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  padding-inline-end: 34px;
+  cursor: pointer;
+}
+.select-control > .icon {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: var(--muted-ink, var(--muted));
+  pointer-events: none;
+}
+.select-control:hover > .icon {
+  color: var(--text-ink, var(--text));
+}
+.select-control:has(:focus-visible) > .icon {
+  color: var(--accent-ink, var(--accent));
+}
+.select-control:has(:disabled) > .icon {
+  opacity: 0.5;
+}

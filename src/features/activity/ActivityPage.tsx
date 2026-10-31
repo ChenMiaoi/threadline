@@ -1,3 +1,4 @@
+import { Select } from '../../components/Select';
 import { useI18n } from '../../i18n/I18n';
 import { useId, useMemo, useState } from 'react';
 import { TabList, TabPanel } from '../../components/Tabs';
@@ -295,7 +296,7 @@ export function ActivityPage({
             </button>
           )}
           {view === 'issues' && (
-            <select
+            <Select
               className="chip"
               aria-label={t('标签')}
               value={label}
@@ -307,7 +308,7 @@ export function ActivityPage({
                   {name}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         </div>
       </div>
