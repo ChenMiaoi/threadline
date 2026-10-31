@@ -1,10 +1,17 @@
+.settings-page-header,
+.settings-layout {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+}
 .settings-layout {
   display: flex;
   gap: 32px;
   padding: 8px 24px 24px;
-  max-width: 1160px;
-  width: 100%;
   flex: 1;
+}
+.page-header.settings-page-header {
+  padding-inline: 24px;
 }
 .settings-nav {
   flex: 0 0 168px;
@@ -392,6 +399,9 @@
   overflow-wrap: anywhere;
 }
 @media (max-width: 760px) {
+  .page-header.settings-page-header {
+    padding-inline: 16px;
+  }
   .settings-layout {
     padding: 16px;
     gap: 20px;

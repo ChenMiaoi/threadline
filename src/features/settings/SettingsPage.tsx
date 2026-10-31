@@ -141,7 +141,7 @@ export function SettingsPage({
           </div>
         </Modal>
       )}
-      <PageHeader title={t(title)} />
+      <PageHeader title={t(title)} className="settings-page-header" />
       <div className="settings-layout">
         <nav className="settings-nav" aria-label={t('设置分类')}>
           {sections.map(([id, label]) => (

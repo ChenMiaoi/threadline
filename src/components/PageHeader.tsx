@@ -5,15 +5,17 @@ export function PageHeader({
   title,
   description,
   children,
+  className,
 }: {
   title: string;
   description?: string;
   children?: ReactNode;
+  className?: string;
 }) {
   const { t } = useI18n();
 
   return (
-    <header className="page-header">
+    <header className={className ? `page-header ${className}` : 'page-header'}>
       <div className="page-heading">
         <h1>{t(title)}</h1>
         {description && <p title={t(description)}>{t(description)}</p>}
