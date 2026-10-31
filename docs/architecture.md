@@ -58,6 +58,8 @@ A separate native delivery worker drains the outbox even while network reads are
 
 Delivery is **at least once**: a crash between OS acceptance and the acknowledgement commit can repeat a submission. A stable macOS request identifier reduces duplicate Notification Center entries, but neither platform APIs nor a successful submission prove that a banner was visible. Permissions and Focus settings still apply. Pending capacity is 10,000 revisions; capacity failure blocks baseline advancement and remains visible. Completed tombstones retain at most 5,000 rows and up to 30 days; checkpoint history retains at most 128 ranges.
 
+Application errors, warnings, update notices, and one-off operation results use the lower-right floating notice dock. New PR/Issue activity uses system notifications and inbox unread state. There is no separate activity toast. The dock portals into the active modal's top layer so its actions remain usable; persistent loading and connection status remain in their corresponding views.
+
 This remains snapshot reconciliation, not a GitHub event stream. Search indexing delays, bounded results, and changes no longer visible in GitHub can prevent recovery of intermediate events. The app must remain running; closing its window hides it, while fully quitting or OS suspension stops execution. No always-on service or webhook receiver is introduced.
 
 ## Reading a pull request

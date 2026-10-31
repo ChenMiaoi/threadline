@@ -82,6 +82,6 @@ The [CI workflow](../.github/workflows/ci.yml) configures macOS and Windows chec
 
 ## Native synchronization and reminder recovery
 
-Automated regression coverage includes outbox restart recovery, enqueue/checkpoint rollback on a failed write, revision deduplication, self-action suppression, scope revocation, separate popup/sound acknowledgements, category filtering, quiet-hour boundaries, native retry deadlines, and frontend/native scheduler ownership.
+Automated regression coverage includes outbox restart recovery, enqueue/checkpoint rollback on a failed write, revision deduplication, self-action suppression, scope revocation, separate popup/sound acknowledgements, category filtering, quiet-hour boundaries, native retry deadlines, and frontend/native scheduler ownership. Notice tests cover the common dock and modal top-layer routing.
 
 For native verification, use a separate application identifier and database so the schema migration does not affect an installed older build. Confirm that cache timestamps advance with the window hidden, that restoring the window displays the latest native snapshot, and that read/unread preference saves cannot postpone scheduled polling. Test actual OS permission denial, retry, Focus mode, sleep/wake, and force termination around delivery acknowledgement on each release platform. Automated tests do not establish banner visibility or long-running stability.

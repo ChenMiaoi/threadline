@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { Modal } from './Modal';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import {
   FloatingUpdate,
   FloatingWarning,
+  FloatingInfo,
   FloatingWarnings,
   WARNING_COLLAPSE_MS,
 } from './FloatingWarnings';
@@ -125,4 +127,56 @@ it('keeps warning and update semantics distinct in the same dock', () => {
   expect(screen.getByRole('button', { name: '查看提醒（2）' }).getAttribute('data-tone')).toBe(
     'warning',
   );
+});
+
+it('routes information into the same dock without calling it an update', async () => {
+  render(
+    <FloatingWarnings>
+      <FloatingInfo title="Action completed">
+        <p>Saved</p>
+      </FloatingInfo>
+    </FloatingWarnings>,
+  );
+  const dock = screen.getByRole('complementary', { name: '应用提醒' });
+  expect(within(dock).getByRole('status').textContent).toContain('Saved');
+  expect(within(dock).getByText('应用提醒')).toBeTruthy();
+  expect(within(dock).queryByText('更新提示')).toBeNull();
+});
+
+it('keeps the dock inside the active modal top layer and restores it after closing', () => {
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+    configurable: true,
+    value(this: HTMLDialogElement) {
+      this.removeAttribute('open');
+    },
+  });
+  const view = render(
+    <FloatingWarnings>
+      <FloatingWarning title="Sync failed">
+        <p>Retained outside dialog</p>
+      </FloatingWarning>
+      <Modal title="Choose repository" onClose={() => {}}>
+        Picker
+      </Modal>
+    </FloatingWarnings>,
+  );
+  expect(screen.getByRole('dialog').querySelector('.floating-warnings')).toBeTruthy();
+  expect(within(screen.getByRole('dialog')).getByRole('alert').textContent).toContain(
+    'Sync failed',
+  );
+  view.rerender(
+    <FloatingWarnings>
+      <FloatingWarning title="Sync failed">
+        <p>Retained outside dialog</p>
+      </FloatingWarning>
+    </FloatingWarnings>,
+  );
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.getByRole('complementary', { name: '应用提醒' })).toBeTruthy();
 });

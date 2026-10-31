@@ -43,7 +43,8 @@ it('reports failures, allows retry, and identifies partial measurements', async 
   vi.mocked(loadStorageUsage).mockResolvedValue({ ...usage, incomplete: true });
   fireEvent.click(screen.getByRole('button', { name: '刷新磁盘占用' }));
   await screen.findByText('部分文件无法读取，当前显示已统计的占用。');
-  await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  await waitFor(() => expect(screen.queryByText('无法读取磁盘占用，请重试。')).toBeNull());
+  expect(screen.getByRole('alert').textContent).toContain('部分文件无法读取');
 });
 it('includes the local desktop build alongside separate browser estimates', async () => {
   host.isDesktop = false;

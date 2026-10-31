@@ -1,4 +1,4 @@
-import { FloatingWarning } from '../../components/FloatingWarnings';
+import { FloatingWarning, FloatingInfo, FloatingUpdate } from '../../components/FloatingWarnings';
 import { useI18n } from '../../i18n/I18n';
 import type { useUpdates } from '../../lib/useUpdates';
 import { Icon } from '../../components/Icon';
@@ -38,9 +38,22 @@ export function UpdatesPanel({
         </div>
       </div>
       <div className="updates-state">
-        <p role="status" className="updates-status">
-          {t(labels[updates.status])}
-        </p>
+        {updates.status === 'available' ? (
+          <FloatingUpdate title={t('版本与更新')}>
+            <p>{t(labels[updates.status])}</p>
+          </FloatingUpdate>
+        ) : ['current', 'ready', 'restart'].includes(updates.status) ? (
+          <FloatingInfo title={t('版本与更新')}>
+            <p>{t(labels[updates.status])}</p>
+          </FloatingInfo>
+        ) : (
+          updates.status !== 'error' && (
+            <p role="status" className="updates-status">
+              {t(labels[updates.status])}
+            </p>
+          )
+        )}
+
         {updates.status !== 'unavailable' && (
           <div className="inline-group updates-actions">
             <button

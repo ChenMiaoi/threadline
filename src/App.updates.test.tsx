@@ -44,8 +44,14 @@ it('floats the available update outside page content and opens About and updates
   expect(within(dock).queryByRole('alert')).toBeNull();
   fireEvent.click(within(dock).getByRole('button', { name: '查看更新' }));
   expect(await screen.findByRole('heading', { name: '关于与更新' })).toBeTruthy();
-  expect(screen.getByRole('region', { name: '版本与更新' }).textContent).toContain('0.1.4-rc.2');
-  expect(screen.queryByRole('complementary', { name: '应用提醒' })).toBeNull();
+  expect(
+    within(await screen.findByRole('complementary', { name: '应用提醒' })).getByText(
+      '发现新版本 0.1.4-rc.2',
+    ),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole('region', { name: '版本与更新' }).querySelector('.floating-warnings'),
+  ).toBeNull();
 });
 
 it('removes the floating update when it is no longer available', async () => {

@@ -1,3 +1,4 @@
+import { FloatingWarning, FloatingInfo } from '../../components/FloatingWarnings';
 import { useI18n } from '../../i18n/I18n';
 import { githubErrorMessage } from '../../lib/github-errors';
 import { useEffect, useRef, useState } from 'react';
@@ -17,9 +18,9 @@ export function GitHubLoginButton({ github }: { github: GitHubWorkspace }) {
         {github.session ? t('重新授权 GitHub') : t('登录 GitHub')}
       </button>
       {github.auth.state.status === 'cancelled' && github.auth.state.error && (
-        <p role="alert" className="yellow">
-          {githubErrorMessage(github.auth.state.error)}
-        </p>
+        <FloatingWarning title={t('操作未完成')}>
+          <p>{githubErrorMessage(github.auth.state.error)}</p>
+        </FloatingWarning>
       )}
     </>
   );
@@ -84,7 +85,11 @@ export function GitHubLoginDialog({ github }: { github: GitHubWorkspace }) {
             ) : (
               <p>{t('正在准备 GitHub 授权页面…')}</p>
             )}
-            {copyMessage && <p role="status">{t(copyMessage)}</p>}
+            {copyMessage && (
+              <FloatingInfo title={t('复制验证码')}>
+                <p>{t(copyMessage)}</p>
+              </FloatingInfo>
+            )}
           </>
         ) : (
           <button
@@ -99,14 +104,14 @@ export function GitHubLoginDialog({ github }: { github: GitHubWorkspace }) {
           </button>
         )}
         {state.error && (
-          <p role="alert" className="yellow">
-            {githubErrorMessage(state.error)}
-          </p>
+          <FloatingWarning title={t('操作未完成')}>
+            <p>{githubErrorMessage(state.error)}</p>
+          </FloatingWarning>
         )}
         {openError && (
-          <p role="alert" className="yellow">
-            {t(openError)}
-          </p>
+          <FloatingWarning title={t('操作未完成')}>
+            <p>{t(openError)}</p>
+          </FloatingWarning>
         )}
         <button className="chip" onClick={() => void cancel()}>
           {t('取消登录')}

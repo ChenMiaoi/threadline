@@ -1,3 +1,4 @@
+import { FloatingWarning } from '../../components/FloatingWarnings';
 import { useI18n } from '../../i18n/I18n';
 import { GitHubMarkdown } from '../../components/GitHubMarkdown';
 import { useState } from 'react';
@@ -50,9 +51,9 @@ export function IssuePreview({
       <h2 className="issue-reader-title">{record.title}</h2>
       <div className="issue-reader-body" tabIndex={0} aria-label={t('Issue 内容')}>
         {error && (
-          <p role="alert" className="yellow">
-            {t(error)}
-          </p>
+          <FloatingWarning title={t('操作未完成')}>
+            <p>{t(error)}</p>
+          </FloatingWarning>
         )}
         {result.loading && (
           <p role="status">

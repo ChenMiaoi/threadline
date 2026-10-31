@@ -1,5 +1,5 @@
 import { Select } from '../../components/Select';
-import { FloatingWarning } from '../../components/FloatingWarnings';
+import { FloatingWarning, FloatingInfo } from '../../components/FloatingWarnings';
 import { notificationSounds, type NotificationSound } from '../../core/notification-sound';
 import { playNotificationSound } from '../../lib/notification-sound';
 import { useI18n } from '../../i18n/I18n';
@@ -32,12 +32,10 @@ type Section = (typeof sections)[number][0];
 function SettingRow({
   title,
   description,
-  status,
   children,
 }: {
   title: string;
   description?: string;
-  status?: string;
   children: ReactNode;
 }) {
   const { t } = useI18n();
@@ -47,7 +45,6 @@ function SettingRow({
       <div className="setting-text">
         <h3>{t(title)}</h3>
         {description && <p>{t(description)}</p>}
-        {status && <p role="status">{t(status)}</p>}
       </div>
       <div className="setting-control">{children}</div>
     </div>
@@ -346,7 +343,7 @@ export function SettingsPage({
                 />
               </SettingRow>
               {isDesktop && preferences.desktopNotifications && (
-                <SettingRow title={t('测试桌面通知')} status={notificationResult}>
+                <SettingRow title={t('测试桌面通知')}>
                   <button
                     className="chip"
                     disabled={sendingTestNotification}
@@ -354,7 +351,7 @@ export function SettingsPage({
                       if (sendingTestNotification) return;
                       setSendingTestNotification(true);
                       setNotificationError('');
-                      setNotificationResult('正在发送测试通知…');
+                      setNotificationResult('');
                       void enableDesktopNotifications()
                         .then(() =>
                           notifyDesktop(
@@ -364,7 +361,7 @@ export function SettingsPage({
                         )
                         .then(() => setNotificationResult('已向系统发送测试通知，请查看通知中心。'))
                         .catch((reason) => {
-                          setNotificationResult('测试通知未能发送，请查看提醒详情。');
+                          setNotificationResult('');
                           setNotificationError(
                             reason instanceof Error ? reason.message : String(reason),
                           );
@@ -416,7 +413,10 @@ export function SettingsPage({
                   </button>
                 </div>
               </SettingRow>
-              <SettingRow title={t('静默时段')} description={t('在设定时间内不弹出工具本地提醒。')}>
+              <SettingRow
+                title={t('静默时段')}
+                description={t('静默时段内暂停系统通知和提示音，结束后合并发送。')}
+              >
                 <div className="quiet-hours">
                   <input
                     type="time"
@@ -439,6 +439,14 @@ export function SettingsPage({
                   />
                 </div>
               </SettingRow>
+              {notificationResult && !notificationError && (
+                <FloatingInfo title={t('测试桌面通知')}>
+                  <p>{t(notificationResult)}</p>
+                  <button className="chip" onClick={() => setNotificationResult('')}>
+                    {t('关闭')}
+                  </button>
+                </FloatingInfo>
+              )}
               {requestingNotifications && <p role="status">{t('正在申请系统通知权限…')}</p>}
               {notificationError && (
                 <FloatingWarning title={t('通知设置需要处理')}>

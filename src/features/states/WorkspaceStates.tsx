@@ -1,3 +1,4 @@
+import { FloatingWarning } from '../../components/FloatingWarnings';
 import { useI18n } from '../../i18n/I18n';
 import { useMemo, useState } from 'react';
 import { snoozeActivityIndex } from './snoozed-model';
@@ -181,6 +182,7 @@ export function SnoozeDialog({
     <Modal title={t('稍后处理')} onClose={onClose}>
       <form
         className="snooze-form"
+        noValidate
         onSubmit={(event) => {
           event.preventDefault();
           const now = Date.now();
@@ -230,9 +232,9 @@ export function SnoozeDialog({
           />
         )}
         {error && (
-          <p role="alert" className="yellow">
-            {t(error)}
-          </p>
+          <FloatingWarning title={t('操作未完成')}>
+            <p>{t(error)}</p>
+          </FloatingWarning>
         )}
         <div className="inline-group">
           <button type="button" className="chip" onClick={onClose}>

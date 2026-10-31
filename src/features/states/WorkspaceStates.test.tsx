@@ -31,7 +31,7 @@ describe('snooze deadlines', () => {
     fireEvent.click(screen.getByRole('radio', { name: '自定义时间' }));
     fireEvent.change(screen.getByLabelText('恢复时间'), { target: { value: '2026-10-28T09:00' } });
     fireEvent.click(screen.getByRole('button', { name: '保存时间' }));
-    expect(screen.getByRole('alert').textContent).toBe('请选择未来的时间。');
+    expect(screen.getByRole('alert').textContent).toContain('请选择未来的时间。');
     expect(confirm).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText('恢复时间'), { target: { value: '2026-10-30T09:00' } });
     fireEvent.click(screen.getByRole('button', { name: '保存时间' }));

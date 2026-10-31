@@ -1,3 +1,4 @@
+import { FloatingWarnings } from '../../components/FloatingWarnings';
 import { playNotificationSound } from '../../lib/notification-sound';
 vi.mock('../../lib/notification-sound', () => ({
   playNotificationSound: vi.fn().mockResolvedValue(undefined),
@@ -72,19 +73,21 @@ async function openNotificationTest() {
   const { result } = renderHook(() => useGitHub(0, createGateway()));
   await waitFor(() => expect(result.current.session).not.toBeNull());
   render(
-    <SettingsPage
-      preferences={{ ...defaultWorkspace().preferences, desktopNotifications: true }}
-      onChange={vi.fn()}
-      onSync={vi.fn()}
-      github={result.current}
-      onChooseRepository={vi.fn()}
-    />,
+    <FloatingWarnings>
+      <SettingsPage
+        preferences={{ ...defaultWorkspace().preferences, desktopNotifications: true }}
+        onChange={vi.fn()}
+        onSync={vi.fn()}
+        github={result.current}
+        onChooseRepository={vi.fn()}
+      />
+    </FloatingWarnings>,
   );
   fireEvent.click(screen.getByRole('button', { name: '通知' }));
   return screen.getByRole('button', { name: '发送测试通知' }) as HTMLButtonElement;
 }
 
-it('shows pending and completion feedback beside the test button and prevents duplicate sends', async () => {
+it('routes completion feedback to the floating dock and prevents duplicate sends', async () => {
   let complete!: () => void;
   vi.mocked(notifyDesktop).mockReturnValueOnce(
     new Promise<void>((resolve) => {
@@ -95,29 +98,34 @@ it('shows pending and completion feedback beside the test button and prevents du
   const row = button.closest('.setting-row')! as HTMLElement;
   fireEvent.click(button);
   expect(button.disabled).toBe(true);
-  expect(within(row).getByRole('status').textContent).toBe('正在发送测试通知…');
+  expect(button.textContent).toBe('正在发送…');
+  expect(within(row).queryByRole('status')).toBeNull();
   fireEvent.click(button);
   await waitFor(() => expect(notifyDesktop).toHaveBeenCalledTimes(1));
   await act(async () => complete());
-  expect(within(row).getByRole('status').textContent).toBe(
-    '已向系统发送测试通知，请查看通知中心。',
-  );
+  expect(
+    within(screen.getByRole('complementary', { name: '应用提醒' })).getByText(
+      '已向系统发送测试通知，请查看通知中心。',
+    ),
+  ).toBeTruthy();
+  expect(within(row).queryByRole('status')).toBeNull();
   expect(button.disabled).toBe(false);
 });
 
-it('shows failed delivery next to the control and allows retrying', async () => {
+it('routes delivery failures to the floating dock and allows retrying', async () => {
   vi.mocked(notifyDesktop)
     .mockRejectedValueOnce(new Error('系统通知权限不可用，请在通知设置中重新开启桌面通知。'))
     .mockResolvedValueOnce(undefined);
   const button = await openNotificationTest();
-  const row = button.closest('.setting-row')! as HTMLElement;
   fireEvent.click(button);
-  await within(row).findByText('测试通知未能发送，请查看提醒详情。');
+  await screen.findByRole('alert');
   expect(screen.getByRole('alert').textContent).toContain('系统通知权限不可用');
   expect(screen.queryByText('已向系统发送测试通知，请查看通知中心。')).toBeNull();
   expect(button.disabled).toBe(false);
   fireEvent.click(button);
-  await within(row).findByText('已向系统发送测试通知，请查看通知中心。');
+  await within(await screen.findByRole('complementary', { name: '应用提醒' })).findByText(
+    '已向系统发送测试通知，请查看通知中心。',
+  );
 });
 
 it('requests permission for an explicit test and does not send after denial', async () => {
@@ -126,7 +134,7 @@ it('requests permission for an explicit test and does not send after denial', as
   );
   const button = await openNotificationTest();
   fireEvent.click(button);
-  await screen.findByText('测试通知未能发送，请查看提醒详情。');
+  await screen.findByRole('alert');
   expect(enableDesktopNotifications).toHaveBeenCalledOnce();
   expect(notifyDesktop).not.toHaveBeenCalled();
   expect(button.disabled).toBe(false);

@@ -1,3 +1,4 @@
+import { useFloatingLayer } from './floating-warning-context';
 import { useI18n } from '../i18n/I18n';
 import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { IconButton } from './Icon';
@@ -17,13 +18,16 @@ export function Modal({
 }) {
   const { t } = useI18n();
 
+  const mountLayer = useFloatingLayer();
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = ref.current!;
     const trigger = document.activeElement;
     dialog.showModal();
+    const unmountLayer = mountLayer?.(dialog);
     initialFocusRef?.current?.focus();
     return () => {
+      unmountLayer?.();
       dialog.close();
       if (
         trigger instanceof HTMLElement &&
@@ -33,7 +37,7 @@ export function Modal({
       )
         trigger.focus();
     };
-  }, [initialFocusRef]);
+  }, [initialFocusRef, mountLayer]);
   return (
     <dialog
       className={`modal ${className}`}

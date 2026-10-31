@@ -40,7 +40,9 @@ it('checks, downloads, and requires an explicit install action in the UI', async
   await screen.findByText('ThreadLine 0.1.0');
   fireEvent.click(screen.getByRole('button', { name: '检查更新' }));
   const download = await screen.findByRole('button', { name: '下载更新' });
-  expect(screen.getByText('发现新版本 0.2.0').getAttribute('role')).toBe('status');
+  expect(
+    screen.getByText('发现新版本 0.2.0').closest('[role="status"]')?.getAttribute('role'),
+  ).toBe('status');
   fireEvent.click(screen.getByText('更新说明'));
   expect(await screen.findByRole('heading', { name: 'Release notes' })).toBeTruthy();
   expect(screen.getByText('Improved navigation')).toBeTruthy();

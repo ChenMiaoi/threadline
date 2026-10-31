@@ -401,10 +401,12 @@ function FilesSection({
             </button>
           )}
           {files.length < count && (
-            <p className="yellow">
-              {t('GitHub 文件列表未完整返回，已加载')}
-              {files.length} / {count} {t('个文件。请在 GitHub 查看完整变更。')}
-            </p>
+            <FloatingWarning title={t('未能完整获取文件变更')}>
+              <p>
+                {t('GitHub 文件列表未完整返回，已加载')}
+                {files.length} / {count} {t('个文件。请在 GitHub 查看完整变更。')}
+              </p>
+            </FloatingWarning>
           )}
           {!count && <p>{t('没有文件变更。')}</p>}
         </article>

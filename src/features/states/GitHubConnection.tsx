@@ -1,3 +1,4 @@
+import { FloatingWarning } from '../../components/FloatingWarnings';
 import { useI18n } from '../../i18n/I18n';
 import { githubErrorMessage } from '../../lib/github-errors';
 import { useRef, useState } from 'react';
@@ -52,9 +53,9 @@ export function GitHubConnection({
             </button>
           )}
           {github.connectionError && (
-            <p role="alert" className="yellow">
-              {githubErrorMessage(github.connectionError)}
-            </p>
+            <FloatingWarning title={t('操作未完成')}>
+              <p>{githubErrorMessage(github.connectionError)}</p>
+            </FloatingWarning>
           )}
           {/GH_(VAULT_INVALID|SECURE_STORAGE)/.test(github.connectionError) && (
             <div>
@@ -131,9 +132,9 @@ export function RepositoryPicker({
         </div>
         {github.picking && <p role="status">{t('正在读取 GitHub 仓库…')}</p>}
         {(error || github.repositoryError) && (
-          <p role="alert" className="yellow">
-            {githubErrorMessage(error || github.repositoryError)}
-          </p>
+          <FloatingWarning title={t('操作未完成')}>
+            <p>{githubErrorMessage(error || github.repositoryError)}</p>
+          </FloatingWarning>
         )}
         <div className="repository-options" role="radiogroup" aria-label={t('可选仓库')}>
           {rows.map((repo) => (

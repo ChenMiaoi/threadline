@@ -152,9 +152,9 @@ export function StoragePanel() {
             </FloatingWarning>
           )}
           {usage.incomplete && (
-            <p role="status" className="storage-note">
-              {t('部分文件无法读取，当前显示已统计的占用。')}
-            </p>
+            <FloatingWarning title={t('磁盘占用')}>
+              <p>{t('部分文件无法读取，当前显示已统计的占用。')}</p>
+            </FloatingWarning>
           )}
         </>
       )}
