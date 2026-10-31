@@ -2,19 +2,19 @@
   flex-shrink: 0;
 }
 .lifecycle-open {
-  color: var(--green);
+  color: var(--green-ink, var(--green));
 }
 .lifecycle-changes-requested {
-  color: var(--yellow);
+  color: var(--yellow-ink, var(--yellow));
 }
 .lifecycle-draft {
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .lifecycle-merged {
-  color: var(--merged);
+  color: var(--merged-ink, var(--merged));
 }
 .lifecycle-closed {
-  color: var(--danger);
+  color: var(--danger-ink, var(--danger));
 }
 .pr-title-row {
   display: flex;
@@ -30,5 +30,5 @@
   flex: 1;
 }
 .requested-reviewer {
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }

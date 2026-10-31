@@ -30,10 +30,10 @@
   gap: 10px;
   height: 42px;
   font-size: calc(13px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .activity-group span {
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
   font-size: calc(12px * var(--ui-scale, 1));
   font-weight: 400;
 }
@@ -103,11 +103,11 @@
 }
 .record-summary {
   font-size: calc(13px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .record-detail {
   font-size: calc(12px * var(--ui-scale, 1));
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
 }
 .record-status {
   display: flex;
@@ -115,12 +115,12 @@
   align-items: flex-end;
   gap: 4px;
   flex: 0 0 96px;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-size: calc(12px * var(--ui-scale, 1));
   line-height: 21px;
 }
 .record-status time {
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
   font-size: calc(12px * var(--ui-scale, 1));
   white-space: nowrap;
 }
@@ -135,7 +135,7 @@
 }
 .issue-row-number {
   flex-shrink: 0;
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
   font-size: calc(13px * var(--ui-scale, 1));
   font-weight: 400;
 }
@@ -158,25 +158,25 @@
   border-radius: 4px;
 }
 .issue-row-state {
-  color: var(--green);
+  color: var(--green-ink, var(--green));
   background: color-mix(in srgb, var(--green) 9%, var(--surface));
 }
 .issue-row-state.is-closed {
-  color: var(--merged);
+  color: var(--merged-ink, var(--merged));
   background: color-mix(in srgb, var(--merged) 9%, var(--surface));
 }
 .issue-row-author {
   max-width: min(24ch, 100%);
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
 }
 .issue-row-label {
   max-width: min(34ch, 100%);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   background: var(--raised);
 }
 .issue-list-record .record-status {
@@ -202,17 +202,17 @@
   padding-right: 170px;
 }
 .is-read .record-title {
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-weight: 400;
 }
 .issue-icon {
   flex-shrink: 0;
 }
 .issue-open {
-  color: var(--green);
+  color: var(--green-ink, var(--green));
 }
 .issue-closed {
-  color: var(--merged);
+  color: var(--merged-ink, var(--merged));
 }
 .activity-empty {
   display: flex;
@@ -227,7 +227,7 @@
   line-height: 28px;
 }
 .activity-empty p {
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-size: calc(14px * var(--ui-scale, 1));
 }
 .activity-empty .inline-group {
@@ -245,7 +245,7 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--surface);
-  color: var(--text);
+  color: var(--text-ink, var(--text));
   box-shadow: 0 24px 80px #0005;
 }
 .modal::backdrop {
@@ -266,11 +266,11 @@
 }
 .modal > header h2 {
   font-size: calc(15px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .modal > p {
   margin-block: 14px;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .modal > .inline-group {
   justify-content: flex-end;
@@ -312,7 +312,7 @@
 }
 .issue-reader-body > p {
   margin-block: 10px;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .issue-reader-body .detail-card {
   margin-top: 16px;
@@ -333,7 +333,7 @@
 .comment-heading time {
   margin-left: auto;
   font-size: calc(12px * var(--ui-scale, 1));
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
 }
 .issue-reader .modal-actions {
   flex-shrink: 0;
@@ -353,7 +353,7 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--raised);
-  color: var(--text);
+  color: var(--text-ink, var(--text));
   box-shadow: 0 8px 28px #0003;
 }
 .inbox-toast button {

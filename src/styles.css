@@ -10,7 +10,7 @@
   --hover: #252b36;
   --discussion-bg: linear-gradient(170.75deg, #22242c, #1a1c21 71.43%);
   font-family: 'Inter Variable', 'Noto Sans SC Variable', 'Microsoft YaHei', sans-serif;
-  color: var(--text);
+  color: var(--text-ink, var(--text));
   background: #111216;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -53,7 +53,7 @@ button:hover {
 }
 .app {
   background: var(--app);
-  color: var(--text);
+  color: var(--text-ink, var(--text));
   height: 100dvh;
   min-height: 620px;
   display: flex;
@@ -114,11 +114,11 @@ button:hover {
   display: grid;
   place-items: center;
   background: transparent;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .window-controls button:hover {
   background: var(--hover);
-  color: var(--text);
+  color: var(--text-ink, var(--text));
 }
 .window-controls .window-close:hover {
   background: #c42b1c;
@@ -148,7 +148,7 @@ button:hover {
   background: var(--surface);
 }
 .workspace-switcher .workspace-current {
-  color: var(--accent);
+  color: var(--accent-ink, var(--accent));
   background: var(--raised);
   border-radius: 7px;
 }
@@ -157,7 +157,7 @@ button:hover {
   gap: 18px;
   align-items: center;
   font-size: calc(15px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .avatar {
   display: grid;
@@ -166,7 +166,7 @@ button:hover {
   height: 36px;
   background: var(--raised);
   border-radius: 50%;
-  color: var(--text);
+  color: var(--text-ink, var(--text));
 }
 .workspace {
   display: flex;
@@ -181,7 +181,7 @@ button:hover {
   gap: 8px;
 }
 .section-label {
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
   font-size: calc(14px * var(--ui-scale, 1));
   line-height: 22px;
 }
@@ -204,7 +204,7 @@ nav {
 }
 .nav-item.selected {
   background: var(--raised);
-  color: var(--accent);
+  color: var(--accent-ink, var(--accent));
 }
 .repository-section {
   margin-top: 38px;
@@ -220,13 +220,13 @@ nav {
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-size: calc(22px * var(--ui-scale, 1));
   line-height: 1;
 }
 .repository-add:hover {
   background: var(--raised);
-  color: var(--text);
+  color: var(--text-ink, var(--text));
 }
 .repository-empty {
   display: flex;
@@ -234,7 +234,7 @@ nav {
   gap: 10px;
   padding: 10px 12px;
   margin-top: 8px;
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
   font-size: calc(15px * var(--ui-scale, 1));
 }
 .repository-empty:hover {
@@ -258,14 +258,14 @@ nav {
   line-height: 21px;
 }
 .repository-name small {
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-size: calc(12px * var(--ui-scale, 1));
   line-height: 18px;
 }
 .settings-link {
   margin-top: auto;
   height: 40px;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .content {
   flex: 1;
@@ -285,17 +285,17 @@ nav {
   font-size: calc(14px * var(--ui-scale, 1));
 }
 .separator {
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
 }
 .muted {
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .connection-badge {
   margin-left: auto;
   padding: 8px 14px;
   border-radius: 7px;
   background: var(--raised);
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
   font-size: calc(14px * var(--ui-scale, 1));
   white-space: nowrap;
 }
@@ -345,7 +345,7 @@ p {
 .context-card p {
   margin-top: 12px;
   font-size: calc(14px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   line-height: 23px;
 }
 .error {
@@ -376,7 +376,7 @@ p {
 }
 .nav-count {
   margin-left: auto;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-size: calc(12px * var(--ui-scale, 1));
 }
 .nav-count.unread-bubble {
@@ -388,7 +388,7 @@ p {
   padding: 2px 6px;
   border-radius: 999px;
   background: var(--accent);
-  color: var(--app);
+  color: var(--on-accent, var(--app));
   font-weight: 600;
   line-height: 20px;
   font-variant-numeric: tabular-nums;
@@ -400,7 +400,7 @@ p {
   white-space: nowrap;
 }
 .repository-empty {
-  color: var(--text);
+  color: var(--text-ink, var(--text));
 }
 
 .app-bar,
@@ -580,7 +580,7 @@ p {
   font-weight: 600;
 }
 .page-heading p {
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
   font-size: calc(12px * var(--ui-scale, 1));
   line-height: 20px;
   margin-top: 0;
@@ -598,7 +598,7 @@ select {
 }
 select {
   font: inherit;
-  color: var(--text);
+  color: var(--text-ink, var(--text));
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--raised);
@@ -606,7 +606,7 @@ select {
   min-height: 32px;
 }
 .danger {
-  color: var(--danger);
+  color: var(--danger-ink, var(--danger));
 }
 .change-stats {
   display: inline-flex;
@@ -648,7 +648,7 @@ select {
   }
   .sidebar .nav-count.unread-bubble {
     background: var(--accent);
-    color: var(--app);
+    color: var(--on-accent, var(--app));
   }
 }
 @media (max-width: 1100px) {
@@ -677,10 +677,7 @@ select {
 }
 
 .theme-light .avatar {
-  color: var(--text);
-}
-.theme-light .icon {
-  filter: brightness(0.6);
+  color: var(--text-ink, var(--text));
 }
 .reduced-motion *,
 .reduced-motion *::before,
@@ -695,14 +692,14 @@ select {
 }
 .sync-status select {
   background: var(--raised);
-  color: var(--text);
+  color: var(--text-ink, var(--text));
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 6px 8px;
 }
 
 .workspace-root {
-  color: var(--text);
+  color: var(--text-ink, var(--text));
   background: var(--app);
   font-family: var(
     --ui-font,

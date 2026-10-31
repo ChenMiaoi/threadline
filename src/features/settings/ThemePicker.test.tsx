@@ -38,7 +38,10 @@ it('selects every theme without resetting the selected mode or gradient option',
     ).toHaveLength(1);
     const preview = button.querySelector<HTMLElement>('.theme-miniature')!;
     expect(preview.style.getPropertyValue('--surface')).toBe(theme.light.surface);
-    expect(preview.style.getPropertyValue('--content-bg')).toBe(theme.light.surface);
+    expect(preview.style.getPropertyValue('--content-bg')).toBe(theme.light.canvas);
+    if (theme.variants) {
+      expect(button.querySelector('.theme-variant')?.textContent).toBe(theme.variants.light);
+    }
   }
   expect(screen.getByRole('button', { name: '浅色' }).getAttribute('aria-pressed')).toBe('true');
   expect(screen.getByRole('checkbox', { name: '柔和渐变' })).toHaveProperty('checked', false);
@@ -63,7 +66,7 @@ it('updates all previews when system appearance changes and releases its subscri
     media.matches = true;
     listeners.forEach((listener) => listener());
   });
-  expect(preview.style.getPropertyValue('--surface')).toBe('#eceff4');
+  expect(preview.style.getPropertyValue('--surface')).toBe('#e5e9f0');
   view.unmount();
   expect(listeners.size).toBe(0);
 });

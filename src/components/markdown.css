@@ -1,7 +1,7 @@
 .github-markdown {
   min-width: 0;
   overflow-wrap: anywhere;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-family: var(--reading-font, inherit);
   font-size: var(--reading-size, 14px);
   line-height: var(--reading-line-height, 1.65);
@@ -37,7 +37,7 @@
   font-size: calc(16px * var(--reading-scale, 1));
 }
 .github-markdown a {
-  color: var(--accent);
+  color: var(--accent-ink, var(--accent));
   text-decoration: underline;
 }
 .github-markdown ul,
@@ -83,7 +83,7 @@
 }
 .github-markdown summary {
   cursor: pointer;
-  color: var(--text);
+  color: var(--text-ink, var(--text));
 }
 .github-markdown details {
   border: 1px solid var(--border);

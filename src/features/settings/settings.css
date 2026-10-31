@@ -14,14 +14,14 @@
   min-height: 44px;
   text-align: left;
   background: transparent;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   border-radius: 8px;
   padding: 10px 16px;
   font-size: calc(14px * var(--ui-scale, 1));
 }
 .settings-nav button.active {
   background: var(--raised);
-  color: var(--accent);
+  color: var(--accent-ink, var(--accent));
 }
 .settings-content {
   display: flex;
@@ -77,7 +77,7 @@
   align-items: center;
   gap: 7px;
   font-size: calc(12px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .storage-categories i {
   width: 7px;
@@ -92,7 +92,7 @@
 .storage-note {
   margin: 14px 0 0;
   font-size: calc(12px * var(--ui-scale, 1));
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
 }
 .settings-section-heading {
   min-height: 42px;
@@ -126,7 +126,7 @@
   font-weight: 500;
 }
 .setting-text p {
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
   font-size: calc(13px * var(--ui-scale, 1));
   line-height: 22px;
 }
@@ -154,10 +154,10 @@
 }
 .setting-value option {
   background: var(--raised);
-  color: var(--text);
+  color: var(--text-ink, var(--text));
 }
 .settings-note {
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
   font-size: calc(13px * var(--ui-scale, 1));
   line-height: 22px;
   min-height: 36px;
@@ -174,13 +174,13 @@
   gap: 8px;
 }
 .theme-modes button[aria-pressed='true'] {
-  color: var(--accent);
+  color: var(--accent-ink, var(--accent));
   background: color-mix(in srgb, var(--accent) 12%, var(--raised));
   border-color: var(--accent);
 }
 .theme-description {
   margin: 0;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-size: calc(12px * var(--ui-scale, 1));
 }
 .theme-options {
@@ -195,9 +195,9 @@
   min-height: 152px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--raised);
+  background: var(--surface);
   text-align: left;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -208,22 +208,29 @@
 }
 .theme-option[aria-pressed='true'] {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-ink, var(--accent));
 }
 .theme-option-name {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   width: 100%;
-  color: var(--text);
+  color: var(--text-ink, var(--text));
   font-weight: 500;
 }
+.theme-variant {
+  display: block;
+  margin-top: 2px;
+  font-size: calc(11px * var(--ui-scale, 1));
+  font-weight: 400;
+  color: var(--muted-ink, var(--muted));
+}
 .theme-check {
-  color: var(--accent);
+  color: var(--accent-ink, var(--accent));
 }
 .theme-option-description {
   font-size: calc(11px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   overflow-wrap: anywhere;
 }
 .theme-miniature {
@@ -292,7 +299,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-size: calc(13px * var(--ui-scale, 1));
 }
 .theme-gradient-option input {
@@ -302,7 +309,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  color: var(--accent);
+  color: var(--accent-ink, var(--accent));
 }
 .quiet-hours input {
   background: transparent;
@@ -317,7 +324,7 @@
   display: none;
 }
 .storage-details {
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
   font-size: calc(13px * var(--ui-scale, 1));
 }
 .storage-details summary {
@@ -414,7 +421,7 @@
   gap: 10px;
   padding: 6px 0;
   background: transparent;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font: inherit;
 }
 .toggle-switch:hover {
@@ -490,7 +497,7 @@ select.setting-value:hover {
   border-top: 1px solid var(--border);
 }
 .chip.settings-danger {
-  color: var(--danger);
+  color: var(--danger-ink, var(--danger));
   border-color: var(--danger);
 }
 .chip.settings-danger:hover {
@@ -534,7 +541,7 @@ select.setting-value:hover {
 }
 .updates-channel {
   font-size: calc(12px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .updates-state {
   display: flex;
@@ -551,7 +558,7 @@ select.setting-value:hover {
 }
 .updates-card[data-status='available'] .updates-status,
 .updates-card[data-status='ready'] .updates-status {
-  color: var(--accent);
+  color: var(--accent-ink, var(--accent));
   font-weight: 600;
 }
 .updates-actions {
@@ -564,7 +571,7 @@ select.setting-value:hover {
   padding-inline: 14px;
 }
 .updates-checked {
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-size: calc(12px * var(--ui-scale, 1));
   margin: -8px 0 0;
 }
@@ -576,7 +583,7 @@ select.setting-value:hover {
 .updates-progress p {
   margin-top: 6px;
   font-size: calc(12px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .updates-notes {
   border-top: 1px solid var(--border);
@@ -585,7 +592,7 @@ select.setting-value:hover {
 .updates-notes summary {
   cursor: pointer;
   font-size: calc(12px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .updates-notes .github-markdown {
   margin-top: 16px;
@@ -626,7 +633,7 @@ select.setting-value:hover {
 }
 .appearance-group header button {
   font-size: calc(12px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .appearance-fields {
   display: grid;
@@ -646,7 +653,7 @@ select.setting-value:hover {
   min-width: 0;
   max-width: 60%;
   font: inherit;
-  color: var(--text);
+  color: var(--text-ink, var(--text));
   background: var(--raised);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -700,7 +707,7 @@ select.setting-value:hover {
 .code-preview-number {
   flex: 0 0 3ch;
   padding-right: 2ch;
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
   text-align: right;
   user-select: none;
 }

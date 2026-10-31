@@ -19,7 +19,7 @@
 }
 .profile-loading {
   margin-right: auto;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-size: calc(12px * var(--ui-scale, 1));
   min-width: 0;
 }
@@ -35,7 +35,7 @@
   margin: 0 0 8px;
 }
 .profile-page p {
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-size: calc(13px * var(--ui-scale, 1));
   line-height: 1.7;
   margin: 4px 0;
@@ -43,7 +43,7 @@
 .profile-page .profile-eyebrow {
   font-size: calc(10px * var(--ui-scale, 1));
   letter-spacing: 0.14em;
-  color: var(--green);
+  color: var(--green-ink, var(--green));
 }
 .profile-identity {
   justify-content: flex-start;
@@ -94,17 +94,17 @@
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .profile-github-link:hover {
-  color: var(--accent);
+  color: var(--accent-ink, var(--accent));
   background: var(--raised);
 }
 .profile-identity span,
 .contribution-footer,
 .profile-stat span,
 .profile-stat small {
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-size: calc(12px * var(--ui-scale, 1));
 }
 .profile-period {
@@ -116,17 +116,18 @@
 .profile-period label {
   white-space: nowrap;
   font-size: calc(12px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .profile-period select {
   margin-left: 8px;
   padding: 7px 12px;
-  color: var(--text);
+  color: var(--text-ink, var(--text));
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 7px;
 }
 .contribution-card {
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 20px;
@@ -198,6 +199,7 @@
   margin: 18px 0;
 }
 .profile-stat {
+  background: var(--surface);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -237,7 +239,7 @@
 
 .contribution-month {
   font-size: calc(9px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   white-space: nowrap;
 }
 .contribution-weekdays {
@@ -246,7 +248,7 @@
   grid-template-columns: 12px;
   padding-right: 5px;
   font-size: calc(9px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .contribution-day[data-selected='true'] {
   outline: 1px solid var(--text);
@@ -277,7 +279,7 @@
   display: block;
 }
 .contribution-chart text {
-  fill: var(--muted);
+  fill: var(--muted-ink, var(--muted));
   font-size: calc(12px * var(--ui-scale, 1));
 }
 .contribution-axis {
@@ -290,7 +292,7 @@
   stroke-width: 2;
 }
 .contribution-point {
-  fill: var(--text);
+  fill: var(--text-ink, var(--text));
   stroke: var(--green);
   stroke-width: 1.5;
 }

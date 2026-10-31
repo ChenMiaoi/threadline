@@ -15,6 +15,7 @@ export type ThemeMode = ColorMode | 'system';
 
 export interface ThemePalette {
   app: string;
+  canvas: string;
   surface: string;
   raised: string;
   text: string;
@@ -32,6 +33,7 @@ export interface ColorTheme {
   id: ColorThemeId;
   name: string;
   description: string;
+  variants?: Record<ColorMode, string>;
   dark: ThemePalette;
   light: ThemePalette;
 }
@@ -41,12 +43,14 @@ function palette(
   surfaces: [string, string, string],
   text: [string, string, string],
   accents: [string, string, string, string, string, string],
+  canvas = surfaces[0],
 ): ThemePalette {
   const [app, surface, raised] = surfaces;
   const [foreground, muted, dim] = text;
   const [accent, blue, green, yellow, danger, merged] = accents;
   return {
     app,
+    canvas,
     surface,
     raised,
     text: foreground,
@@ -81,60 +85,68 @@ export const colorThemes: readonly ColorTheme[] = [
     id: 'rose-pine',
     name: 'Rosé Pine',
     description: '玫瑰、松青与紫灰',
+    variants: { dark: 'Moon', light: 'Dawn' },
     dark: palette(
       ['#232136', '#2a273f', '#393552'],
-      ['#e0def4', '#b8b4d0', '#b8b4cc'],
-      ['#eca5a2', '#9ccfd8', '#a4bcb8', '#f6c177', '#f29fb6', '#c7abe8'],
+      ['#e0def4', '#908caa', '#6e6a86'],
+      ['#ea9a97', '#9ccfd8', '#95b1ac', '#f6c177', '#eb6f92', '#c4a7e7'],
     ),
     light: palette(
       ['#faf4ed', '#fffaf3', '#f2e9e1'],
-      ['#464261', '#605b72', '#625b6f'],
-      ['#95435f', '#26657e', '#376660', '#7d5712', '#9c3c5b', '#6b538a'],
+      ['#464261', '#797593', '#9893a5'],
+      ['#b4637a', '#286983', '#6d8f89', '#ea9d34', '#b4637a', '#907aa9'],
     ),
   },
   {
     id: 'catppuccin',
     name: 'Catppuccin',
     description: '柔和粉彩与蓝紫层次',
+    variants: { dark: 'Macchiato', light: 'Latte' },
     dark: palette(
       ['#1e2030', '#24273a', '#363a4f'],
-      ['#cad3f5', '#b8c0e0', '#b2b8d2'],
-      ['#ccaaf7', '#9cb9f6', '#a6da95', '#eed49f', '#f1a4af', '#b7bdf8'],
+      ['#cad3f5', '#b8c0e0', '#a5adcb'],
+      ['#c6a0f6', '#8aadf4', '#a6da95', '#eed49f', '#ed8796', '#b7bdf8'],
+      '#24273a',
     ),
     light: palette(
       ['#e6e9ef', '#eff1f5', '#dce0e8'],
-      ['#4c4f69', '#55576d', '#55586d'],
-      ['#7230c9', '#1851c2', '#2c6521', '#7a500a', '#b20d30', '#6f3fab'],
+      ['#4c4f69', '#5c5f77', '#6c6f85'],
+      ['#8839ef', '#1e66f5', '#40a02b', '#df8e1d', '#d20f39', '#7287fd'],
+      '#eff1f5',
     ),
   },
   {
     id: 'everforest',
     name: 'Everforest',
     description: '森林灰绿与暖米色',
+    variants: { dark: 'Medium', light: 'Medium' },
     dark: palette(
       ['#232a2e', '#2d353b', '#343f44'],
-      ['#d3c6aa', '#b8bcac', '#b2bdb2'],
-      ['#aac284', '#90c4bd', '#91c79e', '#dbbc7f', '#eea9aa', '#deacc4'],
+      ['#d3c6aa', '#9da9a0', '#859289'],
+      ['#a7c080', '#7fbbb3', '#83c092', '#dbbc7f', '#e67e80', '#d699b6'],
+      '#2d353b',
     ),
     light: palette(
-      ['#f3ead3', '#fdf6e3', '#eae8cf'],
-      ['#4f5b58', '#526056', '#546057'],
-      ['#4e6421', '#20666f', '#416633', '#7a5715', '#a33840', '#7e4c6f'],
+      ['#efebd4', '#fdf6e3', '#f4f0d9'],
+      ['#5c6a72', '#829181', '#939f91'],
+      ['#8da101', '#3a94c5', '#35a77c', '#dfa000', '#f85552', '#df69ba'],
+      '#fdf6e3',
     ),
   },
   {
     id: 'nord',
     name: 'Nord',
     description: '北欧冷灰与冰青',
+    variants: { dark: 'Polar Night', light: 'Snow Storm' },
     dark: palette(
       ['#2e3440', '#3b4252', '#434c5e'],
-      ['#eceff4', '#d8dee9', '#cad3e1'],
-      ['#b6d9e2', '#bed5ed', '#c8d8ba', '#eccf93', '#f3c8cd', '#e1cddd'],
+      ['#eceff4', '#d8dee9', '#a9b4c7'],
+      ['#88c0d0', '#81a1c1', '#a3be8c', '#ebcb8b', '#bf616a', '#b48ead'],
     ),
     light: palette(
-      ['#e5e9f0', '#eceff4', '#d8dee9'],
-      ['#2e3440', '#434c5e', '#4c566a'],
-      ['#2e5c6c', '#335882', '#435d2f', '#6c5118', '#913943', '#724867'],
+      ['#eceff4', '#e5e9f0', '#d8dee9'],
+      ['#2e3440', '#3b4252', '#4c566a'],
+      ['#88c0d0', '#81a1c1', '#a3be8c', '#ebcb8b', '#bf616a', '#b48ead'],
     ),
   },
   {
@@ -201,15 +213,16 @@ export const colorThemes: readonly ColorTheme[] = [
     id: 'carbon',
     name: 'Carbon',
     description: '清晰灰阶与蓝色强调',
+    variants: { dark: 'Gray 100', light: 'Gray 10' },
     dark: palette(
       ['#161616', '#262626', '#393939'],
       ['#f4f4f4', '#c6c6c6', '#b9b9b9'],
-      ['#93baff', '#a6c8ff', '#6fdc8c', '#f1c21b', '#ffb3b8', '#d4bbff'],
+      ['#78a9ff', '#a6c8ff', '#6fdc8c', '#f1c21b', '#ffb3b8', '#d4bbff'],
     ),
     light: palette(
       ['#f4f4f4', '#ffffff', '#e0e0e0'],
       ['#161616', '#525252', '#565656'],
-      ['#0c4cc6', '#0043ce', '#1f6331', '#6e5100', '#ab171f', '#6929c4'],
+      ['#0f62fe', '#0043ce', '#198038', '#8e6a00', '#da1e28', '#6929c4'],
     ),
   },
 ];

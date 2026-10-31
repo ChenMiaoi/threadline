@@ -18,7 +18,7 @@
   font-size: calc(14px * var(--ui-scale, 1));
   min-height: 38px;
   background: var(--raised);
-  color: var(--text);
+  color: var(--text-ink, var(--text));
   border: 1px solid var(--border);
   border-radius: 6px;
 }
@@ -59,7 +59,7 @@
 .diff-number {
   padding-inline: 8px;
   text-align: right;
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
   border-right: 1px solid var(--border);
   user-select: none;
 }
@@ -78,10 +78,10 @@
 }
 .diff-hunk {
   background: var(--raised);
-  color: var(--blue);
+  color: var(--blue-ink, var(--blue));
 }
 .diff-meta {
-  color: var(--dim);
+  color: var(--dim-ink, var(--dim));
 }
 
 .sync-status {
@@ -91,7 +91,7 @@
   justify-content: flex-end;
   gap: 16px;
   padding: 4px 24px;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-size: calc(12px * var(--ui-scale, 1));
 }
 .file-list {
@@ -150,7 +150,7 @@
   font-family: ui-monospace, monospace;
   font-size: clamp(20px, 4vw, 30px);
   letter-spacing: 0.12em;
-  color: var(--accent);
+  color: var(--accent-ink, var(--accent));
   user-select: text;
 }
 .connection-explanation h2 {
@@ -158,7 +158,7 @@
   line-height: 28px;
 }
 .connection-explanation ul {
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-size: calc(14px * var(--ui-scale, 1));
   line-height: 25px;
   margin: 0;
@@ -180,7 +180,7 @@
   gap: 24px;
 }
 .empty-inbox-page .empty-symbol {
-  color: var(--accent);
+  color: var(--accent-ink, var(--accent));
   font-size: calc(34px * var(--ui-scale, 1));
 }
 .empty-inbox-page .inline-group {
@@ -293,7 +293,7 @@
 .workspace-switcher > button {
   padding: 10px 27px;
   background: var(--raised);
-  color: var(--accent);
+  color: var(--accent-ink, var(--accent));
   font-size: calc(17px * var(--ui-scale, 1));
   border-radius: 7px;
   white-space: nowrap;
@@ -441,12 +441,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   font-size: calc(12px * var(--ui-scale, 1));
 }
 .repository-list-heading button {
   font-size: inherit;
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .repository-picker .repository-options {
   max-height: min(360px, 42vh);
@@ -482,13 +482,13 @@
   display: block;
   margin-top: 3px;
   font-size: calc(12px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .repository-badges {
   text-align: right;
 }
 .repository-badges small.accent {
-  color: var(--accent);
+  color: var(--accent-ink, var(--accent));
 }
 .repository-picker-footer {
   justify-content: space-between;
@@ -503,7 +503,7 @@
   min-width: 0;
   overflow-wrap: anywhere;
   font-size: calc(13px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .repository-picker-footer button {
   flex-shrink: 0;
@@ -511,7 +511,7 @@
   padding-inline: 18px;
 }
 .repository-picker .repository-empty {
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
   text-align: center;
   padding: 24px 12px;
   font-size: calc(14px * var(--ui-scale, 1));
@@ -519,5 +519,5 @@
 .repository-picker > .text-button {
   align-self: flex-start;
   font-size: calc(12px * var(--ui-scale, 1));
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }

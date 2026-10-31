@@ -40,7 +40,7 @@ it('applies theme changes to the application and restores them after reopening',
   expect(root.style.colorScheme).toBe('light');
   expect(root.style.getPropertyValue('--surface')).toBe(getColorTheme('everforest').light.surface);
   expect(root.style.getPropertyValue('--content-bg')).toBe(
-    getColorTheme('everforest').light.surface,
+    getColorTheme('everforest').light.canvas,
   );
   await waitFor(() => {
     const saved = JSON.parse(window.localStorage.getItem('threadline.workspace.v1')!);
@@ -57,7 +57,7 @@ it('applies theme changes to the application and restores them after reopening',
     expect(restored.dataset.colorTheme).toBe('everforest');
     expect(restored.style.colorScheme).toBe('light');
     expect(restored.style.getPropertyValue('--content-bg')).toBe(
-      getColorTheme('everforest').light.surface,
+      getColorTheme('everforest').light.canvas,
     );
   });
 });

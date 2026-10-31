@@ -56,7 +56,10 @@ export function ThemePicker({
               </span>
             </span>
             <span className="theme-option-name">
-              {t(theme.name)}
+              <span>
+                {t(theme.name)}
+                {theme.variants && <small className="theme-variant">{theme.variants[mode]}</small>}
+              </span>
               <span className="theme-check" aria-hidden="true">
                 {preferences.colorTheme === theme.id ? '✓' : ''}
               </span>

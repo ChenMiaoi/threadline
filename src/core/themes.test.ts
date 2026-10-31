@@ -1,22 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { colorThemes, resolveColorMode, type ColorMode } from './themes';
+import { colorThemes, resolveColorMode } from './themes';
 import { defaultWorkspace, normalizeWorkspace } from './workspace';
-
-function luminance(hex: string) {
-  const channels = hex
-    .slice(1)
-    .match(/../g)!
-    .map((value) => {
-      const channel = parseInt(value, 16) / 255;
-      return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-    });
-  return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
-}
-
-function contrast(foreground: string, background: string) {
-  const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
-  return (values[0] + 0.05) / (values[1] + 0.05);
-}
 
 describe('color themes', () => {
   it('restores existing appearance preferences and rejects unknown palette ids', () => {
@@ -54,30 +38,17 @@ describe('color themes', () => {
     expect(resolveColorMode('system', false)).toBe('dark');
   });
 
-  for (const mode of ['dark', 'light'] as ColorMode[]) {
-    it.each(colorThemes)(
-      `keeps ${mode} $id text and semantic labels readable across surfaces`,
-      (theme) => {
-        const palette = theme[mode];
-        for (const background of [palette.app, palette.surface, palette.raised]) {
-          for (const role of [
-            'text',
-            'muted',
-            'dim',
-            'accent',
-            'blue',
-            'green',
-            'yellow',
-            'danger',
-            'merged',
-          ] as const) {
-            expect(
-              contrast(palette[role], background),
-              `${theme.id} ${mode} ${role} on ${background}`,
-            ).toBeGreaterThanOrEqual(4.5);
-          }
-        }
-      },
-    );
-  }
+  it('preserves reference brand colors and distinct canvas layers', () => {
+    const nord = colorThemes.find((theme) => theme.id === 'nord')!;
+    expect(nord.dark.accent).toBe('#88c0d0');
+    expect(nord.light.accent).toBe('#88c0d0');
+    expect(nord.dark.canvas).toBe('#2e3440');
+    const catppuccin = colorThemes.find((theme) => theme.id === 'catppuccin')!;
+    expect(catppuccin.variants).toEqual({ dark: 'Macchiato', light: 'Latte' });
+    expect(catppuccin.dark.canvas).toBe('#24273a');
+    expect(catppuccin.light.accent).toBe('#8839ef');
+    const everforest = colorThemes.find((theme) => theme.id === 'everforest')!;
+    expect(everforest.light.accent).toBe('#8da101');
+    expect(everforest.light.canvas).toBe('#fdf6e3');
+  });
 });

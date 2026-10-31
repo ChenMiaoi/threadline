@@ -19,22 +19,22 @@
   opacity: 0.8;
 }
 .status-neutral {
-  color: var(--muted);
+  color: var(--muted-ink, var(--muted));
 }
 .status-info {
-  color: var(--blue);
+  color: var(--blue-ink, var(--blue));
 }
 .status-success {
-  color: var(--green);
+  color: var(--green-ink, var(--green));
 }
 .status-warning {
-  color: var(--yellow);
+  color: var(--yellow-ink, var(--yellow));
 }
 .status-danger {
-  color: var(--danger);
+  color: var(--danger-ink, var(--danger));
 }
 .status-merged {
-  color: var(--merged);
+  color: var(--merged-ink, var(--merged));
 }
 .status-icon {
   width: 15px;
