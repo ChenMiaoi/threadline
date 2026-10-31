@@ -271,7 +271,7 @@ nav {
   flex: 1;
   min-width: 0;
   overflow: auto;
-  background: var(--surface);
+  background: var(--content-bg, var(--surface));
   border: 1px solid var(--border);
   border-bottom: 0;
   border-radius: 14px 14px 0 0;
@@ -702,6 +702,8 @@ select {
 }
 
 .workspace-root {
+  color: var(--text);
+  background: var(--app);
   font-family: var(
     --ui-font,
     'Inter Variable',

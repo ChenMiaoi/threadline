@@ -11,16 +11,10 @@
   color: var(--muted);
 }
 .lifecycle-merged {
-  color: #bb9aef;
+  color: var(--merged);
 }
 .lifecycle-closed {
-  color: #ef8181;
-}
-.theme-light .lifecycle-merged {
-  color: #7344a6;
-}
-.theme-light .lifecycle-closed {
-  color: #a62929;
+  color: var(--danger);
 }
 .pr-title-row {
   display: flex;

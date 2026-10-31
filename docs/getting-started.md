@@ -63,6 +63,8 @@ A single click on an authored PR opens a summary preview. Double-click the row, 
 
 Open **Settings** (**设置**) to choose a refresh interval, language, theme, information density, and separate interface, reading, and code fonts and sizes. Desktop reminders require operating-system notification permission. Notification sounds are optional and offer previews. Quiet hours and reminder categories control popups and sounds, while local unread state remains visible in the Inbox.
 
+The [appearance settings](appearance.md) include ten color themes, each with dark and light versions, system appearance support, and optional subtle gradients.
+
 Cached content may appear before a background refresh completes. Check the displayed read time and the floating warning panel when freshness matters. Use **Refresh** (**刷新**) to request current GitHub data.
 
 Continue with [using the workspace](workspace.md), or read [data and security](data-and-security.md) before connecting private repositories.

@@ -27,7 +27,6 @@ function renderShell(onNavigate = vi.fn(), onChooseRepository = vi.fn()) {
       notificationsAvailable={true}
       onNavigate={onNavigate}
       onSearch={vi.fn()}
-      className=""
       loading={false}
       repo="owner/repo"
       repositoryAvatarUrl="https://avatars.githubusercontent.com/u/1714999?v=4"

@@ -11,6 +11,37 @@ vi.mock('../../lib/system-fonts', () => ({
   ]),
 }));
 afterEach(cleanup);
+it('restores theme and layout defaults without changing typography', async () => {
+  const onChange = vi.fn();
+  const preferences = defaultWorkspace().preferences;
+  render(
+    <AppearanceSettings
+      preferences={{
+        ...preferences,
+        colorTheme: 'nord',
+        theme: 'light',
+        themeGradient: false,
+        typography: { ...preferences.typography, uiSize: 18 },
+      }}
+      onChange={onChange}
+    />,
+  );
+  fireEvent.click(
+    within(screen.getByRole('region', { name: '主题与布局' })).getByRole('button', {
+      name: '恢复默认',
+    }),
+  );
+  expect(onChange).toHaveBeenCalledExactlyOnceWith({
+    theme: 'dark',
+    colorTheme: 'threadline',
+    themeGradient: true,
+    density: 'comfortable',
+    reducedMotion: true,
+  });
+  expect(screen.getByLabelText('界面字号')).toHaveProperty('value', '18');
+  await screen.findByText('return');
+});
+
 it('shows four groups, updates live previews, and resets only the selected group', async () => {
   function Harness() {
     const [preferences, set] = useState(defaultWorkspace().preferences);

@@ -19,7 +19,6 @@ export function WorkspaceShell({
   unread,
   onNavigate,
   onSearch,
-  className,
   loading,
   children,
   repo,
@@ -34,7 +33,6 @@ export function WorkspaceShell({
   unread: number;
   onNavigate: (view: View) => void;
   onSearch: () => void;
-  className: string;
   loading: boolean;
   children: ReactNode;
   repo: string;
@@ -50,7 +48,7 @@ export function WorkspaceShell({
   const dragRegion = isDesktop && !isMacDesktop ? true : undefined;
   const [repositoryOwner, repositoryName] = repo.split('/');
   return (
-    <div className={`app ${className}`}>
+    <div className="app">
       <header
         className={`app-bar${isDesktop ? ' desktop-app-bar' : ''}${isMacDesktop ? ' macos-app-bar' : ''}`}
         data-tauri-drag-region={dragRegion}

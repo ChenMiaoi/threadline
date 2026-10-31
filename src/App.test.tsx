@@ -370,9 +370,7 @@ describe('workspace interactions', () => {
     await screen.findByRole('textbox', { name: '搜索 PR' });
     fireEvent.click(screen.getByRole('button', { name: '设置' }));
     fireEvent.click(await screen.findByRole('button', { name: '外观' }));
-    expect(screen.getByRole('button', { name: '浅色 ✓' }).getAttribute('aria-pressed')).toBe(
-      'true',
-    );
+    expect(screen.getByRole('button', { name: '浅色' }).getAttribute('aria-pressed')).toBe('true');
   });
   it('does not dismiss dialogs during Strict Mode effect cleanup', async () => {
     const onClose = vi.fn();

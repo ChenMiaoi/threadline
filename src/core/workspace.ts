@@ -2,6 +2,7 @@ import { notificationSounds, type NotificationSound } from './notification-sound
 import { defaultTypography, normalizeTypography, type TypographyPreferences } from './appearance';
 import type { LanguagePreference } from '../i18n/locale';
 import type { Activity } from '../features/activity/model';
+import { normalizeColorTheme, type ColorThemeId, type ThemeMode } from './themes';
 
 // Six GitHub searches (including three review queries) return at most 1,000 records each;
 // 200 additional snoozes can be restored into the inbox.
@@ -10,7 +11,9 @@ export const MAX_INBOX_REVISIONS = 6200;
 export interface Preferences {
   typography: TypographyPreferences;
   language: LanguagePreference;
-  theme: 'dark' | 'light' | 'system';
+  theme: ThemeMode;
+  colorTheme: ColorThemeId;
+  themeGradient: boolean;
   density: 'comfortable' | 'compact';
   reducedMotion: boolean;
   autoCheckUpdates: boolean;
@@ -57,6 +60,8 @@ export function defaultWorkspace(): WorkspaceData {
       language: 'system',
       typography: { ...defaultTypography },
       theme: 'dark',
+      colorTheme: 'threadline',
+      themeGradient: true,
       density: 'comfortable',
       reducedMotion: true,
       autoCheckUpdates: true,
@@ -142,10 +147,12 @@ export function normalizeWorkspace(value: unknown, now: number): WorkspaceData {
     settings.language = prefs.language as LanguagePreference;
   if (['dark', 'light', 'system'].includes(String(prefs.theme)))
     settings.theme = prefs.theme as Preferences['theme'];
+  settings.colorTheme = normalizeColorTheme(prefs.colorTheme);
   if (['comfortable', 'compact'].includes(String(prefs.density)))
     settings.density = prefs.density as Preferences['density'];
   for (const key of [
     'reducedMotion',
+    'themeGradient',
     'autoCheckUpdates',
     'notifyAttention',
     'notifyCommits',

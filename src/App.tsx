@@ -1,5 +1,6 @@
 import { FloatingUpdate, FloatingWarning, FloatingWarnings } from './components/FloatingWarnings';
 import { typographyStyle } from './lib/appearance';
+import { themeStyle, useColorMode } from './lib/theme';
 import { I18nContext, useLanguage } from './i18n/I18n';
 import { useUpdates } from './lib/useUpdates';
 import { useDesktopLifecycle } from './lib/useDesktopLifecycle';
@@ -51,9 +52,6 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   const [error, setError] = useState('');
   const [inboxFilter, setInboxFilter] = useState('unread');
   const [settingsSection, setSettingsSection] = useState<'account' | 'updates'>('account');
-  const [systemLight, setSystemLight] = useState(
-    () => window.matchMedia('(prefers-color-scheme: light)').matches,
-  );
   const repository = useMemo(
     () =>
       isDesktop ? desktopWorkspaceRepository() : browserWorkspaceRepository(window.localStorage),
@@ -61,6 +59,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   );
   const workspace = useWorkspace(repository);
   const { data, update } = workspace;
+  const colorMode = useColorMode(data.preferences.theme);
   const language = useLanguage(data.preferences.language);
   const { t } = language;
   const updates = useUpdates(workspace.loaded && data.preferences.autoCheckUpdates);
@@ -142,13 +141,6 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [github]);
-
-  useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: light)');
-    const listener = () => setSystemLight(media.matches);
-    media.addEventListener('change', listener);
-    return () => media.removeEventListener('change', listener);
-  }, []);
 
   useEffect(() => {
     if (!isDesktop) return;
@@ -262,8 +254,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
     update((current) => ({ ...current, preferences: { ...current.preferences, ...change } }));
   }
 
-  const light =
-    data.preferences.theme === 'light' || (data.preferences.theme === 'system' && systemLight);
+  const light = colorMode === 'light';
   const busy = loading || (!workspace.loaded && !workspace.error);
   const unread = useMemo(
     () =>
@@ -309,7 +300,11 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
     <I18nContext.Provider value={language}>
       <div
         className={`workspace-root ${className}`}
-        style={typographyStyle(data.preferences.typography)}
+        data-color-theme={data.preferences.colorTheme}
+        style={{
+          ...typographyStyle(data.preferences.typography),
+          ...themeStyle(data.preferences.colorTheme, colorMode, data.preferences.themeGradient),
+        }}
       >
         <FloatingWarnings>
           {notices.toast && (
@@ -353,7 +348,6 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
             notificationsAvailable={Boolean(github.session)}
             onNavigate={navigate}
             loading={busy || !workspace.loaded || updates.status === 'installing'}
-            className={className}
             onSearch={() => {
               navigate('authored');
               requestAnimationFrame(() =>

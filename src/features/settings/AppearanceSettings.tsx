@@ -8,6 +8,7 @@ import {
 } from '../../core/appearance';
 import { typographyStyle } from '../../lib/appearance';
 import { useI18n } from '../../i18n/I18n';
+import { ThemePicker } from './ThemePicker';
 
 const CodePreview = lazy(() => import('../../components/CodePreview'));
 
@@ -158,34 +159,20 @@ export function AppearanceSettings({
           <h2>{t('主题与布局')}</h2>
           <button
             className="text-button"
-            onClick={() => onChange({ theme: 'dark', density: 'comfortable', reducedMotion: true })}
+            onClick={() =>
+              onChange({
+                theme: 'dark',
+                colorTheme: 'threadline',
+                themeGradient: true,
+                density: 'comfortable',
+                reducedMotion: true,
+              })
+            }
           >
             {t('恢复默认')}
           </button>
         </header>
-        <div className="theme-options" role="group" aria-label={t('主题')}>
-          {(['dark', 'light', 'system'] as const).map((theme, index) => (
-            <button
-              key={theme}
-              className={`theme-option ${preferences.theme === theme ? 'active' : ''}`}
-              aria-pressed={preferences.theme === theme}
-              onClick={() => onChange({ theme })}
-            >
-              <span className={`theme-miniature preview-${theme}`} aria-hidden="true">
-                <span className="mini-sidebar" />
-                <span className="mini-content">
-                  <i />
-                  <i />
-                  <i />
-                </span>
-              </span>
-              <span>
-                {t(['深色', '浅色', '跟随系统'][index])}
-                {preferences.theme === theme ? ' ✓' : ''}
-              </span>
-            </button>
-          ))}
-        </div>
+        <ThemePicker preferences={preferences} onChange={onChange} />
         <div className="appearance-fields">
           <label className="appearance-field">
             <span>{t('信息密度')}</span>

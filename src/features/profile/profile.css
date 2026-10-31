@@ -43,7 +43,7 @@
 .profile-page .profile-eyebrow {
   font-size: calc(10px * var(--ui-scale, 1));
   letter-spacing: 0.14em;
-  color: #75ca98;
+  color: var(--green);
 }
 .profile-identity {
   justify-content: flex-start;
@@ -163,39 +163,23 @@
   width: 11px;
   height: 11px;
   border-radius: 2px;
-  background: #292f37;
-  box-shadow: inset 0 0 0 1px #ffffff08;
+  background: var(--heat-0, var(--raised));
 }
 .contribution-day:focus-visible {
   outline: 2px solid var(--text);
   outline-offset: 2px;
 }
 .contribution-level-1 {
-  background: #0e4429;
+  background: var(--heat-1, var(--green));
 }
 .contribution-level-2 {
-  background: #006d32;
+  background: var(--heat-2, var(--green));
 }
 .contribution-level-3 {
-  background: #26a641;
+  background: var(--heat-3, var(--green));
 }
 .contribution-level-4 {
-  background: #39d353;
-}
-.theme-light .contribution-level-0 {
-  background: #ebedf0;
-}
-.theme-light .contribution-level-1 {
-  background: #9be9a8;
-}
-.theme-light .contribution-level-2 {
-  background: #40c463;
-}
-.theme-light .contribution-level-3 {
-  background: #30a14e;
-}
-.theme-light .contribution-level-4 {
-  background: #216e39;
+  background: var(--heat-4, var(--green));
 }
 .contribution-footer {
   margin-top: 10px;
@@ -271,9 +255,6 @@
 .contribution-calendar .contribution-day {
   width: var(--contribution-size);
   height: var(--contribution-size);
-}
-.theme-light .profile-page .profile-eyebrow {
-  color: #216e39;
 }
 
 .profile-overview {
