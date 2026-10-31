@@ -247,7 +247,10 @@ export function SettingsPage({
                 </button>
               </SettingRow>
               <h2 className="settings-section-heading">{t('同步偏好')}</h2>
-              <SettingRow title={t('自动刷新')}>
+              <SettingRow
+                title={t('自动刷新')}
+                description={t('手动模式仍会在断线恢复、返回窗口或读取失败后自动补同步。')}
+              >
                 <Select
                   className="setting-value accent"
                   aria-label={t('自动刷新频率')}

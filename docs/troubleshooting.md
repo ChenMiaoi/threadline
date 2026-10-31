@@ -23,9 +23,9 @@ A missing-record message can mean a PR or issue was removed, renamed through a r
 
 Check the network connection and use **Retry synchronization** (**重试同步**) or **Refresh** (**刷新**). These actions request current data even when a cached response is still within its reuse window. A complete successful list refresh clears a prior connection error.
 
-For a timeout or temporary GitHub failure, keep the cached content and retry later. If GitHub's request quota is exhausted, allow time for it to recover instead of repeatedly refreshing. Use **Recheck connection** (**重新检查连接**) when account validation is failing.
+For a timeout or temporary GitHub failure, ThreadLine retains cached content and automatically retries with an increasing delay. The warning shows the next retry time. Offline reads pause and resume when connectivity returns. If GitHub's request quota is exhausted, all reads wait for the server-directed cooldown; repeated manual refreshes cannot bypass it. Use **Recheck connection** (**重新检查连接**) when account validation is failing.
 
-Check **Settings → Repository and synchronization** (**设置 → 仓库与同步**) if updates only appear after manual refresh. Manual mode does not poll, and closing the app stops background polling. GitHub search indexing can also delay newly changed records.
+Check **Settings → Repository and synchronization** (**设置 → 仓库与同步**) if updates only appear after manual refresh. Manual mode disables periodic polling but still recovers failed reads and catches up after reconnection or returning to the window after at least a minute. Fully quitting the app stops synchronization; computer sleep can defer reads until execution resumes. GitHub search indexing can also delay newly changed records.
 
 An empty filtered view is different from a failed refresh. Clear search and filters to check the full available list, and inspect any error banner before treating an empty list as complete.
 
@@ -47,7 +47,7 @@ A missing avatar can be a network or image-loading failure. The initial fallback
 
 Check that desktop notifications are enabled in **Settings → Notifications** (**设置 → 通知**) and permitted in the operating system. Check quiet hours, reminder categories, and whether the thread is snoozed. Use the notification test control to distinguish delivery problems from an absence of new updates. Its sending state and result appear directly beside the control; delivery failures also appear in the floating warning dock. On macOS, ThreadLine checks the actual [system authorization](https://developer.apple.com/documentation/usernotifications/asking-permission-to-use-notifications) and requests permission only when you explicitly enable notifications or send a test. Foreground delivery is enabled, but banner visibility still depends on system notification settings and Focus mode.
 
-The first successful synchronization establishes a baseline without historical popups. Restoring a cache does not trigger reminders. The Inbox is based on repository searches, not the GitHub Notifications API, so its contents and unread counts can differ from GitHub's notification inbox.
+The first successful synchronization establishes a baseline without historical popups. Restoring a cache does not trigger reminders. Failed or truncated list batches do not establish or advance the notification baseline; narrow the date range if a result-limit warning persists. The Inbox is based on repository searches, not the GitHub Notifications API, so its contents and unread counts can differ from GitHub's notification inbox.
 
 ## Saved login cannot be read
 

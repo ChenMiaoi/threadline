@@ -42,6 +42,16 @@ Core modules receive data and use explicit interfaces; they do not call browser 
 
 New network reads validate account identity, app configuration, and repository access. Local cache reads verify the saved credential's account identity without making network requests. These paths intentionally have different availability guarantees; see [Data and security](data-and-security.md).
 
+## Synchronization recovery
+
+The list scheduler uses a single completion-based timer. Concurrent refreshes share a request; an explicit refresh during cache hydration queues one live read. Temporary failures retry after 30 seconds, doubling up to a five-minute base delay with up to 20% jitter. Success resets the backoff. Authentication, permission, and non-transient failures stop automatic retries.
+
+Offline detection pauses network reads. Reconnection requests a live refresh, including one follow-up when an older request was already pending. Window focus and visibility restoration request a refresh when the last attempt is at least one minute old; closely spaced recovery events are coalesced. Startup session failures also retry with backoff. Manual refresh disables periodic polling, but retains failure recovery and reconnection/wake catch-up.
+
+The native HTTPS transport shares a cooldown across REST and GraphQL reads. It observes `Retry-After` and exhausted `X-RateLimit-Remaining` / `X-RateLimit-Reset` headers, falling back to at least a minute for rate limits without usable guidance. Errors carry a `retryAt` Unix-millisecond deadline to the scheduler. Manual and recovery triggers cannot bypass this deadline. OAuth credential exchanges remain outside read replay and cooldown policy.
+
+Existing SQLite response caches and account/repository notification baselines survive restart. Cached, failed, or truncated list batches do not advance the notification baseline. This is snapshot reconciliation, not a durable event stream: search indexing delays, bounded results, and changes no longer visible in GitHub can prevent recovery of every intermediate event. The application must be running; operating-system suspension can defer timers until execution resumes. No always-on service or webhook receiver is introduced.
+
 ## Reading a pull request
 
 A PR overview loads first. Discussion, files, and checks use separate operations, allowing the interface to show useful content before every section finishes. Section requests carry the overview's HEAD SHA and recheck it before returning data.

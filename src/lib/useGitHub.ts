@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { findLegacyActivityAliases } from '../core/migrate-activity-state';
 import { observeUpdates } from '../core/inbox';
+import {
+  createSyncScheduler,
+  retryableSyncError,
+  syncRetryAt,
+  type SyncResult,
+  type SyncState,
+} from '../core/sync-scheduler';
 import { githubGateway } from './github';
 import { assertCacheAccess, isFresh } from './github-cache';
 import { useGitHubLogin } from './useGitHubLogin';
@@ -65,8 +72,10 @@ export function useGitHub(
   const generation = useRef(0);
   const identity = useRef(0);
   const hadSession = useRef(false);
-  const inFlight = useRef<{ token: number; force: boolean; promise: Promise<void> } | null>(null);
-  const reconnecting = useRef<Promise<void> | null>(null);
+  const connectionFailures = useRef(0);
+  const inFlight = useRef<{ token: number; promise: Promise<SyncResult> } | null>(null);
+  const scheduler = useRef<ReturnType<typeof createSyncScheduler> | null>(null);
+  const [syncState, setSyncState] = useState<SyncState>({ phase: 'idle', nextAttemptAt: null });
   const key = session && repo ? `${session.user.id}:${repo}` : '';
   const scopeKey = searchDays ? `${key}:days:${searchDays}` : key;
 
@@ -95,6 +104,7 @@ export function useGitHub(
         const current = await gateway.session();
         if (token !== identity.current) return;
         hadSession.current = true;
+        connectionFailures.current = 0;
         setSession((previous) =>
           previous && JSON.stringify(previous) === JSON.stringify(current) ? previous : current,
         );
@@ -103,6 +113,7 @@ export function useGitHub(
       } catch (reason) {
         if (token === identity.current) {
           const error = String(reason);
+          if (retryableSyncError(error)) ++connectionFailures.current;
           if (
             /GH_(AUTH_REQUIRED|ACCOUNT_CHANGED|APP_PERMISSIONS_UNSAFE|APP_IDENTITY_MISMATCH|FORBIDDEN|NOT_FOUND)/.test(
               error,
@@ -147,13 +158,15 @@ export function useGitHub(
 
   const sync = useCallback(
     (force: boolean) => {
-      if (!session || !repo) return Promise.resolve();
+      if (!session || !repo) return Promise.resolve<SyncResult>({ errors: [], cancelled: true });
       if (inFlight.current?.token === generation.current) return inFlight.current.promise;
       const token = ++generation.current;
       setSyncing(true);
       const searchArgs: [number?, string?, number?] = searchDays ? [0, '', searchDays] : [];
       const pages: Page[] = ['authored', 'inbox', 'review', 'issues'];
       let livePages = 0;
+      const completePages = new Set<Page>();
+      const syncErrors = new Map<Page, string>();
       setSnapshot((previous) => ({ ...previous, liveReady: false }));
       const promise = Promise.all(
         pages.map(async (page) => {
@@ -162,6 +175,11 @@ export function useGitHub(
             const apply = (result: import('../core/github').GitHubResponse<SearchPage[]>) => {
               if (token !== generation.current) return;
               assertCacheAccess(result);
+              if (result.error) syncErrors.set(page, result.error);
+              else if (result.stale) syncErrors.set(page, 'GH_REQUEST_FAILED');
+              else syncErrors.delete(page);
+              if (result.payload.some((p) => p.data.search.truncated)) completePages.delete(page);
+              else completePages.add(page);
               const source = searchRecords(result.payload);
               const records = source.map((r) =>
                 page === 'inbox'
@@ -226,6 +244,7 @@ export function useGitHub(
                 if (isFresh(cached, (refreshMinutes || 5) * 60_000)) return;
               }
             }
+            if (!navigator.onLine) return;
             const result = await gateway.request<SearchPage[]>(
               operation,
               repo,
@@ -238,6 +257,7 @@ export function useGitHub(
           } catch (reason) {
             if (token !== generation.current) return;
             const error = String(reason);
+            syncErrors.set(page, error);
             if (
               /GH_(AUTH_REQUIRED|ACCOUNT_CHANGED|APP_PERMISSIONS_UNSAFE|APP_IDENTITY_MISMATCH)/.test(
                 error,
@@ -276,66 +296,108 @@ export function useGitHub(
       )
         .then(() => {
           if (token === generation.current) {
-            setSnapshot((previous) => ({ ...previous, liveReady: livePages === pages.length }));
+            setSnapshot((previous) => ({
+              ...previous,
+              liveReady: livePages === pages.length && completePages.size === pages.length,
+            }));
             if (livePages === pages.length) setConnectionError('');
             setSyncing(false);
           }
+          return {
+            errors: [...syncErrors.values()],
+            cancelled: token !== generation.current && !syncErrors.size,
+          };
         })
         .finally(() => {
           if (inFlight.current?.token === token) inFlight.current = null;
         });
-      inFlight.current = { token, force, promise };
+      inFlight.current = { token, promise };
       return promise;
     },
     [gateway, session, repo, scopeKey, searchDays, refreshMinutes],
   );
-  const refresh = useCallback(() => {
-    const pending = inFlight.current;
-    if (pending?.token === generation.current && !pending.force && gateway.cached) {
-      const token = generation.current;
-      return pending.promise.then(() => (token === generation.current ? sync(true) : undefined));
-    }
-    return sync(true);
-  }, [sync, gateway]);
+  const refresh = useCallback(async () => {
+    const controller = scheduler.current;
+    const invalidated = inFlight.current && inFlight.current.token !== generation.current;
+    await controller?.refresh();
+    // Access denial can invalidate a batch before its remaining pages settle.
+    // An explicit retry must run after that batch rather than joining its discarded work.
+    if (invalidated && controller === scheduler.current) await controller?.refresh();
+  }, []);
   useEffect(() => {
-    const initial = window.setTimeout(() => void sync(false), 0);
-    const timer = refreshMinutes
-      ? window.setInterval(() => void refresh(), refreshMinutes * 60000)
-      : undefined;
+    if (!session || !repo) return;
+    const controller = createSyncScheduler({
+      interval: refreshMinutes * 60_000,
+      run: sync,
+      now: () => Date.now(),
+      online: () => navigator.onLine,
+      random: Math.random,
+      schedule: (callback, delay) => {
+        const timer = window.setTimeout(callback, delay);
+        return () => window.clearTimeout(timer);
+      },
+      publish: setSyncState,
+    });
+    scheduler.current = controller;
+    const online = () => controller.recover(true);
+    const focus = () => controller.recover();
+    const visible = () => {
+      if (document.visibilityState === 'visible') controller.recover();
+    };
+    window.addEventListener('online', online);
+    window.addEventListener('offline', controller.offline);
+    window.addEventListener('focus', focus);
+    document.addEventListener('visibilitychange', visible);
+    controller.start(!gateway.cached);
     return () => {
-      window.clearTimeout(initial);
-      window.clearInterval(timer);
+      controller.stop();
+      scheduler.current = null;
+      window.removeEventListener('online', online);
+      window.removeEventListener('offline', controller.offline);
+      window.removeEventListener('focus', focus);
+      document.removeEventListener('visibilitychange', visible);
       invalidateRequests();
     };
-  }, [refresh, sync, refreshMinutes, invalidateRequests]);
+  }, [gateway, session, repo, refreshMinutes, sync, invalidateRequests]);
 
   useEffect(() => {
-    function reconnect() {
-      if (reconnecting.current) return;
-      let recovery: Promise<void>;
-      if (session && repo) {
-        const pending = inFlight.current;
-        const token = generation.current;
-        // A pre-reconnect request can still fail after the online event. Wait for it,
-        // then try a fresh batch; joining it alone can leave the workspace disconnected.
-        recovery =
-          pending?.token === token
-            ? pending.promise.then(() => (token === generation.current ? sync(true) : undefined))
-            : refresh();
-      } else if (
-        !connecting &&
-        /GH_(REQUEST_FAILED|TIMEOUT|RATE_LIMIT|RESPONSE_ERROR)/.test(connectionError)
-      )
-        recovery = connect(true);
-      else return;
-      const current = recovery.finally(() => {
-        if (reconnecting.current === current) reconnecting.current = null;
-      });
-      reconnecting.current = current;
-    }
+    if (session || connecting || !retryableSyncError(connectionError)) return;
+    const controller = createSyncScheduler({
+      interval: 0,
+      run: async () => {
+        await connect(true);
+        return { errors: [] };
+      },
+      now: () => Date.now(),
+      online: () => navigator.onLine,
+      random: Math.random,
+      schedule: (callback, delay) => {
+        const timer = window.setTimeout(callback, delay);
+        return () => window.clearTimeout(timer);
+      },
+      publish: setSyncState,
+    });
+    const reconnect = () => {
+      if (Date.now() >= syncRetryAt([connectionError])) controller.recover(true);
+    };
+    // Startup failures also recover without requiring an online event.
+    const delay = Math.min(
+      30_000 * 2 ** Math.min(Math.max(connectionFailures.current - 1, 0), 4),
+      300_000,
+    );
+    const timer = window.setTimeout(
+      reconnect,
+      Math.max(delay * (1 + Math.random() * 0.2), syncRetryAt([connectionError]) - Date.now()),
+    );
     window.addEventListener('online', reconnect);
-    return () => window.removeEventListener('online', reconnect);
-  }, [session, repo, connecting, connectionError, refresh, sync, connect]);
+    window.addEventListener('focus', reconnect);
+    return () => {
+      controller.stop();
+      window.clearTimeout(timer);
+      window.removeEventListener('online', reconnect);
+      window.removeEventListener('focus', reconnect);
+    };
+  }, [session, connecting, connectionError, connect]);
 
   async function listRepositories() {
     if (!session) return;
@@ -450,6 +512,7 @@ export function useGitHub(
     connect,
     refresh,
     syncing,
+    syncState,
     repositories,
     picking,
     repositoryError,

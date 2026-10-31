@@ -751,3 +751,168 @@ it('exposes bounded search results without treating them as an error or a comple
   expect(result.current.limited.authored).toBe(true);
   expect(result.current.errors.authored).toBeUndefined();
 });
+
+it('refreshes on wake after a minute but coalesces focus and visibility events', async () => {
+  const gateway = createGateway();
+  const { result } = renderHook(() => useGitHub(0, gateway));
+  await waitFor(() => expect(result.current.liveReady).toBe(true));
+  const now = Date.now();
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(now + 60_001);
+  try {
+    act(() => {
+      window.dispatchEvent(new Event('focus'));
+      window.dispatchEvent(new Event('focus'));
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await waitFor(() => expect(gateway.request).toHaveBeenCalledTimes(8));
+    await waitFor(() => expect(result.current.syncing).toBe(false));
+    act(() => window.dispatchEvent(new Event('focus')));
+    expect(gateway.request).toHaveBeenCalledTimes(8);
+  } finally {
+    clock.mockRestore();
+  }
+});
+
+it('pauses while offline, retains loaded records, and recovers when online', async () => {
+  const gateway = createGateway();
+  const { result } = renderHook(() => useGitHub(0, gateway));
+  await waitFor(() => expect(result.current.liveReady).toBe(true));
+  const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+  try {
+    act(() => window.dispatchEvent(new Event('offline')));
+    await act(() => result.current.refresh());
+    expect(result.current.syncState.phase).toBe('offline');
+    expect(gateway.request).toHaveBeenCalledTimes(4);
+    expect(result.current.pulls).toHaveLength(2);
+    online.mockReturnValue(true);
+    act(() => window.dispatchEvent(new Event('online')));
+    await waitFor(() => expect(gateway.request).toHaveBeenCalledTimes(8));
+    await waitFor(() => expect(result.current.syncState.phase).toBe('idle'));
+  } finally {
+    online.mockRestore();
+  }
+});
+
+it('automatically recovers a transient page failure even with periodic refresh disabled', async () => {
+  const gateway = createGateway();
+  const request = vi.mocked(gateway.request).getMockImplementation()!;
+  const { result } = renderHook(() => useGitHub(0, gateway));
+  await waitFor(() => expect(result.current.liveReady).toBe(true));
+  vi.useFakeTimers();
+  try {
+    vi.mocked(gateway.request).mockRejectedValue('GH_TIMEOUT');
+    await act(() => result.current.refresh());
+    expect(result.current.syncState.phase).toBe('waiting');
+    const next = result.current.syncState.nextAttemptAt!;
+    expect(next - Date.now()).toBeGreaterThanOrEqual(30_000);
+    vi.mocked(gateway.request).mockImplementation(request);
+    await act(() => vi.advanceTimersByTimeAsync(next - Date.now()));
+    expect(result.current.liveReady).toBe(true);
+    expect(result.current.errors).toEqual({});
+    expect(gateway.request).toHaveBeenCalledTimes(12);
+    expect(result.current.syncState.phase).toBe('idle');
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('does not advance the notification checkpoint from truncated live results', async () => {
+  const gateway = createGateway();
+  gateway.request = vi
+    .fn()
+    .mockResolvedValue(
+      response([{ data: { search: { issueCount: 5000, nodes: [record], truncated: true } } }]),
+    );
+  const baseline = activityFromGitHub(
+    { ...record, headRefOid: 'b'.repeat(40) },
+    user.id,
+    repo,
+    user.login,
+  ).id;
+  const saved = { ...defaultWorkspace(), inboxSeen: { [`${user.id}:${repo}`]: [baseline] } };
+  const repository = { load: async () => saved, save: vi.fn(async () => {}) };
+  const { result } = renderHook(() => {
+    const github = useGitHub(0, gateway);
+    const workspace = useWorkspace(repository);
+    useInboxNotifications(github, github.inbox, workspace);
+    return { github, workspace };
+  });
+  await waitFor(() => expect(result.current.github.limited.inbox).toBe(true));
+  expect(result.current.github.liveReady).toBe(false);
+  expect(result.current.workspace.data.inboxSeen[`${user.id}:${repo}`]).toEqual([baseline]);
+  expect(repository.save).not.toHaveBeenCalled();
+});
+
+it('retries startup session failures automatically and stops when authorization is revoked', async () => {
+  vi.useFakeTimers();
+  try {
+    const gateway = createGateway();
+    gateway.session = vi
+      .fn()
+      .mockRejectedValueOnce('GH_TIMEOUT')
+      .mockRejectedValue('GH_AUTH_REQUIRED');
+    const { result, unmount } = renderHook(() => useGitHub(0, gateway));
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(result.current.connectionError).toBe('GH_TIMEOUT');
+    await act(() => vi.advanceTimersByTimeAsync(36_001));
+    expect(result.current.connectionError).toBe('');
+    expect(result.current.session).toBeNull();
+    await act(() => vi.advanceTimersByTimeAsync(3_600_000));
+    expect(gateway.session).toHaveBeenCalledTimes(2);
+    unmount();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('hydrates expired cached lists when starting offline without issuing live reads', async () => {
+  const gateway = createGateway();
+  const request = gateway.request;
+  gateway.cached = vi
+    .fn()
+    .mockImplementation((...args: Parameters<typeof request>) => request(...args));
+  gateway.request = vi.fn().mockRejectedValue('GH_REQUEST_FAILED');
+  const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+  try {
+    const { result } = renderHook(() => useGitHub(5, gateway));
+    await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+    expect(gateway.request).not.toHaveBeenCalled();
+    expect(result.current.liveReady).toBe(false);
+    expect(result.current.syncState.phase).toBe('offline');
+    online.mockReturnValue(true);
+    gateway.request = request;
+    act(() => window.dispatchEvent(new Event('online')));
+    await waitFor(() => expect(result.current.liveReady).toBe(true));
+  } finally {
+    online.mockRestore();
+  }
+});
+
+it('runs an explicit retry after an invalidated batch finishes its outstanding pages', async () => {
+  const gateway = createGateway();
+  const request = gateway.request;
+  let denied = true;
+  let finish!: (value: unknown) => void;
+  gateway.request = vi.fn().mockImplementation((...args: Parameters<typeof request>) => {
+    if (denied && args[0] === 'authored') return Promise.reject('GH_FORBIDDEN');
+    if (denied && args[0] === 'review')
+      return new Promise((resolve) => {
+        finish = resolve;
+      });
+    return request(...args);
+  });
+  const { result } = renderHook(() => useGitHub(0, gateway));
+  await waitFor(() => expect(result.current.errors.authored).toBe('GH_FORBIDDEN'));
+  denied = false;
+  let retry!: Promise<void>;
+  act(() => {
+    retry = result.current.refresh();
+  });
+  await act(async () => {
+    finish(response([]));
+    await retry;
+  });
+  expect(result.current.errors).toEqual({});
+  expect(result.current.pulls).toHaveLength(2);
+  expect(result.current.liveReady).toBe(true);
+});

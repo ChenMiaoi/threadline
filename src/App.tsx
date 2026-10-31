@@ -398,6 +398,13 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
             {syncError && (
               <FloatingWarning title={t('暂时无法更新工作区')} key={syncError}>
                 <p>{githubErrorMessage(syncError)}</p>
+                {github.syncState.phase === 'waiting' && github.syncState.nextAttemptAt && (
+                  <p>
+                    {t('将在 {0} 自动重试', [
+                      new Date(github.syncState.nextAttemptAt).toLocaleTimeString(language.locale),
+                    ])}
+                  </p>
+                )}
                 {currentPage && github.times[currentPage] && (
                   <p>
                     {t('上次读取：')}
@@ -428,14 +435,18 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
             {github.session && github.repo && view !== 'settings' && view !== 'profile' && (
               <div className="sync-status" role="status">
                 <span>
-                  {github.syncing
-                    ? t('正在读取 GitHub 数据…')
-                    : currentPage && github.times[currentPage]
-                      ? t('{0} {1}', [
-                          t(openedPull ? '列表同步时间' : '上次读取'),
-                          new Date(github.times[currentPage]!).toLocaleTimeString(language.locale),
-                        ])
-                      : ''}
+                  {github.syncState.phase === 'offline'
+                    ? t('网络已断开，恢复连接后自动同步')
+                    : github.syncing
+                      ? t('正在读取 GitHub 数据…')
+                      : currentPage && github.times[currentPage]
+                        ? t('{0} {1}', [
+                            t(openedPull ? '列表同步时间' : '上次读取'),
+                            new Date(github.times[currentPage]!).toLocaleTimeString(
+                              language.locale,
+                            ),
+                          ])
+                        : ''}
                 </span>
                 {currentPage && !openedPull && (
                   <label className="inline-group">

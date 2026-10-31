@@ -164,7 +164,7 @@ describe('workspace interactions', () => {
     gateway.request = request;
     fireEvent.click(screen.getByRole('button', { name: '重试同步' }));
     await screen.findByRole('textbox', { name: '搜索 PR' });
-    expect(screen.queryByRole('alert')).toBeNull();
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
   });
   it('shows authored synchronization failures in the unified inbox', async () => {
     const gateway = createGateway();
@@ -501,5 +501,24 @@ it('retains edited preferences after save failure and saves them on retry', asyn
     ).toBe('compact');
   } finally {
     save.mockRestore();
+  }
+});
+
+it('shows offline recovery and automatic retry feedback without exposing diagnostic codes', async () => {
+  const gateway = createGateway();
+  render(<App gateway={gateway} />);
+  await screen.findByRole('textbox', { name: '搜索 PR' });
+  const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+  try {
+    fireEvent(window, new Event('offline'));
+    expect(screen.getByText('网络已断开，恢复连接后自动同步')).toBeTruthy();
+    gateway.request = vi.fn().mockRejectedValue('GH_TIMEOUT');
+    online.mockReturnValue(true);
+    fireEvent(window, new Event('online'));
+    const alert = await screen.findByRole('alert');
+    await waitFor(() => expect(within(alert).getByText(/^将在 .* 自动重试$/)).toBeTruthy());
+    expect(alert.textContent).not.toContain('GH_TIMEOUT');
+  } finally {
+    online.mockRestore();
   }
 });
