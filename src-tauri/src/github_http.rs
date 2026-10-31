@@ -1,7 +1,7 @@
 use serde_json::Value;
 use std::io::Read;
-use std::sync::OnceLock;
-use std::time::Duration;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub const API: &str = "https://api.github.com";
 pub const DEVICE: &str = "https://github.com/login/device/code";
@@ -47,6 +47,7 @@ pub trait Transport: Send + Sync {
 #[derive(Default)]
 pub struct Https {
     client: OnceLock<Result<reqwest::blocking::Client, String>>,
+    cooldown: Mutex<u64>,
 }
 impl Https {
     fn client(&self) -> Result<&reqwest::blocking::Client, String> {
@@ -80,6 +81,12 @@ impl Transport for Https {
         // Only REST GETs and the app's GraphQL queries are safe to replay. OAuth exchanges
         // can rotate credentials and must never be retried by this transport.
         let read_only = is_api_read(&request, &url);
+        if read_only {
+            check_cooldown(
+                *self.cooldown.lock().map_err(|_| "GH_TASK_FAILED")?,
+                now_ms(),
+            )?;
+        }
         let client = self.client()?;
         let mut builder = if request.json.is_some() || !request.form.is_empty() {
             client.post(url)
@@ -108,6 +115,12 @@ impl Transport for Https {
         read_with_retry(
             read_only,
             || {
+                if read_only {
+                    check_cooldown(
+                        *self.cooldown.lock().map_err(|_| "GH_TASK_FAILED")?,
+                        now_ms(),
+                    )?;
+                }
                 let response = builder
                     .try_clone()
                     .ok_or("GH_REQUEST_FAILED")?
@@ -121,6 +134,7 @@ impl Transport for Https {
                     })?;
                 let status = response.status().as_u16();
                 let retry_after = response.headers().contains_key("retry-after");
+                let headers = response.headers().clone();
                 let next = response
                     .headers()
                     .get("link")
@@ -132,11 +146,89 @@ impl Transport for Https {
                     .read_to_end(&mut bytes)
                     .map_err(|_| "GH_REQUEST_FAILED")?;
                 let body = decode_body(status, &bytes)?;
+                if read_only {
+                    if let Some(deadline) = cooldown_deadline(status, &headers, &body, now_ms()) {
+                        let mut cooldown = self.cooldown.lock().map_err(|_| "GH_TASK_FAILED")?;
+                        *cooldown = (*cooldown).max(deadline);
+                        if !(200..300).contains(&status) {
+                            return Err(format!(
+                                "GH_RATE_LIMIT: GitHub 请求暂缓，请稍后重试。 retryAt={}",
+                                *cooldown
+                            ));
+                        }
+                    }
+                }
                 Ok((Response { status, body, next }, retry_after))
             },
             || std::thread::sleep(Duration::from_millis(750)),
         )
     }
+}
+
+fn now_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
+fn check_cooldown(deadline: u64, now: u64) -> Result<(), String> {
+    if deadline > now {
+        return Err(format!(
+            "GH_RATE_LIMIT: GitHub 请求暂缓，请稍后重试。 retryAt={deadline}"
+        ));
+    }
+    Ok(())
+}
+
+fn cooldown_deadline(
+    status: u16,
+    headers: &reqwest::header::HeaderMap,
+    body: &Value,
+    now: u64,
+) -> Option<u64> {
+    if !matches!(status, 200..=299 | 403 | 429 | 500..=599) {
+        return None;
+    }
+    let header = |key| headers.get(key).and_then(|value| value.to_str().ok());
+    let retry_after = header("retry-after").and_then(|value| {
+        value
+            .parse::<u64>()
+            .ok()
+            .map(|seconds| now.saturating_add(seconds.saturating_mul(1000)))
+            .or_else(|| {
+                chrono::DateTime::parse_from_rfc2822(value)
+                    .ok()
+                    .and_then(|date| u64::try_from(date.timestamp_millis()).ok())
+            })
+    });
+    let exhausted = header("x-ratelimit-remaining") == Some("0");
+    let limited = status == 429
+        || (status == 403
+            && (exhausted
+                || body["message"]
+                    .as_str()
+                    .is_some_and(|message| message.to_ascii_lowercase().contains("rate limit"))));
+    let reset = exhausted
+        .then(|| {
+            header("x-ratelimit-reset")?
+                .parse::<u64>()
+                .ok()
+                .map(|seconds| seconds.saturating_mul(1000))
+        })
+        .flatten();
+    if retry_after.is_none() && reset.is_none() && !limited {
+        return None;
+    }
+    // A minute is the minimum fallback for secondary limits without usable server guidance.
+    Some(
+        retry_after
+            .into_iter()
+            .chain(reset)
+            .max()
+            .unwrap_or(now.saturating_add(60_000))
+            .max(now.saturating_add(if limited { 60_000 } else { 1000 })),
+    )
 }
 fn is_api_read(request: &Request, url: &reqwest::Url) -> bool {
     url.host_str() == Some("api.github.com")
@@ -207,6 +299,90 @@ pub mod tests {
     use super::*;
     use std::collections::{HashMap, VecDeque};
     use std::sync::Mutex;
+    #[test]
+    fn server_cooldowns_cover_primary_secondary_and_retry_after_limits() {
+        use reqwest::header::HeaderMap;
+        let now = 1_800_000_000_000;
+        let mut headers = HeaderMap::new();
+        headers.insert("x-ratelimit-remaining", "0".parse().unwrap());
+        headers.insert("x-ratelimit-reset", "1800000600".parse().unwrap());
+        for status in [200, 403, 429] {
+            assert_eq!(
+                cooldown_deadline(status, &headers, &Value::Null, now),
+                Some(now + 600_000)
+            );
+        }
+        headers.insert("retry-after", "900".parse().unwrap());
+        assert_eq!(
+            cooldown_deadline(429, &headers, &Value::Null, now),
+            Some(now + 900_000)
+        );
+        headers.clear();
+        headers.insert(
+            "retry-after",
+            "Fri, 15 Jan 2027 08:15:00 GMT".parse().unwrap(),
+        );
+        let date = chrono::DateTime::parse_from_rfc2822("Fri, 15 Jan 2027 08:15:00 GMT").unwrap();
+        assert_eq!(
+            cooldown_deadline(503, &headers, &Value::Null, now),
+            Some(date.timestamp_millis() as u64)
+        );
+        headers.clear();
+        assert_eq!(
+            cooldown_deadline(429, &headers, &Value::Null, now),
+            Some(now + 60_000)
+        );
+        assert_eq!(
+            cooldown_deadline(
+                403,
+                &headers,
+                &serde_json::json!({"message":"secondary rate limit"}),
+                now
+            ),
+            Some(now + 60_000)
+        );
+        for status in [200, 401, 403, 404, 503] {
+            assert_eq!(cooldown_deadline(status, &headers, &Value::Null, now), None);
+        }
+    }
+
+    #[test]
+    fn malformed_cooldown_headers_remain_safe_and_deadlines_release_requests() {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert("retry-after", "invalid".parse().unwrap());
+        headers.insert("x-ratelimit-reset", "invalid".parse().unwrap());
+        assert_eq!(
+            cooldown_deadline(429, &headers, &Value::Null, 1000),
+            Some(61_000)
+        );
+        assert_eq!(cooldown_deadline(403, &headers, &Value::Null, 1000), None);
+        assert!(check_cooldown(61_000, 60_999)
+            .unwrap_err()
+            .contains("retryAt=61000"));
+        assert!(check_cooldown(61_000, 61_000).is_ok());
+        headers.insert("retry-after", "900".parse().unwrap());
+        for status in [401, 404] {
+            assert_eq!(
+                cooldown_deadline(status, &headers, &Value::Null, 1000),
+                None
+            );
+        }
+    }
+
+    #[test]
+    fn cooldown_blocks_rest_and_graphql_reads_before_network_io() {
+        let http = Https::default();
+        *http.cooldown.lock().unwrap() = now_ms() + 600_000;
+        let rest = Request::get(format!("{API}/user"), "not-a-real-token");
+        assert!(http.send(rest).err().unwrap().contains("retryAt="));
+        let mut graphql = Request::get(format!("{API}/graphql"), "not-a-real-token");
+        graphql.json = Some(serde_json::json!({"query":"query { viewer { login } }"}));
+        assert!(http
+            .send(graphql)
+            .err()
+            .unwrap()
+            .starts_with("GH_RATE_LIMIT"));
+    }
     #[derive(Default)]
     pub struct FakeHttp {
         pub responses: Mutex<VecDeque<Result<Response, String>>>,
