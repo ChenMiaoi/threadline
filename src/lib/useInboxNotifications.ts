@@ -1,13 +1,10 @@
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import { newUpdates, quietHours, shouldNotify } from '../core/inbox';
+import { useEffect, useEffectEvent, useRef } from 'react';
+import { newUpdates } from '../core/inbox';
 import { legacyActivityStateIds, migrateActivityState } from '../core/migrate-activity-state';
 import { MAX_INBOX_REVISIONS } from '../core/workspace';
 import type { Activity } from '../features/activity/model';
 import type { GitHubWorkspace } from './useGitHub';
 import type { useWorkspace } from './useWorkspace';
-import { notifyDesktop } from './notifications';
-import { playNotificationSound } from './notification-sound';
-import { isDesktop } from './desktop';
 
 export function useInboxNotifications(
   github: GitHubWorkspace,
@@ -15,8 +12,6 @@ export function useInboxNotifications(
   workspace: ReturnType<typeof useWorkspace>,
 ) {
   const observedScope = useRef(github.searchDays);
-  const [toast, setToast] = useState({ key: '', text: '' });
-  const [error, setError] = useState({ key: '', text: '' });
   const observe = useEffectEvent(() => {
     if (!github.key || !workspace.loaded || workspace.error || records.length > MAX_INBOX_REVISIONS)
       return;
@@ -69,25 +64,6 @@ export function useInboxNotifications(
           },
         };
       });
-      const notify = changes.filter(
-        (record) =>
-          !(record.id in workspace.data.snoozed) &&
-          shouldNotify(record, workspace.data.preferences),
-      );
-      if (!notify.length || quietHours(workspace.data.preferences, new Date())) return;
-      const message =
-        notify.length === 1
-          ? `${notify[0].kind === 'pull' ? 'PR' : 'Issue'} #${notify[0].number} 有新动态`
-          : `${notify.length} 条 PR / Issue 有新动态`;
-      setToast({ key: github.key, text: message });
-      if (workspace.data.preferences.notificationSoundEnabled)
-        void playNotificationSound(workspace.data.preferences.notificationSound).catch((reason) =>
-          setError({ key: github.key, text: String(reason) }),
-        );
-      if (isDesktop && workspace.data.preferences.desktopNotifications)
-        void notifyDesktop('ThreadLine · 新动态', `${github.repo} · ${message}`).catch((reason) =>
-          setError({ key: github.key, text: String(reason) }),
-        );
     } finally {
       github.releaseMigrationSources();
     }
@@ -111,15 +87,4 @@ export function useInboxNotifications(
     workspace.error,
     revisions,
   ]);
-  useEffect(() => {
-    if (!toast.text) return;
-    const timer = setTimeout(() => setToast({ key: '', text: '' }), 10000);
-    return () => clearTimeout(timer);
-  }, [toast]);
-  return {
-    toast: toast.key === github.key ? toast.text : '',
-    error: error.key === github.key ? error.text : '',
-    dismiss: () => setToast({ key: '', text: '' }),
-    clearError: () => setError({ key: '', text: '' }),
-  };
 }

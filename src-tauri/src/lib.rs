@@ -1,3 +1,4 @@
+mod background_sync;
 mod db;
 mod desktop;
 mod fonts;
@@ -12,10 +13,12 @@ mod github_workspace;
 mod macos;
 #[cfg(target_os = "macos")]
 mod macos_notifications;
+mod notification_outbox;
 mod notification_sound;
 #[cfg(feature = "browser-preview")]
 pub mod preview;
 mod storage;
+mod system_notifications;
 
 use db::{Database, SCHEMA_VERSION};
 use serde::Serialize;
@@ -77,12 +80,19 @@ pub fn run() {
                 database_path: path.to_string_lossy().into_owned(),
             });
             desktop::setup(app)?;
+            system_notifications::setup(app.handle());
             #[cfg(target_os = "macos")]
             macos_notifications::setup();
+            background_sync::BackgroundSync::start(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
             if window.label() == "main" {
+                if matches!(event, tauri::WindowEvent::Focused(true)) {
+                    if let Some(service) = window.try_state::<background_sync::BackgroundSync>() {
+                        service.resume();
+                    }
+                }
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
                     if let Err(error) = window.hide() {
@@ -104,6 +114,10 @@ pub fn run() {
             desktop::set_desktop_menu,
             desktop::complete_quit,
             desktop::show_main_window,
+            background_sync::background_sync_configure,
+            background_sync::background_sync_refresh,
+            background_sync::background_notification_retry,
+            system_notifications::send_system_notification,
             get_system_fonts,
             play_notification_sound,
             updates_configured,
@@ -321,12 +335,19 @@ fn get_workspace_data(workspace: State<'_, Workspace>) -> Result<String, String>
 }
 
 #[tauri::command]
-fn save_workspace_data(data: String, workspace: State<'_, Workspace>) -> Result<(), String> {
-    workspace
-        .database
-        .lock()
-        .map_err(|error| error.to_string())?
-        .save_workspace_data(&data)
+async fn save_workspace_data(data: String, app: tauri::AppHandle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<Workspace>()
+            .database
+            .lock()
+            .map_err(|_| "DATABASE_LOCKED")?
+            .save_workspace_data(&data)?;
+        app.state::<background_sync::BackgroundSync>()
+            .preferences_changed(&app);
+        Ok(())
+    })
+    .await
+    .map_err(|_| "GH_TASK_FAILED")?
 }
 
 #[tauri::command]

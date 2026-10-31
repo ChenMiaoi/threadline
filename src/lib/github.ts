@@ -1,7 +1,21 @@
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
+import { isDesktop } from './desktop';
 import { localCommand as command } from './local-command';
 import type { GitHubGateway, GitHubResponse, GitHubOperation } from '../core/github';
 
 export const githubGateway: GitHubGateway = {
+  background: isDesktop
+    ? {
+        configure: (scope) => invoke('background_sync_configure', { scope }),
+        refresh: (scope) => invoke('background_sync_refresh', { scope }),
+        retryNotifications: (scope) => invoke('background_notification_retry', { scope }),
+        subscribe: async (callback) =>
+          listen<import('../core/github').BackgroundPacket>('background-sync', (event) =>
+            callback(event.payload),
+          ),
+      }
+    : undefined,
   async cachedSession() {
     return command('github_cached_session');
   },

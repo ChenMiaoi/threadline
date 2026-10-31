@@ -74,7 +74,7 @@ it.each(['fresh-cache', 'syncing', 'offline', 'current-checkpoint'])(
     const data = hook.result.current.workspace.data;
     expect(inboxReadIds([activity], data.read, data.unread).has(activity.id)).toBe(true);
     expect(saved.read).toEqual([activity.id]);
-    expect(hook.result.current.notices.toast).toBe('');
+
     expect(playNotificationSound).not.toHaveBeenCalled();
     if (mode !== 'current-checkpoint')
       expect(source.releaseMigrationSources).not.toHaveBeenCalled();
@@ -125,7 +125,7 @@ it('does not mark genuinely changed cached revisions read or advance the live ch
   await flush();
   expect(hook.result.current.workspace.data.inboxSeen[key]).toEqual([previous]);
   expect(hook.result.current.workspace.data.read).toEqual([previous]);
-  expect(hook.result.current.notices.toast).toBe('');
+
   expect(repository.save).not.toHaveBeenCalled();
   expect(source.releaseMigrationSources).not.toHaveBeenCalled();
   hook.rerender({ liveReady: true });
@@ -134,7 +134,6 @@ it('does not mark genuinely changed cached revisions read or advance the live ch
   expect(inboxReadIds([changed], hook.result.current.workspace.data.read, []).has(changed.id)).toBe(
     false,
   );
-  expect(hook.result.current.notices.toast).toBe('PR #1042 有新动态');
 });
 async function flush() {
   await act(async () => {
@@ -152,21 +151,20 @@ afterEach(() => {
 });
 
 describe('inbox notifications', () => {
-  it('keeps in-app updates without attempting native delivery in a browser', async () => {
+  it('records updates without dispatching notifications from the browser', async () => {
     vi.mocked(notifyDesktop).mockClear();
     const saved = defaultWorkspace();
     saved.preferences.desktopNotifications = true;
     saved.inboxSeen[key] = [activity.id];
     const repository = { load: async () => saved, save: vi.fn().mockResolvedValue(undefined) };
     const changed = { ...activity, id: `${activity.id}:new` };
-    const { result } = renderHook(() => {
+    renderHook(() => {
       const workspace = useWorkspace(repository);
       return useInboxNotifications(github, [changed], workspace);
     });
     await flush();
     await flush();
-    expect(result.current.toast).toContain('有新动态');
-    expect(result.current.error).toBe('');
+
     expect(notifyDesktop).not.toHaveBeenCalled();
   });
   it('keeps the full supported baseline and read state across refreshes and persistence', async () => {
@@ -190,20 +188,20 @@ describe('inbox notifications', () => {
     await flush();
     await flush();
     expect(saved.inboxSeen[key]).toHaveLength(MAX_INBOX_REVISIONS);
-    expect(first.result.current.notices.toast).toBe('');
+
     const writes = repository.save.mock.calls.length;
     first.rerender({ source: { ...github, times: { ...github.times, inbox: 2 } }, items: records });
     await flush();
     expect(repository.save).toHaveBeenCalledTimes(writes);
     expect(first.result.current.workspace.data.read).toContain(records[0].id);
-    expect(first.result.current.notices.toast).toBe('');
+
     first.unmount();
     const restored = mount();
     await flush();
     await flush();
     expect(restored.result.current.workspace.data.inboxSeen[key]).toHaveLength(MAX_INBOX_REVISIONS);
     expect(restored.result.current.workspace.data.read).toContain(records[0].id);
-    expect(restored.result.current.notices.toast).toBe('');
+
     const changed = { ...records[0], id: records[0].id.replace('12:00:00', '13:00:00') };
     act(() =>
       restored.result.current.workspace.update((data) => ({ ...data, read: [changed.id] })),
@@ -214,7 +212,7 @@ describe('inbox notifications', () => {
     });
     await flush();
     expect(restored.result.current.workspace.data.read).toEqual([]);
-    expect(restored.result.current.notices.toast).toContain('有新动态');
+
     expect(saved.inboxSeen[key]).toContain(changed.id);
   });
 
@@ -238,7 +236,6 @@ describe('inbox notifications', () => {
     hook.rerender({ source: github, items: records });
     await flush();
     expect(hook.result.current.workspace.data.inboxSeen[key]).toHaveLength(MAX_INBOX_REVISIONS);
-    expect(hook.result.current.notices.toast).toBe('');
   });
 
   it('does not consume or replace a baseline when the supported inbox bound is exceeded', async () => {
@@ -263,7 +260,6 @@ describe('inbox notifications', () => {
     await flush();
     expect(repository.save).not.toHaveBeenCalled();
     expect(hook.result.current.workspace.data.read).toEqual(data.read);
-    expect(hook.result.current.notices.toast).toBe('');
   });
 });
 
@@ -287,7 +283,7 @@ it('silently rebuilds a version 2 checkpoint while retaining local workspace cho
   });
   await flush();
   await flush();
-  expect(hook.result.current.notices.toast).toBe('');
+
   expect(hook.result.current.workspace.data.inboxVersion).toBe(3);
   expect(hook.result.current.workspace.data.inboxSeen[key]).toEqual([activity.id]);
   expect(hook.result.current.workspace.data.read).toEqual(original.read);
@@ -331,7 +327,7 @@ it('atomically migrates exact legacy state and the checkpoint without repeating 
   expect(first.result.current.workspace.data.snoozed).toEqual({ [activity.id]: until });
   expect(first.result.current.workspace.data.snoozeRecords).toEqual({ [activity.id]: activity });
   expect(first.result.current.workspace.data.inboxSeen[key]).toEqual([activity.id]);
-  expect(first.result.current.notices.toast).toBe('');
+
   expect(source.legacyAliases).toHaveBeenCalledTimes(1);
   first.unmount();
   const restarted = mount();
@@ -339,7 +335,7 @@ it('atomically migrates exact legacy state and the checkpoint without repeating 
   await flush();
   expect(restarted.result.current.workspace.data.read).toEqual([activity.id]);
   expect(restarted.result.current.workspace.data.snoozed).toEqual({ [activity.id]: until });
-  expect(restarted.result.current.notices.toast).toBe('');
+
   expect(source.legacyAliases).toHaveBeenCalledTimes(1);
 });
 
@@ -384,7 +380,7 @@ it('migrates an absent saved snooze when identical content later returns without
   expect(hook.result.current.workspace.data.read).toEqual([activity.id]);
   expect(hook.result.current.workspace.data.snoozed).toEqual({ [activity.id]: until });
   expect(hook.result.current.workspace.data.snoozeRecords).toEqual({ [activity.id]: activity });
-  expect(hook.result.current.notices.toast).toBe('');
+
   const calls = source.legacyAliases.mock.calls.length;
   hook.rerender({ items: [activity], time: 3 });
   await flush();
@@ -436,7 +432,7 @@ it.each(['HEAD', 'comment'])(
     await flush();
     expect(hook.result.current.workspace.data.read).toEqual([previous]);
     expect(hook.result.current.workspace.data.snoozed).toEqual({ [previous]: until });
-    expect(hook.result.current.notices.toast).toBe('PR #1042 有新动态');
+
     expect(hook.result.current.workspace.data.inboxSeen[key]).toEqual([next.id]);
     const calls = source.legacyAliases.mock.calls.length;
     hook.rerender({ items: [next] });
@@ -490,11 +486,10 @@ it('never consumes cached or mixed refresh data as a notification baseline', asy
   );
   await flush();
   expect(result.current.workspace.data.inboxSeen[key]).toBeUndefined();
-  expect(result.current.notices.toast).toBe('');
+
   rerender({ liveReady: true });
   await flush();
   expect(result.current.workspace.data.inboxSeen[key]).toEqual([activity.id]);
-  expect(result.current.notices.toast).toBe('');
 });
 
 it('does not announce historical records when changing the search range', async () => {
@@ -507,7 +502,7 @@ it('does not announce historical records when changing the search range', async 
     }),
     save: vi.fn().mockResolvedValue(undefined),
   };
-  const { result, rerender } = renderHook(
+  const { rerender } = renderHook(
     ({ days, items }) => {
       const workspace = useWorkspace(repository);
       return useInboxNotifications({ ...github, searchDays: days }, items, workspace);
@@ -521,11 +516,10 @@ it('does not announce historical records when changing the search range', async 
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1);
   });
-  expect(result.current.toast).toBe('');
 });
 
 it.each(['enabled', 'disabled', 'quiet', 'self', 'filtered', 'initial'] as const)(
-  'plays one sound per eligible refresh batch: %s',
+  'leaves delivery to the native queue while observing the baseline: %s',
   async (mode) => {
     const saved = defaultWorkspace();
     saved.preferences.notificationSoundEnabled = mode !== 'disabled';
@@ -550,12 +544,11 @@ it.each(['enabled', 'disabled', 'quiet', 'self', 'filtered', 'initial'] as const
     });
     await flush();
     await flush();
-    if (mode === 'enabled') {
-      expect(playNotificationSound).toHaveBeenCalledExactlyOnceWith('double');
-      hook.rerender();
-      await flush();
-      expect(playNotificationSound).toHaveBeenCalledOnce();
-    } else expect(playNotificationSound).not.toHaveBeenCalled();
+    expect(playNotificationSound).not.toHaveBeenCalled();
+    expect(notifyDesktop).not.toHaveBeenCalled();
+    hook.rerender();
+    await flush();
+    expect(playNotificationSound).not.toHaveBeenCalled();
   },
 );
 
@@ -616,14 +609,14 @@ it.each(
     await flush();
     expect(first.result.current.workspace.data.read).toEqual(read ? [current.id] : []);
     expect(first.result.current.workspace.data.inboxSeen[key]).toEqual([current.id]);
-    expect(first.result.current.notices.toast).toBe('');
+
     expect(playNotificationSound).not.toHaveBeenCalled();
     first.unmount();
     const restarted = mount();
     await flush();
     await flush();
     expect(restarted.result.current.workspace.data.read).toEqual(read ? [current.id] : []);
-    expect(restarted.result.current.notices.toast).toBe('');
+
     const changed = activityFromGitHub(
       {
         ...expanded,
@@ -639,8 +632,8 @@ it.each(
     );
     restarted.rerender({ items: [changed] });
     await flush();
-    expect(restarted.result.current.notices.toast).toBe('PR #1042 有新动态');
+
     expect(restarted.result.current.workspace.data.read).not.toContain(changed.id);
-    expect(playNotificationSound).toHaveBeenCalledOnce();
+    expect(playNotificationSound).not.toHaveBeenCalled();
   },
 );

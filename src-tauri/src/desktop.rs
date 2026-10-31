@@ -87,6 +87,7 @@ pub fn show_main_window(app: AppHandle) {
 
 #[tauri::command]
 pub fn complete_quit(app: AppHandle) {
+    app.state::<crate::background_sync::BackgroundSync>().stop();
     app.exit(0);
 }
 

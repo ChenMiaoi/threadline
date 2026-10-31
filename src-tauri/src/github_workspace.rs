@@ -12,6 +12,16 @@ use serde_json::{json, Value};
 use std::sync::Mutex;
 use std::time::Instant;
 
+fn background_range(database: &Database, auth: &AuthManager, account: u64) -> Result<u16, String> {
+    Ok(database
+        .setting(&format!(
+            "{}:background-range:{account}",
+            auth.config.namespace()
+        ))?
+        .and_then(|s| s.parse().ok())
+        .filter(|d| matches!(d, 0 | 1 | 7 | 30 | 90 | 365))
+        .unwrap_or(30))
+}
 pub fn session(database: &Mutex<Database>, auth: &AuthManager) -> Result<Value, String> {
     let account_before = auth.local_account()?.ok_or("GH_AUTH_REQUIRED")?;
     let epoch = account_epoch(
@@ -47,8 +57,13 @@ pub fn session(database: &Mutex<Database>, auth: &AuthManager) -> Result<Value, 
             auth.config.namespace(),
             user["id"]
         ))?;
+    let range = background_range(
+        &*database.lock().map_err(|_| "DATABASE_LOCKED")?,
+        auth,
+        user["id"].as_u64().ok_or("GH_RESPONSE_ERROR")?,
+    )?;
     let public_user = json!({"id":user["id"],"login":user["login"],"name":user["name"],"avatar_url":user["avatar_url"]});
-    let value = json!({"user":public_user,"selected":selected,"notificationsAvailable":false,"installationUrl":auth.config.installation_url(),"authProvider":"github-app"});
+    let value = json!({"user":public_user,"selected":selected,"searchDays":range,"notificationsAvailable":false,"installationUrl":auth.config.installation_url(),"authProvider":"github-app"});
     let account = user["id"]
         .as_u64()
         .filter(|id| *id > 0)
@@ -60,7 +75,11 @@ pub fn session(database: &Mutex<Database>, auth: &AuthManager) -> Result<Value, 
     Ok(value)
 }
 
-fn account_epoch(database: &Database, auth: &AuthManager, account: u64) -> Result<u64, String> {
+pub(crate) fn account_epoch(
+    database: &Database,
+    auth: &AuthManager,
+    account: u64,
+) -> Result<u64, String> {
     Ok(database
         .setting(&format!("{}:epoch:{account}", auth.config.namespace()))?
         .and_then(|raw| raw.parse().ok())
@@ -74,7 +93,7 @@ fn invalidate_epoch(database: &Database, auth: &AuthManager, account: u64) -> Re
             .to_string(),
     )
 }
-fn ensure_epoch(
+pub(crate) fn ensure_epoch(
     database: &Database,
     auth: &AuthManager,
     account: u64,
@@ -195,8 +214,27 @@ pub fn cached_session(database: &Mutex<Database>, auth: &AuthManager) -> Result<
     if value.is_none() {
         database.remove_setting(&key)?;
     }
-    Ok(value.map(|value| json!({"user":{"id":value["user"]["id"],"login":value["user"]["login"],"name":value["user"]["name"],"avatar_url":value["user"]["avatar_url"]},"selected":value["selected"],"notificationsAvailable":false,"installationUrl":auth.config.installation_url(),"authProvider":"github-app"})).unwrap_or(Value::Null))
+    let range = background_range(&database, auth, account)?;
+    Ok(value.map(|value| json!({"searchDays":range,"user":{"id":value["user"]["id"],"login":value["user"]["login"],"name":value["user"]["name"],"avatar_url":value["user"]["avatar_url"]},"selected":value["selected"],"notificationsAvailable":false,"installationUrl":auth.config.installation_url(),"authProvider":"github-app"})).unwrap_or(Value::Null))
 }
+// Background synchronization reads the same validated, account-scoped session metadata.
+pub(crate) fn cached_session_user_login(
+    database: &Database,
+    auth: &AuthManager,
+    account: u64,
+) -> Result<String, String> {
+    let value: Value = serde_json::from_str(
+        &database
+            .setting(&session_key(auth, account))?
+            .ok_or("GH_AUTH_REQUIRED")?,
+    )
+    .map_err(|_| "GH_RESPONSE_ERROR")?;
+    value["user"]["login"]
+        .as_str()
+        .map(str::to_owned)
+        .ok_or_else(|| "GH_RESPONSE_ERROR".into())
+}
+
 #[cfg(test)]
 pub fn cached_request(
     database: &Mutex<Database>,
@@ -285,6 +323,9 @@ pub fn logout(database: &Mutex<Database>, auth: &AuthManager) -> Result<(), Stri
 }
 fn purge_account(database: &Database, auth: &AuthManager, account: u64) -> Result<(), String> {
     invalidate_epoch(database, auth, account)?;
+    database
+        .notifications()
+        .purge(&format!("{}:{account}:", auth.config.namespace()))?;
     database.remove_prefix(&format!(
         "{}:record-epoch:{account}:",
         auth.config.namespace()
@@ -318,6 +359,9 @@ fn purge_denied(
         repo.filter(|_| error.starts_with("GH_FORBIDDEN") || error.starts_with("GH_NOT_FOUND"))
     {
         invalidate_epoch(&database, auth, account)?;
+        database
+            .notifications()
+            .purge(&format!("{}:{account}:{repo}", auth.config.namespace()))?;
         database.remove_prefix(&format!(
             "{}:cache:{account}:{repo}:",
             auth.config.namespace()
@@ -480,6 +524,9 @@ pub fn request_scoped(
                 purge_account(&database, auth, account_id)?;
             } else if error.starts_with("GH_FORBIDDEN") || error.starts_with("GH_NOT_FOUND") {
                 invalidate_epoch(&database, auth, account_id)?;
+                database
+                    .notifications()
+                    .purge(&format!("{}:{account_id}:{repo}", auth.config.namespace()))?;
                 database.remove_prefix(&format!(
                     "{}:cache:{account_id}:{repo}:",
                     auth.config.namespace()

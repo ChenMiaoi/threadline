@@ -106,32 +106,36 @@ pub async fn macos_notification_permission(request: bool) -> Result<bool, String
 #[tauri::command]
 pub async fn macos_notify(title: String, body: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
-        if !permission(false)? {
-            return Err("系统通知权限不可用，请在通知设置中重新开启桌面通知。".into());
-        }
-        let content = UNMutableNotificationContent::new();
-        content.setTitle(&NSString::from_str(&title));
-        content.setBody(&NSString::from_str(&body));
-        let request = UNNotificationRequest::requestWithIdentifier_content_trigger(
-            &NSUUID::new().UUIDString(),
-            &content,
-            None,
-        );
-        let (send, receive) = mpsc::channel();
-        let callback = RcBlock::new(move |error: *mut NSError| {
-            // The completion's NSError is borrowed from UserNotifications.
-            let result = unsafe { error.as_ref() }.map_or(Ok(()), |error| {
-                Err(error.localizedDescription().to_string())
-            });
-            let _ = send.send(result);
-        });
-        center()?.addNotificationRequest_withCompletionHandler(&request, Some(&callback));
-        receive
-            .recv_timeout(Duration::from_secs(15))
-            .map_err(|_| "发送系统通知超时，请重试。".to_owned())?
+        send(&NSUUID::new().UUIDString().to_string(), &title, &body)
     })
     .await
     .map_err(|error| error.to_string())?
+}
+
+pub fn send(identifier: &str, title: &str, body: &str) -> Result<(), String> {
+    if !permission(false)? {
+        return Err("系统通知权限不可用，请在通知设置中重新开启桌面通知。".into());
+    }
+    let content = UNMutableNotificationContent::new();
+    content.setTitle(&NSString::from_str(title));
+    content.setBody(&NSString::from_str(body));
+    let request = UNNotificationRequest::requestWithIdentifier_content_trigger(
+        &NSString::from_str(identifier),
+        &content,
+        None,
+    );
+    let (send, receive) = mpsc::channel();
+    let callback = RcBlock::new(move |error: *mut NSError| {
+        // The completion's NSError is borrowed from UserNotifications.
+        let result = unsafe { error.as_ref() }.map_or(Ok(()), |error| {
+            Err(error.localizedDescription().to_string())
+        });
+        let _ = send.send(result);
+    });
+    center()?.addNotificationRequest_withCompletionHandler(&request, Some(&callback));
+    receive
+        .recv_timeout(Duration::from_secs(15))
+        .map_err(|_| "发送系统通知超时，请重试。".to_owned())?
 }
 
 #[cfg(test)]

@@ -23,5 +23,5 @@ export async function notifyDesktop(title: string, body: string) {
   }
   if (!(await isPermissionGranted()))
     throw new Error('系统通知权限不可用，请在通知设置中重新开启桌面通知。');
-  await invoke('plugin:notification|notify', { options: { title, body } });
+  await invoke('send_system_notification', { title, body });
 }

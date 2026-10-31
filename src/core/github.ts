@@ -19,6 +19,7 @@ export interface GitHubRepository {
 export interface GitHubSession {
   user: GitHubUser;
   selected: string | null;
+  searchDays?: number;
   notificationsAvailable?: boolean;
   installationUrl?: string;
   authProvider?: 'github-app';
@@ -55,7 +56,38 @@ export type GitHubOperation =
   | 'discussion'
   | 'files'
   | 'checks';
+export interface BackgroundScope {
+  accountId: number;
+  repo: string;
+  searchDays: number;
+}
+export interface BackgroundPacket {
+  scope: BackgroundScope | null;
+  serial: number;
+  version: number;
+  state: { phase: 'idle' | 'syncing' | 'waiting' | 'blocked'; nextAttemptAt: number | null };
+  batch: {
+    results: Partial<
+      Record<
+        'authored' | 'inbox' | 'review' | 'issues',
+        { value?: GitHubResponse<SearchPage[]>; error?: string }
+      >
+    >;
+    error: string | null;
+    complete: boolean;
+    pending?: boolean;
+  } | null;
+  notificationError: string | null;
+  notificationRetryAt: number | null;
+}
+export interface BackgroundGateway {
+  configure(scope: BackgroundScope): Promise<BackgroundPacket>;
+  refresh(scope: BackgroundScope): Promise<void>;
+  retryNotifications(scope: BackgroundScope): Promise<void>;
+  subscribe(callback: (packet: BackgroundPacket) => void): Promise<() => void>;
+}
 export interface GitHubGateway {
+  background?: BackgroundGateway;
   session(): Promise<GitHubSession>;
   cachedSession?(): Promise<GitHubSession | null>;
   cached?<T>(

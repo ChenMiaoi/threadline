@@ -35,7 +35,7 @@ Older version 2 vaults and their system-key entries are preserved without being 
 
 ## Cache and freshness
 
-**SQLite collaboration data is not encrypted.** It can contain repository names, identities, PR/Issue descriptions, comments, file patches, check results, and contribution data, including content from private repositories. Treat database copies, screenshots, and backups accordingly. Workspace preferences and saved snooze records also persist locally.
+**SQLite collaboration data is not encrypted.** It can contain repository names, identities, PR/Issue descriptions, comments, file patches, check results, and contribution data, including content from private repositories. Treat database copies, screenshots, and backups accordingly. Workspace preferences and saved snooze records also persist locally. Schema version 3 adds native notification checkpoints and a durable outbox. The outbox stores repository scopes, revision identifiers, thread numbers, categories, retry state, and delivery acknowledgements; it does not duplicate comment bodies or credentials. Checkpoints contain SHA-256 revision signatures. Treat these metadata tables as private workspace data. Older builds that only understand schema version 2 refuse to open a migrated database.
 
 Response keys partition data by application client ID, account, repository, operation, record number, and HEAD where applicable. Successful responses retain their original fetch time. Corrupt cached responses become cache misses. Initial freshness policies are:
 
@@ -56,7 +56,7 @@ Transient failures preserve available snapshots and show an error/retry state. C
 
 ## Logout and network boundaries
 
-Confirmed logout removes the active version 3 credential file and key, account-scoped responses, cached session, and repository selection in the current host database. It **does not erase workspace preferences, read/unread markers, or saved snoozes**, and it does not delete the other host's separate database. Version 2 storage is preserved. Logout does not revoke GitHub-side authorization; users manage that separately in GitHub account settings.
+Confirmed logout removes the active version 3 credential file and key, account-scoped responses, cached session, repository selection, native reminder checkpoints, and queued notifications in the current host database. It **does not erase workspace preferences, read/unread markers, or saved snoozes**, and it does not delete the other host's separate database. Version 2 storage is preserved. Logout does not revoke GitHub-side authorization; users manage that separately in GitHub account settings.
 
 GitHub API and OAuth requests run in Rust over HTTPS. The frontend can load remote avatars from `avatars.githubusercontent.com`, and explicit GitHub/authentication links open in the system browser. The production [content security policy](../src-tauri/tauri.conf.json) restricts frontend network and image sources. The preview bridge is development-only and restricts loopback origin and commands; it is not a public service.
 

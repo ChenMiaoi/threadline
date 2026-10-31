@@ -112,7 +112,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
       ),
     [github.inbox, github.session?.user.id, github.repo, restored, snoozeRecords],
   );
-  const notices = useInboxNotifications(github, inbox, workspace);
+  useInboxNotifications(github, inbox, workspace);
   const effectiveReadIds = useMemo(
     () => inboxReadIds(inbox, data.read, data.unread),
     [inbox, data.read, data.unread],
@@ -308,26 +308,25 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
         }}
       >
         <FloatingWarnings>
-          {notices.toast && (
-            <div className="inbox-toast" role="status">
+          {github.notificationFailure.message && (
+            <FloatingWarning title={t('通知发送失败')}>
+              <p>{t('系统通知发送失败，待提醒记录已保留，将自动重试。')}</p>
+              {github.notificationFailure.retryAt && (
+                <p>
+                  {t('将在 {0} 自动重试', [
+                    new Date(github.notificationFailure.retryAt).toLocaleTimeString(
+                      language.locale,
+                    ),
+                  ])}
+                </p>
+              )}
               <button
-                onClick={() => {
-                  navigate('inbox');
-                  notices.dismiss();
-                }}
+                className="chip"
+                onClick={() =>
+                  void github.retryNotifications().catch((reason) => setError(String(reason)))
+                }
               >
-                {notices.toast}
-              </button>
-              <button aria-label={t('关闭消息提醒')} onClick={notices.dismiss}>
-                ×
-              </button>
-            </div>
-          )}
-          {notices.error && (
-            <FloatingWarning title={t('通知发送失败')} key={notices.error}>
-              <p>{t(notices.error)}</p>
-              <button className="chip" onClick={notices.clearError}>
-                {t('关闭')}
+                {t('重试')}
               </button>
             </FloatingWarning>
           )}

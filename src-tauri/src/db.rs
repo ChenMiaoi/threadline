@@ -2,7 +2,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use std::path::Path;
 use std::time::Duration;
 
-pub const SCHEMA_VERSION: i64 = 2;
+pub const SCHEMA_VERSION: i64 = 3;
 pub const VIEWS: [&str; 10] = [
     "inbox",
     "authored",
@@ -21,6 +21,10 @@ pub struct Database {
 }
 
 impl Database {
+    pub fn notifications(&self) -> crate::notification_outbox::Store<'_> {
+        crate::notification_outbox::Store::new(&self.connection)
+    }
+
     pub fn setting(&self, key: &str) -> Result<Option<String>, String> {
         self.connection
             .query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
@@ -113,6 +117,12 @@ impl Database {
                 }
             }
             prune_cache(&transaction)?;
+            transaction.pragma_update(None, "user_version", 2)?;
+            transaction.commit()?;
+        }
+        if version < 3 {
+            let transaction = connection.transaction()?;
+            transaction.execute_batch(include_str!("../migrations/003_notification_outbox.sql"))?;
             transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
             transaction.commit()?;
         }

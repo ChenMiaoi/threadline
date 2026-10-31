@@ -352,27 +352,6 @@
   padding-top: 16px;
   border-top: 1px solid var(--border);
 }
-.inbox-toast {
-  position: fixed;
-  z-index: 100;
-  right: 24px;
-  top: 64px;
-  display: flex;
-  gap: 12px;
-  max-width: calc(100vw - 48px);
-  padding: 14px 18px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--raised);
-  color: var(--text-ink, var(--text));
-  box-shadow: 0 8px 28px #0003;
-}
-.inbox-toast button {
-  color: inherit;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-}
 .density-compact .record-main {
   min-height: 74px;
   padding-block: 8px;

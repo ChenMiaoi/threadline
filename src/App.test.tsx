@@ -74,7 +74,7 @@ describe('workspace interactions', () => {
     expect(screen.queryByRole('button', { name: /PR #1042/ })).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
   });
-  it('makes an updated read thread unread again and announces it only once', async () => {
+  it('makes an updated thread unread without showing a duplicate application toast', async () => {
     window.localStorage.setItem(
       'threadline.workspace.v1',
       JSON.stringify({ preferences: { quietStart: '00:00', quietEnd: '00:00' } }),
@@ -106,9 +106,9 @@ describe('workspace interactions', () => {
     expect(screen.getByRole('tab', { name: '未读 0' })).toBeTruthy();
     head = 'changed-head';
     fireEvent.click(screen.getByRole('button', { name: '刷新' }));
-    expect(await screen.findByText('PR #1042 有新动态')).toBeTruthy();
+    await screen.findByRole('tab', { name: '未读 1' });
+    expect(document.querySelector('.inbox-toast')).toBeNull();
     expect(screen.getByRole('tab', { name: '未读 1' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: '关闭消息提醒' }));
     fireEvent.click(screen.getByRole('button', { name: '刷新' }));
     await waitFor(() =>
       expect(screen.getByRole('button', { name: '刷新' }).hasAttribute('disabled')).toBe(false),

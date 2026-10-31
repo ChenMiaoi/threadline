@@ -25,6 +25,7 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["tray-icon"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10.9"
 rusqlite = { version = "0.41", features = ["bundled"] }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls-native-roots"] }
 chacha20poly1305 = "0.10"
@@ -50,3 +51,6 @@ block2 = "0.6.2"
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39.1"
 windows = { version = "0.62.2", features = ["Win32_Media_Audio"] }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+notify-rust = "4.18.2"

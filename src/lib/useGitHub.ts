@@ -18,6 +18,7 @@ import {
   reviewFromGitHub,
   searchRecords,
   type GitHubGateway,
+  type BackgroundPacket,
   type GitHubRepository,
   type GitHubSession,
   type SearchPage,
@@ -66,6 +67,10 @@ export function useGitHub(
   const [repo, setRepo] = useState('');
   const [snapshot, setSnapshot] = useState<Snapshot>(empty);
   const [syncing, setSyncing] = useState(false);
+  const [notificationFailure, setNotificationFailure] = useState({
+    message: '',
+    retryAt: null as number | null,
+  });
   const [repositories, setRepositories] = useState<GitHubRepository[]>([]);
   const [picking, setPicking] = useState(false);
   const [repositoryError, setRepositoryError] = useState('');
@@ -96,6 +101,7 @@ export function useGitHub(
               hadSession.current = true;
               setSession(cached);
               setRepo(cached.selected ?? '');
+              if (cached.searchDays !== undefined) setSearchDays(cached.searchDays);
             }
           } catch {
             /* The live session supplies authoritative connection errors. */
@@ -109,6 +115,7 @@ export function useGitHub(
           previous && JSON.stringify(previous) === JSON.stringify(current) ? previous : current,
         );
         setRepo(current.selected ?? '');
+        if (current.searchDays !== undefined) setSearchDays(current.searchDays);
         setRepositories([]);
       } catch (reason) {
         if (token === identity.current) {
@@ -157,7 +164,7 @@ export function useGitHub(
   }, [connect, invalidate]);
 
   const sync = useCallback(
-    (force: boolean) => {
+    (force: boolean, batch?: NonNullable<BackgroundPacket['batch']>) => {
       if (!session || !repo) return Promise.resolve<SyncResult>({ errors: [], cancelled: true });
       if (inFlight.current?.token === generation.current) return inFlight.current.promise;
       const token = ++generation.current;
@@ -226,7 +233,7 @@ export function useGitHub(
                 };
               });
             };
-            if (!force && gateway.cached) {
+            if (!batch && !force && gateway.cached) {
               const cached = await gateway
                 .cached<SearchPage[]>(operation, repo, session.user.id, ...searchArgs)
                 .catch((reason: unknown) => {
@@ -244,13 +251,19 @@ export function useGitHub(
                 if (isFresh(cached, (refreshMinutes || 5) * 60_000)) return;
               }
             }
-            if (!navigator.onLine) return;
-            const result = await gateway.request<SearchPage[]>(
-              operation,
-              repo,
-              session.user.id,
-              ...searchArgs,
-            );
+            if (!batch && (gateway.background || !navigator.onLine)) return;
+            const native = batch?.results[page];
+            if (batch?.pending && !native) return;
+            if (batch && !native?.value)
+              throw new Error(native?.error ?? batch.error ?? 'GH_REQUEST_FAILED');
+            const result =
+              native?.value ??
+              (await gateway.request<SearchPage[]>(
+                operation,
+                repo,
+                session.user.id,
+                ...searchArgs,
+              ));
             if (token !== generation.current) return;
             if (!result.stale && !result.error) ++livePages;
             apply(result);
@@ -319,13 +332,82 @@ export function useGitHub(
   const refresh = useCallback(async () => {
     const controller = scheduler.current;
     const invalidated = inFlight.current && inFlight.current.token !== generation.current;
+    if (gateway.background && session && repo) {
+      await gateway.background.refresh({ accountId: session.user.id, repo, searchDays });
+      return;
+    }
     await controller?.refresh();
     // Access denial can invalidate a batch before its remaining pages settle.
     // An explicit retry must run after that batch rather than joining its discarded work.
     if (invalidated && controller === scheduler.current) await controller?.refresh();
-  }, []);
+  }, [gateway, session, repo, searchDays]);
   useEffect(() => {
     if (!session || !repo) return;
+    if (gateway.background) {
+      const background = gateway.background;
+      const scope = { accountId: session.user.id, repo, searchDays };
+      let disposed = false;
+      let unlisten: (() => void) | undefined;
+      let serial = -1;
+      let version = -1;
+      let nativeSyncing = false;
+      let chain = Promise.resolve();
+      const receive = (packet: BackgroundPacket) => {
+        if (
+          disposed ||
+          !packet.scope ||
+          packet.scope.accountId !== scope.accountId ||
+          packet.scope.repo !== repo ||
+          packet.scope.searchDays !== searchDays
+        )
+          return;
+        if (packet.version < version) return;
+        version = packet.version;
+        setSyncState(packet.state);
+        nativeSyncing = packet.state.phase === 'syncing';
+        setSyncing(nativeSyncing);
+        setNotificationFailure({
+          message: packet.notificationError ?? '',
+          retryAt: packet.notificationRetryAt,
+        });
+        if (!packet.batch || serial >= packet.serial) return;
+        serial = packet.serial;
+        const batch = packet.batch;
+        chain = chain
+          .then(async () => {
+            if (disposed || packet.serial < serial) return;
+            await sync(true, batch);
+            if (!disposed) setSyncing(nativeSyncing);
+          })
+          .catch((reason) => {
+            if (!disposed) setConnectionError(String(reason));
+          });
+      };
+      chain = sync(false).then(() => undefined);
+      void background
+        .subscribe(receive)
+        .then((stop) => {
+          if (disposed) return stop();
+          unlisten = stop;
+          return background.configure(scope).then(receive);
+        })
+        .catch((reason) => {
+          if (!disposed) setConnectionError(String(reason));
+        });
+      const recover = () => {
+        if (navigator.onLine && !disposed)
+          void background.refresh(scope).catch((reason) => {
+            if (!disposed) setConnectionError(String(reason));
+          });
+      };
+      window.addEventListener('online', recover);
+      return () => {
+        disposed = true;
+        unlisten?.();
+        window.removeEventListener('online', recover);
+        invalidateRequests();
+      };
+    }
     const controller = createSyncScheduler({
       interval: refreshMinutes * 60_000,
       run: sync,
@@ -358,7 +440,7 @@ export function useGitHub(
       document.removeEventListener('visibilitychange', visible);
       invalidateRequests();
     };
-  }, [gateway, session, repo, refreshMinutes, sync, invalidateRequests]);
+  }, [gateway, session, repo, searchDays, refreshMinutes, sync, invalidateRequests]);
 
   useEffect(() => {
     if (session || connecting || !retryableSyncError(connectionError)) return;
@@ -513,6 +595,15 @@ export function useGitHub(
     refresh,
     syncing,
     syncState,
+    notificationFailure: session && repo ? notificationFailure : { message: '', retryAt: null },
+    retryNotifications: async () => {
+      if (session && repo)
+        await gateway.background?.retryNotifications({
+          accountId: session.user.id,
+          repo,
+          searchDays,
+        });
+    },
     repositories,
     picking,
     repositoryError,

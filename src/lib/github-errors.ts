@@ -19,6 +19,9 @@ const messages: Record<string, string> = {
   GH_LOGIN_DENIED: '已取消 GitHub 授权，需要连接时可重新登录。',
   GH_LOGIN_TIMEOUT: '登录验证码已过期，请重新获取验证码。',
   GH_LOGIN_FAILED: 'GitHub 授权未完成，请重试登录。',
+  NOTIFICATION_QUEUE_WRITE_FAILED: '无法保存待提醒记录，请检查本地存储空间；同步将自动重试。',
+  NOTIFICATION_QUEUE_FULL: '待提醒记录较多，请先恢复系统通知投递；同步将自动重试。',
+  LOCAL_SYNC_STORAGE_FAILED: '无法保存同步数据，请检查本地存储空间；同步将自动重试。',
   INVALID_REPOSITORY: '请输入有效的仓库名称，例如 owner/repository。',
 };
 
@@ -34,7 +37,9 @@ export function githubErrorMessage(reason: unknown): string {
     ].includes(readable)
   )
     return readable;
-  const code = raw.match(/\b(GH_[A-Z_]+|INVALID_REPOSITORY)\b/)?.[0];
+  const code = raw.match(
+    /\b(GH_[A-Z_]+|NOTIFICATION_QUEUE_[A-Z_]+|LOCAL_SYNC_STORAGE_FAILED|INVALID_REPOSITORY)\b/,
+  )?.[0];
   if (raw.includes('GH_VAULT_IO') && raw.includes('\n'))
     return '无法清除本机登录，请重新打开应用后重试。';
   if (code === 'GH_AUTH_REQUIRED' && raw.includes('登录存储已升级'))

@@ -36,6 +36,53 @@ pub fn play(sound: &str) -> Result<bool, String> {
     }
 }
 
+pub fn play_background(sound: &str) -> Result<(), String> {
+    if play(sound)? {
+        return Ok(());
+    };
+    #[cfg(unix)]
+    {
+        use std::io::Write;
+        use std::time::{Duration, Instant};
+        #[cfg(target_os = "macos")]
+        let players = ["/usr/bin/afplay"];
+        #[cfg(not(target_os = "macos"))]
+        let players = ["/usr/bin/paplay", "/usr/bin/aplay"];
+        let player = players
+            .into_iter()
+            .find(|path| std::path::Path::new(path).is_file())
+            .ok_or("无法播放通知声音，请检查系统声音设置。")?;
+        let mut file = tempfile::Builder::new()
+            .suffix(".wav")
+            .tempfile()
+            .map_err(|e| e.to_string())?;
+        file.write_all(recording(sound)?)
+            .map_err(|e| e.to_string())?;
+        let mut child = std::process::Command::new(player)
+            .arg(file.path())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        let started = Instant::now();
+        loop {
+            if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
+                if status.success() {
+                    return Ok(());
+                };
+                break;
+            }
+            if started.elapsed() >= Duration::from_secs(5) {
+                let _ = child.kill();
+                let _ = child.wait();
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+    }
+    Err("无法播放通知声音，请检查系统声音设置。".into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

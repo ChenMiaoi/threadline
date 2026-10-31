@@ -42,7 +42,7 @@ it('keeps an upgraded inbox read after restarting into fresh cached data without
   const hook = mount();
   await waitFor(() => expect(hook.result.current.workspace.data.read).toContain(current.id));
   expect(hook.result.current.github.liveReady).toBe(false);
-  expect(hook.result.current.notices.toast).toBe('');
+
   expect(
     inboxReadIds(hook.result.current.github.inbox, saved.read, saved.unread).has(current.id),
   ).toBe(true);
@@ -53,7 +53,7 @@ it('keeps an upgraded inbox read after restarting into fresh cached data without
   const reopened = mount();
   await waitFor(() => expect(reopened.result.current.github.inbox.length).toBeGreaterThan(0));
   expect(reopened.result.current.workspace.data.read).toEqual([current.id]);
-  expect(reopened.result.current.notices.toast).toBe('');
+
   expect(gateway.request).not.toHaveBeenCalled();
 });
 describe('GitHub synchronization', () => {
@@ -915,4 +915,88 @@ it('runs an explicit retry after an invalidated batch finishes its outstanding p
   expect(result.current.errors).toEqual({});
   expect(result.current.pulls).toHaveLength(2);
   expect(result.current.liveReady).toBe(true);
+});
+
+it('delegates desktop polling to Rust and consumes native snapshots without duplicate frontend reads', async () => {
+  const gateway = createGateway();
+  const read = gateway.request;
+  const scope = { accountId: user.id, repo, searchDays: 30 };
+  const results = Object.fromEntries(
+    await Promise.all(
+      (['authored', 'inbox', 'review', 'issues'] as const).map(async (page) => [
+        page,
+        { value: await read(page === 'inbox' ? 'activity' : page, repo, user.id) },
+      ]),
+    ),
+  );
+  const packet: import('../core/github').BackgroundPacket = {
+    scope,
+    serial: 1,
+    version: 1,
+    state: { phase: 'waiting', nextAttemptAt: Date.now() + 60_000 },
+    batch: { results, error: null, complete: true },
+    notificationError: null,
+    notificationRetryAt: null,
+  };
+  let receive!: (packet: import('../core/github').BackgroundPacket) => void;
+  const stop = vi.fn();
+  gateway.request = vi.fn().mockRejectedValue('frontend must not poll');
+  gateway.background = {
+    configure: vi.fn().mockResolvedValue(packet),
+    refresh: vi.fn().mockResolvedValue(undefined),
+    retryNotifications: vi.fn().mockResolvedValue(undefined),
+    subscribe: vi.fn(async (callback) => {
+      receive = callback;
+      return stop;
+    }),
+  };
+  vi.mocked(gateway.background.configure).mockResolvedValueOnce({
+    ...packet,
+    state: { phase: 'syncing', nextAttemptAt: null },
+    batch: { results: { authored: results.authored }, error: null, complete: false, pending: true },
+  });
+  const { result, unmount } = renderHook(() => useGitHub(1, gateway, 30));
+  await waitFor(() => expect(result.current.pulls).toHaveLength(2));
+  expect(result.current.times.inbox).toBeUndefined();
+  expect(result.current.errors).toEqual({});
+  expect(result.current.syncing).toBe(true);
+  expect(result.current.liveReady).toBe(false);
+  await act(async () => receive({ ...packet, version: 2, serial: 2 }));
+  await waitFor(() => expect(result.current.liveReady).toBe(true));
+  expect(result.current.pulls).toHaveLength(2);
+  expect(gateway.request).not.toHaveBeenCalled();
+  vi.useFakeTimers();
+  try {
+    await act(() => vi.advanceTimersByTimeAsync(120_000));
+    expect(gateway.background.refresh).not.toHaveBeenCalled();
+    await act(() => result.current.refresh());
+    expect(gateway.background.refresh).toHaveBeenCalledExactlyOnceWith(scope);
+    await act(async () =>
+      receive({
+        ...packet,
+        notificationError: 'Permission denied',
+        version: 3,
+        notificationRetryAt: Date.now() + 30_000,
+      }),
+    );
+    expect(result.current.notificationFailure.message).toBe('Permission denied');
+    await act(async () =>
+      receive({
+        ...packet,
+        version: 1,
+        serial: 3,
+        state: { phase: 'blocked', nextAttemptAt: null },
+      }),
+    );
+    expect(result.current.notificationFailure.message).toBe('Permission denied');
+    expect(result.current.syncState.phase).toBe('waiting');
+    await act(async () =>
+      receive({ ...packet, serial: 2, scope: { ...scope, repo: 'other/repository' }, batch: null }),
+    );
+    expect(result.current.repo).toBe(repo);
+    unmount();
+    expect(stop).toHaveBeenCalledOnce();
+  } finally {
+    vi.useRealTimers();
+  }
 });
