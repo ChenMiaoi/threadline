@@ -21,7 +21,7 @@ Themes cover surfaces, text, links, status indicators, diff backgrounds, syntax 
 
 The selector identifies the source variants: Rosé Pine Moon/Dawn, Catppuccin Macchiato/Latte, Everforest Medium, Nord Polar Night/Snow Storm, and Carbon Gray 100/Gray 10. These palettes are applied to ThreadLine’s layout; they do not reproduce the reference websites’ typography or composition.
 
-Interface icons inherit their control's foreground color, including selected navigation and pressed buttons. The brand mark uses the theme accent. Buttons, form controls, focus outlines, toggle thumbs, and window-close feedback use theme roles; success, warning, and error indicators keep their semantic roles.
+Interface icons inherit their control's foreground color, including selected navigation and pressed buttons. The brand mark uses the theme accent. Buttons, form controls, focus outlines, toggle thumbs, and window-close feedback use theme roles; success, warning, and error indicators keep their semantic roles. Contribution heatmaps and their legends use an intensity scale based on the theme accent, while the adjacent contribution chart uses the same hue.
 
 ## References
 

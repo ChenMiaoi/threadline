@@ -43,7 +43,7 @@
 .profile-page .profile-eyebrow {
   font-size: calc(10px * var(--ui-scale, 1));
   letter-spacing: 0.14em;
-  color: var(--green-ink, var(--green));
+  color: var(--accent-ink, var(--accent));
 }
 .profile-identity {
   justify-content: flex-start;
@@ -171,16 +171,16 @@
   outline-offset: 2px;
 }
 .contribution-level-1 {
-  background: var(--heat-1, var(--green));
+  background: var(--heat-1, var(--accent));
 }
 .contribution-level-2 {
-  background: var(--heat-2, var(--green));
+  background: var(--heat-2, var(--accent));
 }
 .contribution-level-3 {
-  background: var(--heat-3, var(--green));
+  background: var(--heat-3, var(--accent));
 }
 .contribution-level-4 {
-  background: var(--heat-4, var(--green));
+  background: var(--heat-4, var(--accent));
 }
 .contribution-footer {
   margin-top: 10px;
@@ -283,17 +283,17 @@
   font-size: calc(12px * var(--ui-scale, 1));
 }
 .contribution-axis {
-  stroke: var(--green);
+  stroke: var(--accent-ink, var(--accent));
   stroke-width: 1.5;
 }
 .contribution-shape {
-  fill: color-mix(in srgb, var(--green) 28%, transparent);
-  stroke: var(--green);
+  fill: color-mix(in srgb, var(--accent) 28%, transparent);
+  stroke: var(--accent-ink, var(--accent));
   stroke-width: 2;
 }
 .contribution-point {
   fill: var(--text-ink, var(--text));
-  stroke: var(--green);
+  stroke: var(--accent-ink, var(--accent));
   stroke-width: 1.5;
 }
 @media (max-width: 850px) {

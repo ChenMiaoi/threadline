@@ -104,6 +104,12 @@ it.each(colorThemes)(
       const gradient = themeStyle(theme.id, mode, true) as Record<string, string>;
       expect(flat.colorScheme).toBe(mode);
       expect(flat['--content-bg']).toBe(theme[mode].canvas);
+      expect(flat['--heat-4']).toBe(theme[mode].accent);
+      expect(flat['--green']).toBe(theme[mode].green);
+      for (const level of [1, 2, 3]) {
+        expect(flat[`--heat-${level}`]).toContain(theme[mode].accent);
+        expect(flat[`--heat-${level}`]).toContain(theme[mode].surface);
+      }
       expect(gradient['--content-bg']).toContain('linear-gradient');
       expect(gradient['--discussion-bg']).toContain('linear-gradient');
       expect(gradient['--content-bg']).toContain(`${theme[mode].accent} 14%`);
