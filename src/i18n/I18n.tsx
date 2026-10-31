@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { resolveLocale, type LanguagePreference, type Locale } from './locale';
 import messages from './messages.json';
+import { resolveTimeZone } from '../core/time-zone';
 
 type Dictionary = Record<string, string>;
 const dictionaries = messages as Record<Exclude<Locale, 'zh-CN'>, Dictionary>;
@@ -16,13 +17,14 @@ export function translate(
 }
 const chinese = {
   locale: 'zh-CN' as Locale,
+  timeZone: undefined as string | undefined,
   t: (source: string, values?: readonly (string | number)[]) => translate('zh-CN', source, values),
 };
 export const I18nContext = createContext(chinese);
 export function useI18n() {
   return useContext(I18nContext);
 }
-export function useLanguage(preference: LanguagePreference) {
+export function useLanguage(preference: LanguagePreference, timeZonePreference = 'system') {
   const [languages, setLanguages] = useState(() => [...navigator.languages]);
   useEffect(() => {
     const update = () => setLanguages([...navigator.languages]);
@@ -30,15 +32,17 @@ export function useLanguage(preference: LanguagePreference) {
     return () => window.removeEventListener('languagechange', update);
   }, []);
   const locale = resolveLocale(preference, languages);
+  const timeZone = resolveTimeZone(timeZonePreference);
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
   return useMemo(
     () => ({
       locale,
+      timeZone,
       t: (source: string, values?: readonly (string | number)[]) =>
         translate(locale, source, values),
     }),
-    [locale],
+    [locale, timeZone],
   );
 }

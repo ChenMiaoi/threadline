@@ -1,6 +1,8 @@
 query Profile(
   $from: DateTime!
   $to: DateTime!
+  $commitFrom: DateTime!
+  $commitTo: DateTime!
   $commits: String
   $issues: String
   $pulls: String
@@ -17,25 +19,8 @@ query Profile(
     createdAt
     contributionsCollection(from: $from, to: $to) {
       contributionYears
-      totalRepositoriesWithContributedCommits
       totalRepositoriesWithContributedIssues
       totalRepositoriesWithContributedPullRequests
-      commits: commitContributionsByRepository(maxRepositories: 100) @include(if: $readCommits) {
-        repository {
-          nameWithOwner
-        }
-        contributions(first: 100, after: $commits) {
-          totalCount
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
-          nodes {
-            occurredAt
-            commitCount
-          }
-        }
-      }
       issues: issueContributionsByRepository(
         maxRepositories: 100
         excludeFirst: false
@@ -71,6 +56,25 @@ query Profile(
           }
           nodes {
             occurredAt
+          }
+        }
+      }
+    }
+    commitCollection: contributionsCollection(from: $commitFrom, to: $commitTo) {
+      totalRepositoriesWithContributedCommits
+      commits: commitContributionsByRepository(maxRepositories: 100) @include(if: $readCommits) {
+        repository {
+          nameWithOwner
+        }
+        contributions(first: 100, after: $commits) {
+          totalCount
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            occurredAt
+            commitCount
           }
         }
       }

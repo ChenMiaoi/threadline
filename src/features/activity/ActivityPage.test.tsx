@@ -6,7 +6,29 @@ import { demoActivities } from '../../test/activities.fixture';
 import { describePull } from '../../core/pull-status';
 import { issueFromGitHub } from '../../core/github';
 import { record, repo, user } from '../../test/github.fixture';
+import { I18nContext, useLanguage } from '../../i18n/I18n';
 afterEach(cleanup);
+
+it('updates inbox timestamps across dates when the display zone changes, preserving their absolute format', () => {
+  const item = { ...demoActivities.inbox[0], updatedAt: '2026-01-01T20:30:00Z' };
+  function Preview({ zone }: { zone: string }) {
+    const language = useLanguage('zh-CN', zone);
+    return (
+      <I18nContext.Provider value={language}>
+        <ActivityRecord record={item} timeStyle="short" onOpen={vi.fn()} />
+      </I18nContext.Provider>
+    );
+  }
+  const { container, rerender } = render(<Preview zone="Asia/Shanghai" />);
+  const time = container.querySelector('time')!;
+  expect(time.textContent).toContain('1/2');
+  expect(time.textContent).toContain('04:30');
+  expect(time.title).toContain('2026/1/2');
+  rerender(<Preview zone="UTC" />);
+  expect(time.textContent).toContain('1/1');
+  expect(time.textContent).toContain('20:30');
+  expect(time.title).toContain('2026/1/1');
+});
 
 it('keeps Issue list rows concise while retaining metadata, opening and Inbox summaries', () => {
   const item = {

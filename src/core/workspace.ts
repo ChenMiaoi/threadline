@@ -1,6 +1,7 @@
 import { notificationSounds, type NotificationSound } from './notification-sound';
 import { defaultTypography, normalizeTypography, type TypographyPreferences } from './appearance';
 import type { LanguagePreference } from '../i18n/locale';
+import { normalizeTimeZone } from './time-zone';
 import type { Activity } from '../features/activity/model';
 import { normalizeColorTheme, type ColorThemeId, type ThemeMode } from './themes';
 
@@ -11,6 +12,7 @@ export const MAX_INBOX_REVISIONS = 6200;
 export interface Preferences {
   typography: TypographyPreferences;
   language: LanguagePreference;
+  timeZone: string;
   theme: ThemeMode;
   colorTheme: ColorThemeId;
   themeGradient: boolean;
@@ -58,6 +60,7 @@ export function defaultWorkspace(): WorkspaceData {
     version: 1,
     preferences: {
       language: 'system',
+      timeZone: 'system',
       typography: { ...defaultTypography },
       theme: 'dark',
       colorTheme: 'threadline',
@@ -143,6 +146,7 @@ export function normalizeWorkspace(value: unknown, now: number): WorkspaceData {
     throw new Error('Unsupported workspace data version');
   const prefs = object(value.preferences) ? value.preferences : {};
   const settings = { ...defaults.preferences, typography: normalizeTypography(prefs.typography) };
+  settings.timeZone = normalizeTimeZone(prefs.timeZone);
   if (['system', 'zh-CN', 'zh-TW', 'zh-HK', 'ja', 'en'].includes(String(prefs.language)))
     settings.language = prefs.language as LanguagePreference;
   if (['dark', 'light', 'system'].includes(String(prefs.theme)))

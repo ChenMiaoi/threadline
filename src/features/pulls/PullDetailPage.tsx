@@ -95,7 +95,7 @@ function DiscussionSection({
   resource: ResourceProps;
   onReload: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale, timeZone } = useI18n();
 
   const result = useGitHubResource<Discussion>(
     resource.gateway,
@@ -163,7 +163,9 @@ function DiscussionSection({
                         </span>
                         {t(reviewLabels[review.state] ?? review.state)}
                       </span>
-                      {review.submitted_at && <time>{shortTime(review.submitted_at)}</time>}
+                      {review.submitted_at && (
+                        <time>{shortTime(review.submitted_at, timeZone, locale)}</time>
+                      )}
                     </div>
                   </li>
                 ))}
@@ -201,7 +203,7 @@ function DiscussionSection({
                       : t('普通评论')}
                   </span>
                   {review && <ReviewVersionStatus commit={review.commit_id} head={resource.head} />}
-                  <time className="dim">{date && shortTime(date)}</time>
+                  <time className="dim">{date && shortTime(date, timeZone, locale)}</time>
                 </div>
                 {item.body.trim() && (
                   <GitHubMarkdown repo={resource.repo}>{item.body}</GitHubMarkdown>
@@ -252,7 +254,7 @@ function ReviewThreadCard({
   resource: ResourceProps;
   nested?: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, locale, timeZone } = useI18n();
   const { comment, replies } = thread;
   const Heading = nested ? 'h4' : 'h2';
   return (
@@ -261,7 +263,7 @@ function ReviewThreadCard({
         <GitHubAvatar login={comment.user?.login} url={comment.user?.avatar_url} />
         <Heading>{comment.user?.login ?? t('已删除用户')}</Heading>
         <span className="muted">{t('代码评论 · {0}', [comment.path ?? ''])}</span>
-        <time className="dim">{shortTime(comment.created_at)}</time>
+        <time className="dim">{shortTime(comment.created_at, timeZone, locale)}</time>
       </div>
       {comment.in_reply_to_id != null && <p className="reply-context">{t('回复较早的评论')}</p>}
       <ReviewCommentCode comment={comment} resource={resource} />
@@ -275,7 +277,7 @@ function ReviewThreadCard({
                   <GitHubAvatar login={reply.user?.login} url={reply.user?.avatar_url} />
                   <h5>{reply.user?.login ?? t('已删除用户')}</h5>
                   <span className="reply-context">{t('回复')}</span>
-                  <time className="dim">{shortTime(reply.created_at)}</time>
+                  <time className="dim">{shortTime(reply.created_at, timeZone, locale)}</time>
                 </div>
                 <GitHubMarkdown repo={resource.repo}>{reply.body}</GitHubMarkdown>
               </article>
@@ -499,7 +501,7 @@ export function PullDetailPage({
   gateway: GitHubGateway;
   cache: ResourceCache;
 }) {
-  const { t } = useI18n();
+  const { t, locale, timeZone } = useI18n();
 
   const minFetchedAt = Date.parse(pull.updatedAt ?? '') || 0;
   const result = useGitHubResource<Overview>(
@@ -658,7 +660,7 @@ export function PullDetailPage({
       {result.response && (
         <footer className="page-note">
           {t('详情读取 ·')}
-          {shortTime(new Date(result.response.fetchedAt).toISOString())}
+          {shortTime(new Date(result.response.fetchedAt).toISOString(), timeZone, locale)}
           {result.loading
             ? t(' · 上次读取，正在验证更新')
             : result.response.stale

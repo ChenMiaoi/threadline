@@ -74,8 +74,9 @@ export function useGitHubResource<T>(
   enabled = true,
   minFetchedAt = 0,
   expectedHead = '',
+  timeZone = '',
 ) {
-  const key = `${cache.scope}:${account}:${repo}:${number}:${operation}:${head}`;
+  const key = `${cache.scope}:${account}:${repo}:${number}:${operation}:${head}${timeZone ? `:profile-v3:${timeZone}` : ''}`;
   const validationKey = `${key}:${minFetchedAt}:${expectedHead}`;
   const [mountedAt] = useState(() => performance.now());
   const cachedRecorded = useRef(false);
@@ -94,6 +95,7 @@ export function useGitHubResource<T>(
     if (!enabled) return;
     let active = true;
     const started = performance.now();
+    const zoneArgs: [number?, string?] = timeZone ? [0, timeZone] : [];
     const ttl = resourceTtl(operation, number, head);
     const fresh = (response: GitHubResponse<unknown>) =>
       isResourceFresh(response, ttl, minFetchedAt, expectedHead);
@@ -145,7 +147,7 @@ export function useGitHubResource<T>(
       const hydration =
         canHydrate && gateway.cached
           ? gateway
-              .cached(operation, repo, account, number, head)
+              .cached(operation, repo, account, number, head, ...zoneArgs)
               .then((response) => {
                 assertCacheAccess(response);
                 return response;
@@ -164,15 +166,19 @@ export function useGitHubResource<T>(
         canHydrate && gateway.cached
           ? hydration.then((cached) => {
               if (cached && fresh(cached)) return cached;
-              return gateway.request(operation, repo, account, number, head).then((response) => {
+              return gateway
+                .request(operation, repo, account, number, head, ...zoneArgs)
+                .then((response) => {
+                  assertCacheAccess(response);
+                  return response;
+                });
+            })
+          : gateway
+              .request(operation, repo, account, number, head, ...zoneArgs)
+              .then((response) => {
                 assertCacheAccess(response);
                 return response;
-              });
-            })
-          : gateway.request(operation, repo, account, number, head).then((response) => {
-              assertCacheAccess(response);
-              return response;
-            }),
+              }),
       );
       pending.hydration = hydration;
       pending.minFetchedAt = minFetchedAt;
@@ -274,6 +280,7 @@ export function useGitHubResource<T>(
     minFetchedAt,
     expectedHead,
     validationKey,
+    timeZone,
   ]);
   useLayoutEffect(() => {
     if (state.key !== key || !state.response || state.error) return;

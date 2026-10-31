@@ -61,8 +61,8 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
   const workspace = useWorkspace(repository);
   const { data, update } = workspace;
   const colorMode = useColorMode(data.preferences.theme);
-  const language = useLanguage(data.preferences.language);
-  const { t } = language;
+  const language = useLanguage(data.preferences.language, data.preferences.timeZone);
+  const { t, timeZone } = language;
   const updates = useUpdates(workspace.loaded && data.preferences.autoCheckUpdates);
   const github = useGitHub(data.preferences.refreshMinutes, gateway, 30);
   const repositoryAvatarUrl = useRepositoryAvatar(
@@ -316,6 +316,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                   {t('将在 {0} 自动重试', [
                     new Date(github.notificationFailure.retryAt).toLocaleTimeString(
                       language.locale,
+                      { timeZone },
                     ),
                   ])}
                 </p>
@@ -400,14 +401,18 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                 {github.syncState.phase === 'waiting' && github.syncState.nextAttemptAt && (
                   <p>
                     {t('将在 {0} 自动重试', [
-                      new Date(github.syncState.nextAttemptAt).toLocaleTimeString(language.locale),
+                      new Date(github.syncState.nextAttemptAt).toLocaleTimeString(language.locale, {
+                        timeZone,
+                      }),
                     ])}
                   </p>
                 )}
                 {currentPage && github.times[currentPage] && (
                   <p>
                     {t('上次读取：')}
-                    {new Date(github.times[currentPage]!).toLocaleString(language.locale)}{' '}
+                    {new Date(github.times[currentPage]!).toLocaleString(language.locale, {
+                      timeZone,
+                    })}{' '}
                     {t('· 可能不是最新')}
                   </p>
                 )}
@@ -443,6 +448,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                             t(openedPull ? '列表同步时间' : '上次读取'),
                             new Date(github.times[currentPage]!).toLocaleTimeString(
                               language.locale,
+                              { timeZone },
                             ),
                           ])
                         : ''}

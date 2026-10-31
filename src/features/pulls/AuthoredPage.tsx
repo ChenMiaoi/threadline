@@ -1,3 +1,4 @@
+import { compactTime } from '../../core/github';
 import { useI18n } from '../../i18n/I18n';
 import { useEffect, useLayoutEffect, useId, useMemo, useRef, useState } from 'react';
 import { TabList, TabPanel } from '../../components/Tabs';
@@ -26,7 +27,8 @@ export function AuthoredPage({
   pulls: PullRequest[];
   repo: string;
 }) {
-  const { t } = useI18n();
+  const { t, locale, timeZone } = useI18n();
+  const [now] = useState(Date.now);
 
   const [state, setState] = useState<PullState>('open');
   const tabsId = useId();
@@ -209,7 +211,11 @@ export function AuthoredPage({
                         <span className={`pull-status ${pull.tone}`}>{t(pull.status)}</span>
                       )}
                     </span>
-                    <span className="row-time">{pull.updated}</span>
+                    <span className="row-time">
+                      {pull.updatedAt
+                        ? compactTime(pull.updatedAt, now, timeZone, locale)
+                        : pull.updated}
+                    </span>
                   </button>
                   <button
                     className="text-button pull-open-detail"
@@ -269,7 +275,9 @@ export function AuthoredPage({
               <div>
                 <p>
                   {selected.previewAuthor ?? selected.author} · {selected.status} ·{' '}
-                  {selected.updated}
+                  {selected.updatedAt
+                    ? compactTime(selected.updatedAt, now, timeZone, locale)
+                    : selected.updated}
                 </p>
                 <p>{selected.summary || '暂无描述或评论摘要'}</p>
               </div>

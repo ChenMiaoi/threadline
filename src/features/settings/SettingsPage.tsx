@@ -6,7 +6,7 @@ import { useI18n } from '../../i18n/I18n';
 import { UpdatesPanel } from './UpdatesPanel';
 import type { useUpdates } from '../../lib/useUpdates';
 import { Modal } from '../../components/Modal';
-import { lazy, Suspense, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Preferences } from '../../core/workspace';
 import type { GitHubWorkspace } from '../../lib/useGitHub';
 import { enableDesktopNotifications, notifyDesktop } from '../../lib/notifications';
@@ -14,6 +14,7 @@ import { PageHeader } from '../../components/PageHeader';
 import { GitHubLoginButton } from '../states/GitHubLogin';
 import { isDesktop } from '../../lib/desktop';
 import { StoragePanel } from './StoragePanel';
+import { timeZoneLabel, timeZoneOptions } from '../../core/time-zone';
 
 const AppearanceSettings = lazy(() =>
   import('./AppearanceSettings').then((module) => ({ default: module.AppearanceSettings })),
@@ -102,7 +103,16 @@ export function SettingsPage({
   onChooseRepository: () => void;
   onQuit?: () => Promise<void>;
 }) {
-  const { t, locale } = useI18n();
+  const { t, locale, timeZone } = useI18n();
+  const [zoneLabelDate] = useState(() => new Date());
+  const zones = useMemo(
+    () =>
+      timeZoneOptions(preferences.timeZone).map((zone) => ({
+        value: zone,
+        label: timeZoneLabel(zone, zoneLabelDate),
+      })),
+    [preferences.timeZone, zoneLabelDate],
+  );
 
   const [notificationError, setNotificationError] = useState('');
   const [notificationResult, setNotificationResult] = useState('');
@@ -159,23 +169,45 @@ export function SettingsPage({
         </nav>
         <section className="settings-content">
           {section === 'language' ? (
-            <SettingRow title={t('界面语言')}>
-              <Select
-                className="setting-value accent"
-                aria-label={t('界面语言')}
-                value={preferences.language}
-                onChange={(event) =>
-                  onChange({ language: event.target.value as Preferences['language'] })
-                }
+            <>
+              <SettingRow title={t('界面语言')}>
+                <Select
+                  className="setting-value accent"
+                  aria-label={t('界面语言')}
+                  value={preferences.language}
+                  onChange={(event) =>
+                    onChange({ language: event.target.value as Preferences['language'] })
+                  }
+                >
+                  <option value="system">{t('跟随系统')}</option>
+                  <option value="zh-CN">简体中文</option>
+                  <option value="zh-TW">繁體中文（台灣）</option>
+                  <option value="zh-HK">繁體中文（香港）</option>
+                  <option value="ja">日本語</option>
+                  <option value="en">English</option>
+                </Select>
+              </SettingRow>
+              <SettingRow
+                title={t('显示时区')}
+                description={t(
+                  '用于时间显示和贡献日期统计。提交按 GitHub 日期统计，提醒时间跟随系统时区。',
+                )}
               >
-                <option value="system">{t('跟随系统')}</option>
-                <option value="zh-CN">简体中文</option>
-                <option value="zh-TW">繁體中文（台灣）</option>
-                <option value="zh-HK">繁體中文（香港）</option>
-                <option value="ja">日本語</option>
-                <option value="en">English</option>
-              </Select>
-            </SettingRow>
+                <Select
+                  className="setting-value time-zone-select"
+                  aria-label={t('显示时区')}
+                  value={preferences.timeZone}
+                  onChange={(event) => onChange({ timeZone: event.target.value })}
+                >
+                  <option value="system">{t('跟随系统')}</option>
+                  {zones.map((zone) => (
+                    <option key={zone.value} value={zone.value}>
+                      {zone.label}
+                    </option>
+                  ))}
+                </Select>
+              </SettingRow>
+            </>
           ) : section === 'updates' ? (
             <>
               {updates && <UpdatesPanel updates={updates} flush={flush} />}
@@ -267,7 +299,9 @@ export function SettingsPage({
               <SettingRow title={t('最近同步')}>
                 <span className="muted">
                   {Object.values(github.times).length
-                    ? new Date(Math.max(...Object.values(github.times))).toLocaleString(locale)
+                    ? new Date(Math.max(...Object.values(github.times))).toLocaleString(locale, {
+                        timeZone,
+                      })
                     : t('尚未同步')}
                 </span>
               </SettingRow>

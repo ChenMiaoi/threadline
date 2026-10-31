@@ -24,6 +24,7 @@ const commandFields: Record<string, Record<string, 'string' | 'number'>> = {
     accountId: 'number',
     head: 'string',
     searchDays: 'number',
+    timeZone: 'string',
   },
   github_login: {},
   github_login_status: {},
@@ -38,6 +39,7 @@ const commandFields: Record<string, Record<string, 'string' | 'number'>> = {
     accountId: 'number',
     head: 'string',
     searchDays: 'number',
+    timeZone: 'string',
   },
 };
 export function allowsCommand(command: string, args: unknown): args is Record<string, unknown> {

@@ -2,6 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { Socket } from 'node:net';
 import { allowsCommand, allowsPreviewRequest } from './github-preview';
 describe('local preview boundary', () => {
+  it('accepts the typed profile time zone for live and cached requests', () => {
+    for (const command of ['github_request', 'github_cached_request']) {
+      expect(
+        allowsCommand(command, {
+          operation: 'profile',
+          repo: 'o/r',
+          accountId: 7,
+          number: 2026,
+          timeZone: 'Asia/Shanghai',
+        }),
+      ).toBe(true);
+      expect(allowsCommand(command, { timeZone: 8 })).toBe(false);
+    }
+  });
   it('allows storage measurement without accepting caller-provided filesystem paths', () => {
     expect(allowsCommand('get_storage_usage', {})).toBe(true);
     expect(allowsCommand('get_storage_usage', { path: 'C:/' })).toBe(false);

@@ -39,7 +39,7 @@ A missing patch may be binary, too large for GitHub to return, or beyond GitHub'
 
 Profile shows contributions for the **selected repository**, not your whole account. Select the intended repository and year, then refresh Profile.
 
-Dates use UTC. Totals include commits, authored issues, authored PRs, and review contributions under GitHub's contribution rules; they do not include every discussion comment or every review event. Contributions that cannot be attributed to the repository are excluded. If GitHub returns incomplete or changing records, retry rather than interpreting the failed read as zero contributions.
+PR, Issue, and review dates follow **Settings → Language → Display time zone**. Commit contributions retain GitHub’s daily date buckets. After changing the time zone, the profile loads a separate calendar cache; use **Refresh** to fetch the latest contributions. Totals include commits, authored issues, authored PRs, and review contributions under GitHub's contribution rules; they do not include every discussion comment or every review event. Contributions that cannot be attributed to the repository are excluded. If GitHub returns incomplete or changing records, retry rather than interpreting the failed read as zero contributions.
 
 A missing avatar can be a network or image-loading failure. The initial fallback does not indicate that your login was lost.
 

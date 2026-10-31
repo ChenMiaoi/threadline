@@ -4,6 +4,22 @@ import { githubGateway } from './github';
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn(), isTauri: () => true }));
 describe('GitHub desktop boundary', () => {
   beforeEach(() => vi.resetAllMocks());
+  it('passes the contribution time zone through both live and cached desktop requests', async () => {
+    vi.mocked(invoke).mockResolvedValue(null);
+    await githubGateway.request('profile', 'owner/repository', 7, 2026, '', 0, 'Asia/Shanghai');
+    await githubGateway.cached!('profile', 'owner/repository', 7, 2026, '', 0, 'Asia/Shanghai');
+    for (const command of ['github_request', 'github_cached_request']) {
+      expect(invoke).toHaveBeenCalledWith(command, {
+        request: {
+          operation: 'profile',
+          repo: 'owner/repository',
+          accountId: 7,
+          number: 2026,
+          timeZone: 'Asia/Shanghai',
+        },
+      });
+    }
+  });
   it('uses typed collaboration commands without sending GitHub tokens or shell arguments', async () => {
     vi.mocked(invoke).mockResolvedValue({ payload: [], stale: false });
     await githubGateway.request('authored', 'owner/repository', 7);

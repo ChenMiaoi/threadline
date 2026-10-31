@@ -125,6 +125,7 @@ export function SnoozedPage({
                 />
               </label>
               <ActivityRecord
+                displayTime={record.updated}
                 record={record}
                 showKind
                 selected={selectionIds.has(record.id)}

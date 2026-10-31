@@ -26,6 +26,7 @@ export const githubGateway: GitHubGateway = {
     number = 0,
     head = '',
     searchDays = 0,
+    timeZone = '',
   ): Promise<GitHubResponse<T> | null> {
     return command('github_cached_request', {
       operation,
@@ -34,6 +35,7 @@ export const githubGateway: GitHubGateway = {
       number,
       ...(head ? { head } : {}),
       ...(searchDays ? { searchDays } : {}),
+      ...(timeZone ? { timeZone } : {}),
     });
   },
   async session() {
@@ -46,6 +48,7 @@ export const githubGateway: GitHubGateway = {
     number = 0,
     head = '',
     searchDays = 0,
+    timeZone = '',
   ): Promise<GitHubResponse<T>> {
     return command('github_request', {
       operation,
@@ -54,6 +57,7 @@ export const githubGateway: GitHubGateway = {
       number,
       ...(head ? { head } : {}),
       ...(searchDays ? { searchDays } : {}),
+      ...(timeZone ? { timeZone } : {}),
     });
   },
   async select(repo, accountId) {

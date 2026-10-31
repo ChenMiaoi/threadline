@@ -61,7 +61,7 @@ The first complete live Inbox synchronization establishes a baseline without not
 
 **Profile** (**个人主页**) shows the signed-in user's GitHub identity, avatar, and contributions for the selected repository and year. Its four totals count commits, authored issues, authored PRs, and code reviews. The calendar total is their sum.
 
-Dates use UTC. Review contributions follow GitHub's contribution rules: only the most recent review for each reviewed PR is counted. Restricted contributions that cannot be attributed to the selected repository are excluded. These figures are not the account-wide GitHub contribution graph and do not count every comment or review event.
+PR, Issue, and review dates use the time zone selected in **Settings → Language → Display time zone**, which follows the system by default. Commit counts retain GitHub’s daily date buckets because the contribution API does not expose individual commit timestamps. Annual queries include the selected time zone’s year boundaries, and cached calendars are isolated by time zone. Review contributions follow GitHub's contribution rules: only the most recent review for each reviewed PR is counted. Restricted contributions that cannot be attributed to the selected repository are excluded. These figures are not the account-wide GitHub contribution graph and do not count every comment or review event.
 
 Choose a year to inspect another period. Focus the calendar and use Up/Down for adjacent days, Left/Right for adjacent weeks, and Home/End for the first/last day. The selected date and contribution count appear beneath the calendar.
 

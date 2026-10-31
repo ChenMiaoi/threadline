@@ -97,6 +97,7 @@ export interface GitHubGateway {
     number?: number,
     head?: string,
     searchDays?: number,
+    timeZone?: string,
   ): Promise<GitHubResponse<T> | null>;
   request<T>(
     operation: GitHubOperation,
@@ -105,6 +106,7 @@ export interface GitHubGateway {
     number?: number,
     head?: string,
     searchDays?: number,
+    timeZone?: string,
   ): Promise<GitHubResponse<T>>;
   select(repo: string, accountId: number): Promise<void>;
   login(): Promise<GitHubLoginState>;
@@ -181,8 +183,9 @@ export function recordId(
 ) {
   return `github:${account}:${repo}:${kind}:${number}:${updated}`;
 }
-export function shortTime(time: string) {
-  return new Date(time).toLocaleString('zh-CN', {
+export function shortTime(time: string, timeZone?: string, locale = 'zh-CN') {
+  return new Date(time).toLocaleString(locale, {
+    timeZone,
     month: 'numeric',
     day: 'numeric',
     hour: '2-digit',
@@ -205,7 +208,7 @@ export function previewText(value: string) {
     .trim();
   return text.length > 280 ? `${text.slice(0, 280)}…` : text;
 }
-function compactTime(time: string, now = Date.now()) {
+export function compactTime(time: string, now = Date.now(), timeZone?: string, locale = 'zh-CN') {
   const age = Math.max(0, now - Date.parse(time));
   return age < 60000
     ? '刚刚'
@@ -215,7 +218,11 @@ function compactTime(time: string, now = Date.now()) {
         ? `${Math.floor(age / 3600000)}h`
         : age < 604800000
           ? `${Math.floor(age / 86400000)}d`
-          : new Date(time).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+          : new Date(time).toLocaleDateString(locale, {
+              timeZone,
+              month: 'numeric',
+              day: 'numeric',
+            });
 }
 export function pullFromGitHub(record: SearchRecord, account: number, repo: string): PullRequest {
   const check = record.commits?.nodes[0]?.commit.statusCheckRollup?.state;

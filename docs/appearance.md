@@ -30,3 +30,9 @@ Interface icons inherit their control's foreground color, including selected nav
 - [Everforest palette and color roles](https://github.com/sainnhe/everforest/blob/master/palette.md)
 - [Nord colors and palettes](https://www.nordtheme.com/docs/colors-and-palettes/)
 - [Carbon color and layering guidance](https://www.carbondesignsystem.com/building-blocks/foundations/color/overview)
+
+## Display time zone
+
+In **Settings → Language**, choose **Display time zone**. The default, **Follow system**, uses the current system time zone. You can select another IANA time zone, including UTC; the choice is saved locally and applies immediately to displayed timestamps, the profile calendar’s default selection of today, and the dates of PR, Issue, and review contributions. Time zones use their daylight saving rules for each timestamp.
+
+PR, Issue, and review timestamps are grouped into dates in the selected time zone, including year boundaries. GitHub returns commit contributions aggregated by day, so commit dates retain those GitHub day buckets. The calendar labels this distinction. Profile caches are isolated by time zone; switching zones fetches the matching calendar instead of reusing a UTC calendar. Quiet hours and snooze scheduling continue to use the system time zone.

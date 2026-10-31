@@ -2,9 +2,17 @@
 pub struct RequestOptions<'a> {
     pub head: &'a str,
     pub search_days: u16,
+    pub time_zone: &'a str,
 }
 fn scoped_key(key: String, days: u16) -> String {
     format!("{key}:search-v2:{days}")
+}
+fn profile_key(key: String, operation: &str, time_zone: &str) -> String {
+    if operation == "profile" {
+        format!("{key}:profile-v3:{time_zone}")
+    } else {
+        key
+    }
 }
 
 use crate::{db::Database, github_auth::AuthManager};
@@ -255,6 +263,7 @@ pub fn cached_request(
         RequestOptions {
             head,
             search_days: 0,
+            time_zone: "",
         },
     )
 }
@@ -267,6 +276,13 @@ pub fn cached_request_scoped(
     account: u64,
     options: RequestOptions<'_>,
 ) -> Result<Value, String> {
+    let time_zone = if operation == "profile" {
+        crate::github_profile_period::parse_zone(options.time_zone)?.name()
+    } else if !options.time_zone.is_empty() {
+        return Err("GH_INVALID_TIME_ZONE".into());
+    } else {
+        ""
+    };
     let head = options.head;
     let search_days = options.search_days;
     let list = matches!(operation, "activity" | "authored" | "review" | "issues");
@@ -306,7 +322,11 @@ pub fn cached_request_scoped(
                 search_days,
             )
         } else {
-            response_key(auth, operation, repo, number, account, head)
+            profile_key(
+                response_key(auth, operation, repo, number, account, head),
+                operation,
+                time_zone,
+            )
         },
     )?;
     auth.ensure_account(account)?;
@@ -404,6 +424,7 @@ pub fn request_at_head(
         RequestOptions {
             head,
             search_days: 0,
+            time_zone: "",
         },
     )
 }
@@ -416,6 +437,13 @@ pub fn request_scoped(
     account_id: u64,
     options: RequestOptions<'_>,
 ) -> Result<Value, String> {
+    let time_zone = if operation == "profile" {
+        crate::github_profile_period::parse_zone(options.time_zone)?.name()
+    } else if !options.time_zone.is_empty() {
+        return Err("GH_INVALID_TIME_ZONE".into());
+    } else {
+        ""
+    };
     let head = options.head;
     let search_days = options.search_days;
     let list = matches!(operation, "activity" | "authored" | "review" | "issues");
@@ -481,8 +509,11 @@ pub fn request_scoped(
     } else {
         key
     };
+    let key = profile_key(key, operation, time_zone);
     let result = timed(&mut stages, "data", || {
-        if list {
+        if operation == "profile" {
+            client.profile(repo, number, login, time_zone)
+        } else if list {
             client.search_lists(operation, repo, login, search_days)
         } else {
             client.section(operation, repo, number, login, head)
@@ -621,6 +652,71 @@ mod tests {
 #[cfg(test)]
 mod isolation_tests {
     use super::*;
+    #[test]
+    fn profile_cache_is_versioned_and_isolated_by_time_zone() {
+        let (database, auth, http, _) = setup();
+        let base = response_key(&auth, "profile", "owner/repo", 2026, 7, "");
+        database
+            .set_setting(
+                &base,
+                &json!({"payload":"old-utc-calendar","fetchedAt":42,"stale":false,"error":null})
+                    .to_string(),
+            )
+            .unwrap();
+        for zone in ["UTC", "Asia/Shanghai"] {
+            database
+                .set_setting(
+                    &profile_key(base.clone(), "profile", zone),
+                    &json!({"payload":zone,"fetchedAt":42,"stale":false,"error":null}).to_string(),
+                )
+                .unwrap();
+        }
+        let database = Mutex::new(database);
+        for zone in ["UTC", "Asia/Shanghai"] {
+            let cached = cached_request_scoped(
+                &database,
+                &auth,
+                "profile",
+                "owner/repo",
+                2026,
+                7,
+                RequestOptions {
+                    time_zone: zone,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            assert_eq!(cached["payload"], zone);
+        }
+        assert!(cached_request_scoped(
+            &database,
+            &auth,
+            "profile",
+            "owner/repo",
+            2026,
+            7,
+            RequestOptions {
+                time_zone: "America/New_York",
+                ..Default::default()
+            }
+        )
+        .unwrap()
+        .is_null());
+        assert!(cached_request_scoped(
+            &database,
+            &auth,
+            "profile",
+            "owner/repo",
+            2026,
+            7,
+            RequestOptions {
+                time_zone: "Invalid/Zone",
+                ..Default::default()
+            }
+        )
+        .is_err());
+        assert!(http.requests.lock().unwrap().is_empty());
+    }
     use crate::github_auth::{AppConfig, Clock};
     use crate::github_credentials::{tests::MemoryStore, Credential, CredentialStore};
     use crate::github_http::tests::FakeHttp;
@@ -1217,6 +1313,7 @@ mod isolation_tests {
                 RequestOptions {
                     head: "",
                     search_days: days,
+                    time_zone: "",
                 },
             )
             .unwrap();
@@ -1236,7 +1333,8 @@ mod isolation_tests {
             7,
             RequestOptions {
                 head: "",
-                search_days: 2
+                search_days: 2,
+                time_zone: "",
             }
         )
         .is_err());

@@ -1,4 +1,5 @@
 //! Repository-scoped projection of GitHub's contribution records, with complete pagination.
+use crate::github_profile_period::ProfilePeriod;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, HashSet};
 
@@ -23,12 +24,15 @@ pub fn read(
     repo: &str,
     year: u64,
     login: &str,
+    time_zone: &str,
     mut fetch: impl FnMut(Value) -> Result<Value, String>,
 ) -> Result<Value, String> {
-    let mut variables = json!({"from":format!("{year}-01-01T00:00:00Z"),"to":format!("{year}-12-31T23:59:59Z"),"commits":null,"issues":null,"pulls":null,"readCommits":true,"readIssues":true,"readPulls":true});
+    let period = ProfilePeriod::new(year, time_zone)?;
+    let mut variables = json!({"from":period.from(),"to":period.to(),"commitFrom":format!("{year}-01-01T00:00:00Z"),"commitTo":format!("{year}-12-31T23:59:59.999Z"),"commits":null,"issues":null,"pulls":null,"readCommits":true,"readIssues":true,"readPulls":true});
     let mut viewer = fetch(variables.clone())?;
     let mut daily = BTreeMap::<String, u64>::new();
     let mut totals = [0_u64; 4];
+    let mut observed = [0_u64; 3];
     let mut expected = [None; 3];
     let mut active = [true; 3];
     let mut cursors: [HashSet<String>; 3] = std::array::from_fn(|_| HashSet::new());
@@ -72,22 +76,34 @@ pub fn read(
             let nodes = connection["nodes"].as_array().ok_or("GH_RESPONSE_ERROR")?;
             for node in nodes {
                 let occurred = node["occurredAt"].as_str().ok_or("GH_RESPONSE_ERROR")?;
-                let date = occurred
-                    .get(..10)
-                    .filter(|date| date.starts_with(&format!("{year}-")))
-                    .ok_or("GH_RESPONSE_ERROR")?;
-                if !occurred.ends_with('Z') {
-                    return Err("GH_RESPONSE_ERROR".into());
-                }
+                chrono::DateTime::parse_from_rfc3339(occurred).map_err(|_| "GH_RESPONSE_ERROR")?;
                 let count = if index == 0 {
                     node["commitCount"].as_u64().ok_or("GH_RESPONSE_ERROR")?
                 } else {
                     1
                 };
+                observed[index] = observed[index]
+                    .checked_add(count)
+                    .ok_or("GH_RESPONSE_ERROR")?;
+                // Commit nodes are already daily aggregates, not individual commit timestamps.
+                let date = if index == 0 {
+                    Some(
+                        occurred
+                            .get(..10)
+                            .filter(|date| date.starts_with(&format!("{year}-")))
+                            .ok_or("GH_RESPONSE_ERROR")?
+                            .to_owned(),
+                    )
+                } else {
+                    period.date(occurred)?
+                };
+                let Some(date) = date else {
+                    continue;
+                };
                 totals[index] = totals[index]
                     .checked_add(count)
                     .ok_or("GH_RESPONSE_ERROR")?;
-                let day_total = daily.entry(date.to_owned()).or_default();
+                let day_total = daily.entry(date).or_default();
                 *day_total = day_total.checked_add(count).ok_or("GH_RESPONSE_ERROR")?;
             }
             let more = connection["pageInfo"]["hasNextPage"]
@@ -104,7 +120,7 @@ pub fn read(
                 variables[kind] = cursor.into();
             } else {
                 // Commit connection totalCount counts commits, not the number of daily nodes.
-                if totals[index] != total {
+                if observed[index] != total {
                     return Err("GH_PROFILE_INCOMPLETE: GitHub 未返回完整贡献，请重试。".into());
                 }
                 active[index] = false;
@@ -121,7 +137,7 @@ pub fn read(
         }
         viewer = fetch(variables.clone())?;
     }
-    let review_dates = crate::github_profile_reviews::read(repo, year, login, &mut fetch)?;
+    let review_dates = crate::github_profile_reviews::read(repo, &period, login, &mut fetch)?;
     totals[3] = review_dates.len() as u64;
     for date in review_dates {
         *daily.entry(date).or_default() += 1;
@@ -183,7 +199,7 @@ pub fn read(
         .iter()
         .try_fold(0_u64, |sum, count| sum.checked_add(*count))
         .ok_or("GH_RESPONSE_ERROR")?;
-    let mut collection = json!({"contributionYears":years,"contributionCalendar":{"totalContributions":total,"weeks":weeks}});
+    let mut collection = json!({"timeZone":period.zone.name(),"contributionYears":years,"contributionCalendar":{"totalContributions":total,"weeks":weeks}});
     for (index, (_, _, field)) in KINDS.iter().enumerate() {
         collection[field] = totals[index].into();
     }
@@ -196,6 +212,70 @@ pub fn read(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn local_calendar_moves_precise_events_but_preserves_github_commit_days() {
+        let mut source = viewer();
+        for (kind, field, nodes, count) in [
+            (
+                "commits",
+                "totalRepositoriesWithContributedCommits",
+                json!([{"occurredAt":"2026-10-31T00:00:00Z","commitCount":2}]),
+                2,
+            ),
+            (
+                "issues",
+                "totalRepositoriesWithContributedIssues",
+                json!([{"occurredAt":"2026-10-31T20:00:00Z"}]),
+                1,
+            ),
+            (
+                "pulls",
+                "totalRepositoriesWithContributedPullRequests",
+                json!([{"occurredAt":"2025-12-31T18:00:00Z"}]),
+                1,
+            ),
+        ] {
+            source["contributionsCollection"][kind] =
+                json!([group("o/r", nodes, count, false, Value::Null)]);
+            source["contributionsCollection"][field] = 1.into();
+        }
+        let result = super::read("o/r", 2026, "tester", "Asia/Shanghai", |variables| {
+            if variables["query"].is_string() {
+                Ok(json!({"viewer":{"login":"tester"},"repository":{"isFork":false},"search":{"issueCount":2,"nodes":[
+                    {"number":235457,"reviews":{"nodes":[{"submittedAt":"2026-10-31T17:59:46Z"}],"pageInfo":{"hasPreviousPage":false}}},
+                    {"number":222037,"reviews":{"nodes":[{"submittedAt":"2026-10-31T17:30:49Z"}],"pageInfo":{"hasPreviousPage":false}}}
+                ],"pageInfo":{"hasNextPage":false}}}))
+            } else {
+                assert_eq!(variables["from"], "2025-12-31T16:00:00Z");
+                assert_eq!(variables["to"], "2026-12-31T15:59:59.999Z");
+                assert_eq!(variables["commitFrom"], "2026-01-01T00:00:00Z");
+                Ok(source.clone())
+            }
+        }).unwrap();
+        let collection = &result["contributionsCollection"];
+        assert_eq!(collection["timeZone"], "Asia/Shanghai");
+        assert_eq!(collection["contributionCalendar"]["totalContributions"], 6);
+        let days: Vec<_> = collection["contributionCalendar"]["weeks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|week| week["contributionDays"].as_array().unwrap())
+            .collect();
+        for (date, count) in [("2026-01-01", 1), ("2026-10-31", 2), ("2026-11-01", 3)] {
+            assert_eq!(
+                days.iter().find(|day| day["date"] == date).unwrap()["contributionCount"],
+                count
+            );
+        }
+    }
+    fn read(
+        repo: &str,
+        year: u64,
+        login: &str,
+        fetch: impl FnMut(Value) -> Result<Value, String>,
+    ) -> Result<Value, String> {
+        super::read(repo, year, login, "UTC", fetch)
+    }
     fn group(repo: &str, nodes: Value, total: u64, more: bool, cursor: Value) -> Value {
         json!({"repository":{"nameWithOwner":repo},"contributions":{"nodes":nodes,"totalCount":total,"pageInfo":{"hasNextPage":more,"endCursor":cursor}}})
     }

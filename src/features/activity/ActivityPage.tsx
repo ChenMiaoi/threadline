@@ -7,6 +7,7 @@ import { PullStatusBadges } from '../../components/PullStatusBadges';
 import { chronological } from '../../core/inbox';
 import { PageHeader } from '../../components/PageHeader';
 import { IssueIcon } from '../../components/IssueIcon';
+import { compactTime, shortTime } from '../../core/github';
 import { Icon } from '../../components/Icon';
 import {
   activityCounts,
@@ -62,6 +63,8 @@ export function ActivityRecord({
   isRead,
   showKind = false,
   showSummary = true,
+  displayTime,
+  timeStyle = 'compact',
 }: {
   record: Activity;
   selected?: boolean;
@@ -71,8 +74,11 @@ export function ActivityRecord({
   isRead?: boolean;
   showKind?: boolean;
   showSummary?: boolean;
+  displayTime?: string;
+  timeStyle?: 'compact' | 'short';
 }) {
-  const { t, locale } = useI18n();
+  const { t, locale, timeZone } = useI18n();
+  const [now] = useState(Date.now);
   const issueList = record.kind === 'issue' && !showSummary;
 
   return (
@@ -143,9 +149,18 @@ export function ActivityRecord({
           )}
           <time
             dateTime={record.updatedAt}
-            title={record.updatedAt ? new Date(record.updatedAt).toLocaleString(locale) : undefined}
+            title={
+              record.updatedAt
+                ? new Date(record.updatedAt).toLocaleString(locale, { timeZone })
+                : undefined
+            }
           >
-            {record.updated}
+            {displayTime ??
+              (record.updatedAt
+                ? timeStyle === 'short'
+                  ? shortTime(record.updatedAt, timeZone, locale)
+                  : compactTime(record.updatedAt, now, timeZone, locale)
+                : record.updated)}
           </time>
         </span>
       </button>
@@ -342,6 +357,7 @@ export function ActivityPage({
               >
                 {items.map((record) => (
                   <ActivityRecord
+                    timeStyle={view === 'inbox' ? 'short' : 'compact'}
                     key={record.id}
                     record={record}
                     showKind={view === 'inbox'}

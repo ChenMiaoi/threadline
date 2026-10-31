@@ -1,18 +1,22 @@
 //! The contribution API omits some review activity (including reviews on authored PRs).
 //! Read reviewed PRs and count the latest submitted review per PR within the selected year.
+use crate::github_profile_period::ProfilePeriod;
+use chrono::DateTime;
 use serde_json::{json, Value};
 use std::collections::HashSet;
 
 pub fn read(
     repo: &str,
-    year: u64,
+    period: &ProfilePeriod,
     login: &str,
     fetch: &mut impl FnMut(Value) -> Result<Value, String>,
 ) -> Result<Vec<String>, String> {
     let (owner, name) = repo.split_once('/').ok_or("INVALID_REPOSITORY")?;
-    let start = format!("{year}-01-01T00:00:00Z");
-    let end = format!("{year}-12-31T23:59:59Z");
-    let mut variables = json!({"query":format!("repo:{repo} is:pr reviewed-by:{login} updated:>={year}-01-01 created:<={year}-12-31"),"after":null,"login":login,"owner":owner,"name":name});
+    let start = period.start;
+    let end = period.end;
+    let first_date = start.date_naive();
+    let last_date = (end - chrono::Duration::seconds(1)).date_naive();
+    let mut variables = json!({"query":format!("repo:{repo} is:pr reviewed-by:{login} updated:>={first_date} created:<={last_date}"),"after":null,"login":login,"owner":owner,"name":name});
     let mut dates = Vec::new();
     let mut pulls = HashSet::new();
     let mut cursors = HashSet::new();
@@ -49,21 +53,21 @@ pub fn read(
                 let times = nodes
                     .iter()
                     .map(|node| {
-                        node["submittedAt"]
-                            .as_str()
-                            .filter(|date| date.len() >= 20 && date.ends_with('Z'))
-                            .ok_or("GH_RESPONSE_ERROR")
+                        let timestamp = node["submittedAt"].as_str().ok_or("GH_RESPONSE_ERROR")?;
+                        DateTime::parse_from_rfc3339(timestamp)
+                            .map(|date| date.with_timezone(&chrono::Utc))
+                            .map_err(|_| "GH_RESPONSE_ERROR")
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 if let Some(date) = times
                     .iter()
-                    .filter(|date| **date >= start.as_str() && **date <= end.as_str())
+                    .filter(|date| **date >= start && **date < end)
                     .max()
                 {
-                    dates.push(date[..10].to_owned());
+                    dates.push(date.with_timezone(&period.zone).date_naive().to_string());
                     break;
                 }
-                if times.iter().any(|date| *date < start.as_str())
+                if times.iter().any(|date| *date < start)
                     || !reviews["pageInfo"]["hasPreviousPage"]
                         .as_bool()
                         .ok_or("GH_RESPONSE_ERROR")?
@@ -114,6 +118,14 @@ fn check_identity(page: &Value, login: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn read(
+        repo: &str,
+        year: u64,
+        login: &str,
+        fetch: &mut impl FnMut(Value) -> Result<Value, String>,
+    ) -> Result<Vec<String>, String> {
+        super::read(repo, &ProfilePeriod::new(year, "UTC")?, login, fetch)
+    }
     fn reviews(dates: &[&str], more: bool, cursor: Option<&str>) -> Value {
         json!({"nodes":dates.iter().map(|date| json!({"submittedAt":date})).collect::<Vec<_>>(),"pageInfo":{"hasPreviousPage":more,"startCursor":cursor}})
     }

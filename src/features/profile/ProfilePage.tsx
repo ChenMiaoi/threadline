@@ -8,6 +8,7 @@ import { GitHubAvatar } from '../../components/GitHubAvatar';
 import { useGitHubResource, type ResourceCache } from '../../lib/useGitHubResource';
 import type { GitHubProfile } from './model';
 import './profile.css';
+import { calendarDate, resolveTimeZone } from '../../core/time-zone';
 
 const levels = ['NONE', 'FIRST_QUARTILE', 'SECOND_QUARTILE', 'THIRD_QUARTILE', 'FOURTH_QUARTILE'];
 export function ProfilePage({
@@ -21,14 +22,27 @@ export function ProfilePage({
   gateway: GitHubGateway;
   cache: ResourceCache;
 }) {
-  const { t, locale } = useI18n();
+  const { t, locale, timeZone } = useI18n();
 
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const now = new Date();
-  const currentYear = now.getFullYear();
-  const today = `${currentYear}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const today = calendarDate(now, timeZone);
+  const currentYear = Number(today.slice(0, 4));
   const [year, setYear] = useState(currentYear);
-  const resource = useGitHubResource<GitHubProfile>(gateway, cache, 'profile', repo, user.id, year);
+  const profileZone = timeZone ?? resolveTimeZone();
+  const resource = useGitHubResource<GitHubProfile>(
+    gateway,
+    cache,
+    'profile',
+    repo,
+    user.id,
+    year,
+    '',
+    true,
+    0,
+    '',
+    profileZone,
+  );
   const profile = resource.response?.payload;
   const collection = profile?.contributionsCollection;
   const calendar = collection?.contributionCalendar;
@@ -199,6 +213,11 @@ export function ProfilePage({
                 : t('该年度没有可显示的贡献日期')}
             </p>
             <div className="contribution-footer">
+              <span>
+                {t('PR、Issue 和评审按 {0} 统计；提交按 GitHub 日期统计。', [
+                  collection.timeZone ?? profileZone,
+                ])}
+              </span>
               <div className="contribution-legend" aria-label={t('颜色由浅到深表示贡献由少到多')}>
                 {t('少')}{' '}
                 {levels.map((level, index) => (
@@ -230,7 +249,7 @@ export function ProfilePage({
           {resource.response && (
             <p className="profile-fetched">
               {t('上次读取')}
-              {new Date(resource.response.fetchedAt).toLocaleString(locale)}
+              {new Date(resource.response.fetchedAt).toLocaleString(locale, { timeZone })}
             </p>
           )}
         </>

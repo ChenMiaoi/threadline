@@ -28,7 +28,7 @@ export function IssuePreview({
   isRead: boolean;
   onSnooze: () => void;
 }) {
-  const { t, locale } = useI18n();
+  const { t, locale, timeZone } = useI18n();
 
   const result = useGitHubResource<IssueDetail>(
     gateway,
@@ -68,7 +68,7 @@ export function IssuePreview({
         {result.response && (
           <p className="dim">
             {t('上次读取')}
-            {new Date(result.response.fetchedAt).toLocaleString(locale)}
+            {new Date(result.response.fetchedAt).toLocaleString(locale, { timeZone })}
             {result.response.stale ? t(' · 缓存，可能不是最新') : ''}
           </p>
         )}
@@ -108,7 +108,7 @@ export function IssuePreview({
               <article key={comment.id} className="detail-card">
                 <div className="comment-heading">
                   <h3>{comment.user?.login ?? '已删除用户'}</h3>
-                  <time>{shortTime(comment.created_at)}</time>
+                  <time>{shortTime(comment.created_at, timeZone, locale)}</time>
                 </div>
                 <GitHubMarkdown repo={repo}>{comment.body}</GitHubMarkdown>
               </article>

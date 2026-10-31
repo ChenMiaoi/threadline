@@ -10,10 +10,43 @@ import { GitHubAvatar } from '../../components/GitHubAvatar';
 import { createResourceCache } from '../../lib/useGitHubResource';
 import { createGateway, response, user, repo } from '../../test/github.fixture';
 import type { GitHubProfile } from './model';
+import { I18nContext, useLanguage } from '../../i18n/I18n';
+import { resolveTimeZone } from '../../core/time-zone';
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+});
+
+it('locates today in the chosen display zone without shifting daily contribution buckets', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-01-02T01:00:00Z'));
+  const gateway = createGateway();
+  gateway.request = vi.fn().mockResolvedValue(response(profile));
+  const cache = createResourceCache();
+  function Preview({ zone }: { zone: string }) {
+    const language = useLanguage('zh-CN', zone);
+    return (
+      <I18nContext.Provider value={language}>
+        <ProfilePage repo={repo} user={user} gateway={gateway} cache={cache} />
+      </I18nContext.Provider>
+    );
+  }
+  const { rerender } = render(<Preview zone="Asia/Shanghai" />);
+  await screen.findByText(/年共 24 次贡献/);
+  expect(document.getElementById('contribution-selected-day')?.textContent).toBe(
+    '2026-01-02：0 次贡献',
+  );
+  rerender(<Preview zone="America/Los_Angeles" />);
+  await waitFor(() =>
+    expect(document.getElementById('contribution-selected-day')?.textContent).toBe(
+      '2026-01-01：3 次贡献',
+    ),
+  );
+  expect(
+    screen.getByText('PR、Issue 和评审按 America/Los_Angeles 统计；提交按 GitHub 日期统计。'),
+  ).toBeTruthy();
+  await waitFor(() => expect(gateway.request).toHaveBeenCalledTimes(2));
 });
 const profile: GitHubProfile = {
   repository: repo,
@@ -126,6 +159,8 @@ it('reads repository-year contribution shape and supports keyboard day and year 
     user.id,
     new Date().getFullYear(),
     '',
+    0,
+    resolveTimeZone(),
   );
   expect(screen.queryByText(`当前仓库 · ${repo}`)).toBeNull();
   expect(
@@ -149,7 +184,17 @@ it('reads repository-year contribution shape and supports keyboard day and year 
   fireEvent.change(screen.getByRole('combobox', { name: '贡献年份' }), {
     target: { value: '2025' },
   });
-  await waitFor(() => expect(gateway.request).toHaveBeenCalledWith('profile', repo, 7, 2025, ''));
+  await waitFor(() =>
+    expect(gateway.request).toHaveBeenCalledWith(
+      'profile',
+      repo,
+      7,
+      2025,
+      '',
+      0,
+      resolveTimeZone(),
+    ),
+  );
   const refresh = within(screen.getByRole('group', { name: '贡献活动' })).getByRole('button', {
     name: '刷新个人主页',
   }) as HTMLButtonElement;
@@ -157,7 +202,15 @@ it('reads repository-year contribution shape and supports keyboard day and year 
   const calls = vi.mocked(gateway.request).mock.calls.length;
   fireEvent.click(refresh);
   await waitFor(() => expect(gateway.request).toHaveBeenCalledTimes(calls + 1));
-  expect(gateway.request).toHaveBeenLastCalledWith('profile', repo, 7, 2025, '');
+  expect(gateway.request).toHaveBeenLastCalledWith(
+    'profile',
+    repo,
+    7,
+    2025,
+    '',
+    0,
+    resolveTimeZone(),
+  );
 });
 it('retries a failed request and never publishes a previous account response', async () => {
   const gateway = createGateway();
@@ -291,6 +344,8 @@ it('isolates delayed responses when switching selected repositories', async () =
     7,
     new Date().getFullYear(),
     '',
+    0,
+    resolveTimeZone(),
   );
 });
 

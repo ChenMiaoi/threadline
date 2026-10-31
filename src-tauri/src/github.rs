@@ -335,6 +335,47 @@ impl Client {
             json!({"number":pull["number"],"title":pull["title"],"body":pull["body"],"html_url":pull["url"],"state":if pull["state"] == "OPEN" { "open" } else { "closed" },"merged":pull["merged"],"draft":pull["isDraft"],"reviewDecision":pull["reviewDecision"],"mergeStateStatus":pull["mergeStateStatus"],"mergeable":pull["mergeable"],"checkState":pull["commits"]["nodes"][0]["commit"]["statusCheckRollup"]["state"],"user":pull["author"],"head":{"sha":sha,"ref":pull["headRefName"]},"base":{"ref":pull["baseRefName"]},"additions":pull["additions"],"deletions":pull["deletions"],"changed_files":pull["changedFiles"],"commits":pull["commits"]["totalCount"]}),
         )
     }
+    pub fn profile(
+        &self,
+        repo: &str,
+        number: u64,
+        login: &str,
+        time_zone: &str,
+    ) -> Result<Value, String> {
+        if !(2008..=9999).contains(&number) {
+            return Err("GH_INVALID_YEAR".into());
+        }
+        if !valid_repo(repo) {
+            return Err("INVALID_REPOSITORY".into());
+        }
+        crate::github_profile::read(repo, number, login, time_zone, |variables| {
+            let mut request = Request::get(format!("{API}/graphql"), &self.token);
+            let review_read = variables["query"].is_string() || variables["number"].is_number();
+            let query = if variables["number"].is_number() {
+                include_str!("github-profile-review-page.graphql")
+            } else if review_read {
+                include_str!("github-profile-reviews.graphql")
+            } else {
+                include_str!("github-profile.graphql")
+            };
+            request.json = Some(json!({"query":query,"variables":variables}));
+            let body = self.checked(request)?.body;
+            Ok(if review_read {
+                body["data"].clone()
+            } else {
+                let mut viewer = body["data"]["viewer"].clone();
+                let commits = viewer
+                    .as_object_mut()
+                    .ok_or("GH_RESPONSE_ERROR")?
+                    .remove("commitCollection")
+                    .ok_or("GH_RESPONSE_ERROR")?;
+                viewer["contributionsCollection"]["commits"] = commits["commits"].clone();
+                viewer["contributionsCollection"]["totalRepositoriesWithContributedCommits"] =
+                    commits["totalRepositoriesWithContributedCommits"].clone();
+                viewer
+            })
+        })
+    }
     pub fn request(
         &self,
         operation: &str,
@@ -343,30 +384,7 @@ impl Client {
         login: &str,
     ) -> Result<Value, String> {
         if operation == "profile" {
-            if !(2008..=9999).contains(&number) {
-                return Err("GH_INVALID_YEAR".into());
-            }
-            if !valid_repo(repo) {
-                return Err("INVALID_REPOSITORY".into());
-            }
-            return crate::github_profile::read(repo, number, login, |variables| {
-                let mut request = Request::get(format!("{API}/graphql"), &self.token);
-                let review_read = variables["query"].is_string() || variables["number"].is_number();
-                let query = if variables["number"].is_number() {
-                    include_str!("github-profile-review-page.graphql")
-                } else if review_read {
-                    include_str!("github-profile-reviews.graphql")
-                } else {
-                    include_str!("github-profile.graphql")
-                };
-                request.json = Some(json!({"query":query,"variables":variables}));
-                let body = self.checked(request)?.body;
-                Ok(if review_read {
-                    body["data"].clone()
-                } else {
-                    body["data"]["viewer"].clone()
-                })
-            });
+            return self.profile(repo, number, login, "UTC");
         }
         if operation == "repositories" {
             if login.is_empty() || !login.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
@@ -621,6 +639,33 @@ mod tests {
     fn client() -> (Client, Arc<FakeHttp>) {
         let http = Arc::new(FakeHttp::default());
         (Client::new(http.clone(), "ghu_fake-test".into()), http)
+    }
+    #[test]
+    fn profile_adapter_reads_local_event_year_and_separate_utc_commit_collection() {
+        let (client, http) = client();
+        http.push(json!({"data":{"viewer":{"login":"tester","contributionsCollection":{
+            "contributionYears":[2026],"totalRepositoriesWithContributedIssues":0,"totalRepositoriesWithContributedPullRequests":0,"issues":[],"pulls":[]
+        },"commitCollection":{"totalRepositoriesWithContributedCommits":1,"commits":[{"repository":{"nameWithOwner":"o/r"},"contributions":{"totalCount":2,"nodes":[{"occurredAt":"2026-10-31T00:00:00Z","commitCount":2}],"pageInfo":{"hasNextPage":false}}}]}}}}));
+        http.push(json!({"data":{"viewer":{"login":"tester"},"repository":{"isFork":false},"search":{"issueCount":0,"nodes":[],"pageInfo":{"hasNextPage":false}}}}));
+        let result = client
+            .profile("o/r", 2026, "tester", "Asia/Shanghai")
+            .unwrap();
+        assert_eq!(
+            result["contributionsCollection"]["totalCommitContributions"],
+            2
+        );
+        assert_eq!(
+            result["contributionsCollection"]["timeZone"],
+            "Asia/Shanghai"
+        );
+        let requests = http.requests.lock().unwrap();
+        let variables = &requests[0].json.as_ref().unwrap()["variables"];
+        assert_eq!(variables["from"], "2025-12-31T16:00:00Z");
+        assert_eq!(variables["commitFrom"], "2026-01-01T00:00:00Z");
+        assert!(requests[0].json.as_ref().unwrap()["query"]
+            .as_str()
+            .unwrap()
+            .contains("commitCollection:"));
     }
     #[test]
     fn issue_reads_timeline_and_deduplicates_only_pull_references() {

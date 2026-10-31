@@ -7,6 +7,7 @@ export interface GitHubProfile {
   bio: string | null;
   createdAt: string;
   contributionsCollection: {
+    timeZone?: string;
     contributionYears: number[];
     totalCommitContributions: number;
     totalIssueContributions: number;

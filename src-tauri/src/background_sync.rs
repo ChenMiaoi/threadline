@@ -417,6 +417,7 @@ impl BackgroundSync {
                 github_workspace::RequestOptions {
                     head: "",
                     search_days: scope.search_days,
+                    time_zone: "",
                 },
             );
             match result {

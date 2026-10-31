@@ -411,7 +411,7 @@ it('requires a selected repository before requesting profile statistics', async 
   expect(screen.queryByRole('heading', { name: '个人主页' })).toBeNull();
   expect(gateway.request).not.toHaveBeenCalled();
 });
-it('requests profile lazily using the selected repository', async () => {
+it('requests profile lazily using the selected repository and system time zone', async () => {
   const gateway = createGateway();
   const request = gateway.request;
   gateway.request = vi
@@ -431,8 +431,10 @@ it('requests profile lazily using the selected repository', async () => {
       'profile',
       repo,
       7,
-      new Date().getUTCFullYear(),
+      new Date().getFullYear(),
       '',
+      0,
+      new Intl.DateTimeFormat().resolvedOptions().timeZone,
     ),
   );
   expect(screen.getByRole('heading', { name: '个人主页' })).toBeTruthy();

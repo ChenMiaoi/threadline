@@ -55,6 +55,8 @@ struct Args {
     #[serde(default)]
     search_days: u16,
     #[serde(default)]
+    time_zone: String,
+    #[serde(default)]
     url: String,
 }
 #[derive(Deserialize)]
@@ -96,6 +98,7 @@ fn execute(
             github_workspace::RequestOptions {
                 head: &request.args.head,
                 search_days: request.args.search_days,
+                time_zone: &request.args.time_zone,
             },
         ),
         Command::Request => github_workspace::request_scoped(
@@ -108,6 +111,7 @@ fn execute(
             github_workspace::RequestOptions {
                 head: &request.args.head,
                 search_days: request.args.search_days,
+                time_zone: &request.args.time_zone,
             },
         ),
         Command::SelectRepository => {
@@ -193,6 +197,7 @@ pub fn measure(repo: &str, number: u64, full: bool) -> Result<(), String> {
                 github_workspace::RequestOptions {
                     head,
                     search_days: 0,
+                    time_zone: "",
                 },
             )?;
             println!(

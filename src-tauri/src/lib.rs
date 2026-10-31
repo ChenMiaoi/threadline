@@ -7,6 +7,7 @@ mod github_auth;
 mod github_credentials;
 mod github_http;
 mod github_profile;
+mod github_profile_period;
 mod github_profile_reviews;
 mod github_workspace;
 #[cfg(target_os = "macos")]
@@ -227,6 +228,8 @@ struct GitHubRequest {
     head: String,
     #[serde(default)]
     search_days: u16,
+    #[serde(default)]
+    time_zone: String,
 }
 #[tauri::command]
 async fn github_cached_request(
@@ -244,6 +247,7 @@ async fn github_cached_request(
             github_workspace::RequestOptions {
                 head: &request.head,
                 search_days: request.search_days,
+                time_zone: &request.time_zone,
             },
         )
     })
@@ -266,6 +270,7 @@ async fn github_request(
             github_workspace::RequestOptions {
                 head: &request.head,
                 search_days: request.search_days,
+                time_zone: &request.time_zone,
             },
         )
     })

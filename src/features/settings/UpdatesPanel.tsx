@@ -11,7 +11,7 @@ export function UpdatesPanel({
   updates: ReturnType<typeof useUpdates>;
   flush: () => Promise<void>;
 }) {
-  const { t, locale } = useI18n();
+  const { t, locale, timeZone } = useI18n();
 
   const labels = {
     loading: '正在读取版本…',
@@ -110,9 +110,10 @@ export function UpdatesPanel({
           {t('上次检查：')}
           <time
             dateTime={new Date(updates.checkedAt).toISOString()}
-            title={new Date(updates.checkedAt).toLocaleString(locale)}
+            title={new Date(updates.checkedAt).toLocaleString(locale, { timeZone })}
           >
             {new Date(updates.checkedAt).toLocaleString(locale, {
+              timeZone,
               month: 'short',
               day: 'numeric',
               hour: '2-digit',

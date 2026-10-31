@@ -69,6 +69,45 @@ it('does not offer native notifications in a browser even with a saved enabled p
 });
 afterEach(cleanup);
 
+it('offers system detection and selectable IANA display zones beside interface language', async () => {
+  const { result } = renderHook(() => useGitHub(0, createGateway()));
+  await waitFor(() => expect(result.current.session).not.toBeNull());
+  const onChange = vi.fn();
+  const preferences = defaultWorkspace().preferences;
+  const { rerender } = render(
+    <SettingsPage
+      initialSection="language"
+      preferences={preferences}
+      onChange={onChange}
+      onSync={vi.fn()}
+      github={result.current}
+      onChooseRepository={vi.fn()}
+    />,
+  );
+  const select = screen.getByRole('combobox', { name: '显示时区' }) as HTMLSelectElement;
+  expect(select.value).toBe('system');
+  expect(within(select).getByRole('option', { name: '跟随系统' }).textContent).toBe('跟随系统');
+  expect(
+    within(select).getByRole('option', { name: 'UTC+08:00 · Asia/Shanghai' }).getAttribute('value'),
+  ).toBe('Asia/Shanghai');
+  expect(screen.getByRole('combobox', { name: '界面语言' })).toBeTruthy();
+  fireEvent.change(select, { target: { value: 'America/New_York' } });
+  expect(onChange).toHaveBeenLastCalledWith({ timeZone: 'America/New_York' });
+  rerender(
+    <SettingsPage
+      initialSection="language"
+      preferences={{ ...preferences, timeZone: 'America/New_York' }}
+      onChange={onChange}
+      onSync={vi.fn()}
+      github={result.current}
+      onChooseRepository={vi.fn()}
+    />,
+  );
+  expect(select.value).toBe('America/New_York');
+  fireEvent.change(select, { target: { value: 'system' } });
+  expect(onChange).toHaveBeenLastCalledWith({ timeZone: 'system' });
+});
+
 async function openNotificationTest() {
   const { result } = renderHook(() => useGitHub(0, createGateway()));
   await waitFor(() => expect(result.current.session).not.toBeNull());

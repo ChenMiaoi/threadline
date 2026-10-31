@@ -163,6 +163,14 @@
   background: var(--raised);
   color: var(--text-ink, var(--text));
 }
+.setting-row:has(.time-zone-select) .setting-control {
+  flex-basis: min(320px, 50%);
+}
+@media (max-width: 760px) {
+  .setting-row:has(.time-zone-select) .setting-control {
+    flex-basis: auto;
+  }
+}
 .settings-note {
   color: var(--dim-ink, var(--dim));
   font-size: calc(13px * var(--ui-scale, 1));
