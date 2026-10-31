@@ -1,0 +1,44 @@
+.icon {
+  display: block;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  background: currentColor;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+.icon-brand {
+  width: 24px;
+  height: 24px;
+  color: var(--accent);
+}
+.icon-chev,
+.icon-arrow {
+  width: 18px;
+  height: 18px;
+}
+.icon-snoozed,
+.icon-mark-read {
+  width: 20px;
+  height: 20px;
+}
+.icon-check-passed,
+.icon-check-failed,
+.icon-check-pending,
+.icon-check-none {
+  width: 24px;
+  height: 24px;
+}
+.icon-check-passed {
+  color: var(--green-ink, var(--green));
+}
+.icon-check-failed {
+  color: var(--danger-ink, var(--danger));
+}
+.icon-check-pending {
+  color: var(--yellow-ink, var(--yellow));
+}
+.icon-check-none {
+  color: var(--muted-ink, var(--muted));
+}

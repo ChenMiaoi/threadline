@@ -98,6 +98,9 @@ export function themeStyle(id: ColorThemeId, mode: ColorMode, gradient: boolean)
   }
   Object.assign(style, {
     '--on-accent': luminance(channels(palette.accent)) > 0.179 ? '#000000' : '#ffffff',
+    '--focus-ring': style['--accent-ink'],
+    '--danger-fill': style['--danger-ink'],
+    '--on-danger': luminance(channels(style['--danger-ink'])) > 0.179 ? '#000000' : '#ffffff',
     '--hover': mix(palette.text, 7, palette.raised),
     '--border': mix(palette.text, mode === 'dark' ? 9 : 14),
     '--avatar-bg': mix(palette.accent, 15, palette.raised),
@@ -124,5 +127,11 @@ export function themeStyle(id: ColorThemeId, mode: ColorMode, gradient: boolean)
       ? `linear-gradient(165deg, ${mix(palette.accent, 6)}, ${palette.surface} 80%)`
       : palette.surface,
   });
+  style['--toggle-thumb'] =
+    [palette.surface, palette.app].find((color) => {
+      const a = luminance(channels(color));
+      const b = luminance(channels(palette.accent));
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) >= 3;
+    }) ?? style['--on-accent'];
   return style as CSSProperties;
 }

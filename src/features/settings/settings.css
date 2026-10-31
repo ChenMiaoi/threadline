@@ -456,7 +456,7 @@
 }
 .toggle-switch.is-on .toggle-track > span {
   transform: translateX(14px);
-  background: #fff;
+  background: var(--toggle-thumb, var(--surface));
 }
 .toggle-label {
   font-size: calc(12px * var(--ui-scale, 1));

@@ -1,6 +1,15 @@
 import { useI18n } from '../i18n/I18n';
+import './icon.css';
+
 export function Icon({ name }: { name: string }) {
-  return <img className={`icon icon-${name}`} src={`/assets/figma/${name}.svg`} alt="" />;
+  const image = `url("/assets/figma/${name}.svg")`;
+  return (
+    <span
+      className={`icon icon-${name}`}
+      style={{ maskImage: image, WebkitMaskImage: image }}
+      aria-hidden="true"
+    />
+  );
 }
 
 export function IconButton({

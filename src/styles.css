@@ -37,11 +37,15 @@ body {
 button {
   font: inherit;
   color: inherit;
+  background: var(--raised);
   cursor: pointer;
   border: 0;
 }
-button:focus-visible {
-  outline: 2px solid var(--accent);
+input {
+  accent-color: var(--accent);
+}
+:is(button, input, select, textarea, a):focus-visible {
+  outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 3px;
 }
 button:disabled {
@@ -58,10 +62,6 @@ button:hover {
   min-height: 620px;
   display: flex;
   flex-direction: column;
-}
-.icon {
-  display: block;
-  flex-shrink: 0;
 }
 .app-bar {
   height: 58px;
@@ -121,8 +121,8 @@ button:hover {
   color: var(--text-ink, var(--text));
 }
 .window-controls .window-close:hover {
-  background: #c42b1c;
-  color: white;
+  background: var(--danger-fill, var(--danger));
+  color: var(--on-danger, var(--app));
 }
 .window-controls button:focus-visible {
   outline-offset: -4px;

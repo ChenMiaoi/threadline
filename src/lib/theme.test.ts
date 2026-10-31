@@ -23,6 +23,20 @@ it.each(colorThemes)('keeps $id source colors while rendering readable text', (t
     const original = structuredClone(palette);
     for (const gradient of [false, true]) {
       const style = themeStyle(theme.id, mode, gradient) as Record<string, string>;
+      expect(style['--focus-ring']).toBe(style['--accent-ink']);
+      expect(style['--danger-fill']).toBe(style['--danger-ink']);
+      const toggleLuminances = [
+        luminance(rgb(style['--toggle-thumb'])),
+        luminance(rgb(palette.accent)),
+      ].sort((a, b) => b - a);
+      expect((toggleLuminances[0] + 0.05) / (toggleLuminances[1] + 0.05)).toBeGreaterThanOrEqual(3);
+      const dangerLuminances = [
+        luminance(rgb(style['--on-danger'])),
+        luminance(rgb(style['--danger-fill'])),
+      ].sort((a, b) => b - a);
+      expect((dangerLuminances[0] + 0.05) / (dangerLuminances[1] + 0.05)).toBeGreaterThanOrEqual(
+        4.5,
+      );
       const badgeLuminances = [
         luminance(rgb(style['--on-accent'])),
         luminance(rgb(palette.accent)),
