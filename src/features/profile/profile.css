@@ -257,6 +257,7 @@
   outline-offset: 1px;
 }
 .contribution-calendar .contribution-day {
+  cursor: pointer;
   width: var(--contribution-size);
   height: var(--contribution-size);
 }
@@ -362,9 +363,6 @@
         calc((100dvh - 560px) / 14)
       )
     );
-  }
-  .contribution-scroll {
-    padding-block: 0;
   }
   .contribution-footer {
     margin-top: 4px;

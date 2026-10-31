@@ -11,7 +11,10 @@ import { createResourceCache } from '../../lib/useGitHubResource';
 import { createGateway, response, user, repo } from '../../test/github.fixture';
 import type { GitHubProfile } from './model';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 const profile: GitHubProfile = {
   repository: repo,
   login: user.login,
@@ -44,6 +47,33 @@ const profile: GitHubProfile = {
     },
   },
 };
+
+it('selects today by default and resets an explicit selection when changing years', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 0, 2, 12));
+  const gateway = createGateway();
+  gateway.request = vi.fn().mockResolvedValue(response(profile));
+  render(<ProfilePage repo={repo} user={user} gateway={gateway} cache={createResourceCache()} />);
+  await screen.findByText(/年共 24 次贡献/);
+  const details = document.getElementById('contribution-selected-day')!;
+  expect(details.textContent).toBe('2026-01-02：0 次贡献');
+  expect(
+    screen.getByRole('listitem', { name: '2026-01-02：0 次贡献' }).getAttribute('data-selected'),
+  ).toBe('true');
+  fireEvent.click(screen.getByRole('listitem', { name: '2026-01-01：3 次贡献' }));
+  expect(details.textContent).toBe('2026-01-01：3 次贡献');
+  fireEvent.change(screen.getByRole('combobox', { name: '贡献年份' }), {
+    target: { value: '2025' },
+  });
+  fireEvent.change(screen.getByRole('combobox', { name: '贡献年份' }), {
+    target: { value: '2026' },
+  });
+  await waitFor(() =>
+    expect(document.getElementById('contribution-selected-day')?.textContent).toBe(
+      '2026-01-02：0 次贡献',
+    ),
+  );
+});
 it('keeps the contribution dashboard mounted while refresh status and failures stay in the toolbar', async () => {
   const gateway = createGateway();
   let fail!: (reason: Error) => void;
@@ -94,7 +124,7 @@ it('reads repository-year contribution shape and supports keyboard day and year 
     'profile',
     repo,
     user.id,
-    new Date().getUTCFullYear(),
+    new Date().getFullYear(),
     '',
   );
   expect(screen.queryByText(`当前仓库 · ${repo}`)).toBeNull();
@@ -102,6 +132,15 @@ it('reads repository-year contribution shape and supports keyboard day and year 
     (await screen.findByRole('img', { name: `${user.login} 的头像` })).getAttribute('src'),
   ).toBe(profile.avatarUrl);
   const calendar = screen.getByLabelText(/使用方向键选择日期/);
+  const days = screen.getAllByRole('listitem');
+  const details = document.getElementById('contribution-selected-day')!;
+  fireEvent.mouseEnter(days[1]);
+  expect(details.textContent).toBe('2026-01-01：3 次贡献');
+  fireEvent.click(days[1]);
+  expect(details.textContent).toBe('2026-01-02：0 次贡献');
+  fireEvent.mouseEnter(days[0]);
+  expect(details.textContent).toBe('2026-01-02：0 次贡献');
+  fireEvent.click(days[0]);
   fireEvent.keyDown(calendar, { key: 'ArrowDown' });
   expect(document.getElementById('contribution-selected-day')?.textContent).toBe(
     '2026-01-02：0 次贡献',
@@ -197,7 +236,7 @@ it('discards a delayed previous year response after selecting another year', asy
   fireEvent.change(screen.getByLabelText('贡献年份'), { target: { value: '2025' } });
   await waitFor(() => expect(complete).toBeTypeOf('function'));
   fireEvent.change(screen.getByLabelText('贡献年份'), {
-    target: { value: String(new Date().getUTCFullYear()) },
+    target: { value: String(new Date().getFullYear()) },
   });
   await screen.findByText(/年共 99 次贡献/);
   await act(async () => {
@@ -250,7 +289,7 @@ it('isolates delayed responses when switching selected repositories', async () =
     'profile',
     'owner/other',
     7,
-    new Date().getUTCFullYear(),
+    new Date().getFullYear(),
     '',
   );
 });

@@ -23,15 +23,19 @@ export function ProfilePage({
 }) {
   const { t, locale } = useI18n();
 
-  const [selectedDay, setSelectedDay] = useState(0);
-  const currentYear = new Date().getUTCFullYear();
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const today = `${currentYear}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const [year, setYear] = useState(currentYear);
   const resource = useGitHubResource<GitHubProfile>(gateway, cache, 'profile', repo, user.id, year);
   const profile = resource.response?.payload;
   const collection = profile?.contributionsCollection;
   const calendar = collection?.contributionCalendar;
   const days = calendar?.weeks.flatMap((week) => week.contributionDays) ?? [];
-  const activeDay = days[Math.min(selectedDay, Math.max(0, days.length - 1))];
+  const todayIndex = year === currentYear ? days.findIndex((day) => day.date === today) : -1;
+  const defaultDay = todayIndex >= 0 ? todayIndex : 0;
+  const activeDay = days[Math.min(selectedDay ?? defaultDay, Math.max(0, days.length - 1))];
   const years = [...new Set([currentYear, year, ...(collection?.contributionYears ?? [])])].sort(
     (a, b) => b - a,
   );
@@ -93,7 +97,10 @@ export function ProfilePage({
             <Select
               aria-label={t('贡献年份')}
               value={year}
-              onChange={(event) => setYear(Number(event.target.value))}
+              onChange={(event) => {
+                setSelectedDay(null);
+                setYear(Number(event.target.value));
+              }}
             >
               {years.map((value) => (
                 <option key={value}>{value}</option>
@@ -141,7 +148,10 @@ export function ProfilePage({
                       ? 0
                       : event.key === 'End'
                         ? days.length - 1
-                        : Math.max(0, Math.min(days.length - 1, index + (offset ?? 0))),
+                        : Math.max(
+                            0,
+                            Math.min(days.length - 1, (index ?? defaultDay) + (offset ?? 0)),
+                          ),
                   );
                 }
               }}
@@ -172,7 +182,7 @@ export function ProfilePage({
                         role="listitem"
                         className={`contribution-day contribution-level-${Math.max(0, levels.indexOf(day.contributionLevel))}`}
                         style={{ gridRow: day.weekday + 2 }}
-                        onMouseEnter={() => setSelectedDay(days.indexOf(day))}
+                        onClick={() => setSelectedDay(days.indexOf(day))}
                         data-selected={activeDay?.date === day.date}
                         aria-label={t('{0}：{1} 次贡献', [day.date, day.contributionCount])}
                         data-tooltip={t('{0} · {1} 次贡献', [day.date, day.contributionCount])}
