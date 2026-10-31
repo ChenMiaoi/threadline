@@ -11,6 +11,7 @@ const macos = JSON.parse(
 it('integrates macOS window controls into the app header without an extra titlebar', () => {
   const main = macos.app.windows.find((window: { label: string }) => window.label === 'main');
   expect(main).toMatchObject({
+    create: false,
     decorations: true,
     titleBarStyle: 'Overlay',
     hiddenTitle: true,

@@ -84,6 +84,8 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             macos_notifications::setup();
             background_sync::BackgroundSync::start(app.handle());
+            #[cfg(target_os = "macos")]
+            macos::setup_window(app)?;
             Ok(())
         })
         .on_window_event(|window, event| {

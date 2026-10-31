@@ -3,6 +3,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "ThreadLine",
         "decorations": true,
         "titleBarStyle": "Overlay",
