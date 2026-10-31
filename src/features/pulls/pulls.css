@@ -179,8 +179,7 @@
   background: var(--hover);
 }
 .pull-row > .pull-lifecycle-icon,
-.pull-number,
-.row-time {
+.pull-number {
   margin-top: 2px;
 }
 .pull-number {
@@ -218,6 +217,7 @@
   font-size: calc(12px * var(--ui-scale, 1));
 }
 .row-time {
+  align-self: center;
   font-size: calc(12px * var(--ui-scale, 1));
   line-height: 23px;
   color: var(--dim-ink, var(--dim));
