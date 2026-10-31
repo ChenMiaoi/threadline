@@ -1,6 +1,6 @@
 [package]
 name = "threadline"
-version = "0.1.4-rc.2"
+version = "0.1.4"
 description = "ThreadLine desktop workspace"
 license = "GPL-3.0-only"
 edition = "2021"
