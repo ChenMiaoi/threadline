@@ -1,6 +1,7 @@
+import { usePageState } from '../../lib/page-state';
 import { Select } from '../../components/Select';
 import { useI18n } from '../../i18n/I18n';
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo } from 'react';
 import { TabList, TabPanel } from '../../components/Tabs';
 import { PullLifecycleIcon } from '../../components/PullLifecycleIcon';
 import { PullStatusBadges } from '../../components/PullStatusBadges';
@@ -214,13 +215,17 @@ export function ActivityPage({
 
   const settings = config[view];
   const tabsId = useId();
-  const [filter, setFilter] = useState(
+  const [filter, setFilter] = usePageState(
+    `activity.${view}.filter`,
     initialFilter ?? (view === 'inbox' ? 'unread' : view === 'issues' ? 'open' : 'all'),
   );
-  const [query, setQuery] = useState('');
-  const [attention, setAttention] = useState(false);
-  const [label, setLabel] = useState('');
-  const [mergedExpanded, setMergedExpanded] = useState(false);
+  const [query, setQuery] = usePageState(`activity.${view}.query`, '');
+  const [attention, setAttention] = usePageState(`activity.${view}.attention`, false);
+  const [label, setLabel] = usePageState(`activity.${view}.label`, '');
+  const [mergedExpanded, setMergedExpanded] = usePageState(
+    `activity.${view}.mergedExpanded`,
+    false,
+  );
   function showAll() {
     setFilter('all');
     setQuery('');

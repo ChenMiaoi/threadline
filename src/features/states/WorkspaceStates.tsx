@@ -1,3 +1,4 @@
+import { usePageState } from '../../lib/page-state';
 import { FloatingWarning } from '../../components/FloatingWarnings';
 import { useI18n } from '../../i18n/I18n';
 import { useMemo, useState } from 'react';
@@ -46,7 +47,7 @@ export function SnoozedPage({
 }) {
   const { t } = useI18n();
 
-  const [recent, setRecent] = useState(false);
+  const [recent, setRecent] = usePageState('snoozed.recent', false);
   const [selected, setSelected] = useState<string[]>([]);
   const recordIndex = useMemo(
     () => snoozeActivityIndex(records, data.snoozeRecords),

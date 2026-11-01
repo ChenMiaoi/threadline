@@ -1,7 +1,8 @@
+import { usePageState } from '../../lib/page-state';
 import { compactTime } from '../../core/github';
 import { useNow } from '../../lib/useNow';
 import { useI18n } from '../../i18n/I18n';
-import { useEffect, useLayoutEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useId, useMemo, useRef } from 'react';
 import { TabList, TabPanel } from '../../components/Tabs';
 import { PageHeader } from '../../components/PageHeader';
 import { PullLifecycleIcon } from '../../components/PullLifecycleIcon';
@@ -31,12 +32,15 @@ export function AuthoredPage({
   const { t, locale, timeZone } = useI18n();
   const now = useNow();
 
-  const [state, setState] = useState<PullState>('open');
+  const [state, setState] = usePageState<PullState>('authored.state', 'open');
   const tabsId = useId();
-  const [query, setQuery] = useState('');
-  const [attentionOnly, setAttentionOnly] = useState(false);
-  const [panelVisible, setPanelVisible] = useState(false);
-  const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
+  const [query, setQuery] = usePageState('authored.query', '');
+  const [attentionOnly, setAttentionOnly] = usePageState('authored.attentionOnly', false);
+  const [panelVisible, setPanelVisible] = usePageState('authored.panelVisible', false);
+  const [selectedNumber, setSelectedNumber] = usePageState<number | null>(
+    'authored.selectedNumber',
+    null,
+  );
   const rows = useMemo(
     () => filterPullRequests(pulls, state, query, attentionOnly),
     [pulls, state, query, attentionOnly],

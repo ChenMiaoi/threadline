@@ -1,8 +1,9 @@
+import { usePageState } from '../../lib/page-state';
 import { Select } from '../../components/Select';
 import { FloatingWarning } from '../../components/FloatingWarnings';
 import { ContributionChart } from './ContributionChart';
 import { useI18n } from '../../i18n/I18n';
-import { useState, type CSSProperties } from 'react';
+import { type CSSProperties } from 'react';
 import type { GitHubGateway, GitHubUser } from '../../core/github';
 import { GitHubAvatar } from '../../components/GitHubAvatar';
 import { useGitHubResource, type ResourceCache } from '../../lib/useGitHubResource';
@@ -25,11 +26,11 @@ export function ProfilePage({
 }) {
   const { t, locale, timeZone } = useI18n();
 
-  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [selectedDay, setSelectedDay] = usePageState<number | null>('profile.selectedDay', null);
   const now = useNow();
   const today = calendarDate(now, timeZone);
   const currentYear = Number(today.slice(0, 4));
-  const [chosenYear, setYear] = useState<number | null>(null);
+  const [chosenYear, setYear] = usePageState<number | null>('profile.year', null);
   const year = chosenYear ?? currentYear;
   const profileZone = timeZone ?? resolveTimeZone();
   const resource = useGitHubResource<GitHubProfile>(

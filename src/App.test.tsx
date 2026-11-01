@@ -34,6 +34,30 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('workspace interactions', () => {
+  it('retains page-specific search and scroll choices when navigating away and back', async () => {
+    render(<App gateway={createGateway()} />);
+    const search = await screen.findByRole('textbox', { name: '搜索 PR' });
+    fireEvent.change(search, { target: { value: '1042' } });
+    const content = screen.getByRole('main');
+    content.scrollTop = 320;
+    fireEvent.scroll(content);
+    fireEvent.click(screen.getByRole('button', { name: /^我审阅的/ }));
+    const review = await screen.findByRole('textbox', { name: '搜索协作记录' });
+    fireEvent.change(review, { target: { value: 'review search' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Issues/ }));
+    expect(await screen.findByRole('textbox', { name: '搜索协作记录' })).toHaveProperty(
+      'value',
+      '',
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^我审阅的/ }));
+    expect(await screen.findByRole('textbox', { name: '搜索协作记录' })).toHaveProperty(
+      'value',
+      'review search',
+    );
+    fireEvent.click(screen.getByRole('button', { name: '我发起的' }));
+    expect(await screen.findByRole('textbox', { name: '搜索 PR' })).toHaveProperty('value', '1042');
+    expect(content.scrollTop).toBe(320);
+  });
   it('combines issues and pull requests chronologically with local unread badges', async () => {
     const gateway = createGateway();
     const request = gateway.request;
