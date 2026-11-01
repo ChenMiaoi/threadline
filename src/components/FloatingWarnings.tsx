@@ -1,3 +1,4 @@
+import { MotionPresence } from './MotionPresence';
 import {
   useCallback,
   useContext,
@@ -69,35 +70,37 @@ export function FloatingWarnings({ children }: { children: ReactNode }) {
           if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false);
         }}
       >
-        {isExpanded && (
-          <section
-            className="floating-warning-panel"
-            data-tone={tone}
-            id={panelId}
-            aria-label={t('待处理的提醒')}
-          >
-            <header>
-              <strong>
-                {t(onlyWarnings ? '需要注意' : onlyUpdates ? '更新提示' : '应用提醒')}
-              </strong>
-              <button className="text-button" aria-label={t('收起提醒')} onClick={collapse}>
-                −
-              </button>
-            </header>
-            <div className="floating-warning-list">
-              {warnings.map((warning) => (
-                <article
-                  role={warning.kind === 'warning' ? 'alert' : 'status'}
-                  data-tone={warning.kind}
-                  key={warning.id}
-                >
-                  <h2>{warning.title}</h2>
-                  {warning.content}
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
+        <MotionPresence>
+          {isExpanded && (
+            <section
+              className="floating-warning-panel"
+              data-tone={tone}
+              id={panelId}
+              aria-label={t('待处理的提醒')}
+            >
+              <header>
+                <strong>
+                  {t(onlyWarnings ? '需要注意' : onlyUpdates ? '更新提示' : '应用提醒')}
+                </strong>
+                <button className="text-button" aria-label={t('收起提醒')} onClick={collapse}>
+                  −
+                </button>
+              </header>
+              <div className="floating-warning-list">
+                {warnings.map((warning) => (
+                  <article
+                    role={warning.kind === 'warning' ? 'alert' : 'status'}
+                    data-tone={warning.kind}
+                    key={warning.id}
+                  >
+                    <h2>{warning.title}</h2>
+                    {warning.content}
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+        </MotionPresence>
         <button
           ref={launcher}
           className="floating-warning-launcher"
@@ -121,7 +124,11 @@ export function FloatingWarnings({ children }: { children: ReactNode }) {
   return (
     <WarningContext.Provider value={context}>
       {children}
-      {layers.length ? createPortal(dock, layers[layers.length - 1]) : dock}
+      {layers.length ? (
+        createPortal(<MotionPresence>{dock}</MotionPresence>, layers[layers.length - 1])
+      ) : (
+        <MotionPresence>{dock}</MotionPresence>
+      )}
     </WarningContext.Provider>
   );
 }

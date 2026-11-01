@@ -1,3 +1,4 @@
+import { MotionPresence } from '../../components/MotionPresence';
 import { Select } from '../../components/Select';
 import { FloatingWarning, FloatingInfo } from '../../components/FloatingWarnings';
 import { notificationSounds, type NotificationSound } from '../../core/notification-sound';
@@ -126,33 +127,35 @@ export function SettingsPage({
   const title = sections.find(([id]) => id === section)![1];
   return (
     <>
-      {confirmLogout && (
-        <Modal
-          title={t('退出 ThreadLine 登录？')}
-          onClose={() => setConfirmLogout(false)}
-          initialFocusRef={cancelLogout}
-        >
-          <p>
-            {t(
-              '退出会删除本机保存的登录凭据和账号缓存，下次使用时需要重新授权 GitHub。你的 GitHub 数据不会被删除。',
-            )}
-          </p>
-          <div className="inline-group settings-signout-actions">
-            <button ref={cancelLogout} className="chip" onClick={() => setConfirmLogout(false)}>
-              {t('取消')}
-            </button>
-            <button
-              className="chip settings-danger"
-              onClick={() => {
-                setConfirmLogout(false);
-                void github.disconnect();
-              }}
-            >
-              {t('确认退出登录')}
-            </button>
-          </div>
-        </Modal>
-      )}
+      <MotionPresence>
+        {confirmLogout && (
+          <Modal
+            title={t('退出 ThreadLine 登录？')}
+            onClose={() => setConfirmLogout(false)}
+            initialFocusRef={cancelLogout}
+          >
+            <p>
+              {t(
+                '退出会删除本机保存的登录凭据和账号缓存，下次使用时需要重新授权 GitHub。你的 GitHub 数据不会被删除。',
+              )}
+            </p>
+            <div className="inline-group settings-signout-actions">
+              <button ref={cancelLogout} className="chip" onClick={() => setConfirmLogout(false)}>
+                {t('取消')}
+              </button>
+              <button
+                className="chip settings-danger"
+                onClick={() => {
+                  setConfirmLogout(false);
+                  void github.disconnect();
+                }}
+              >
+                {t('确认退出登录')}
+              </button>
+            </div>
+          </Modal>
+        )}
+      </MotionPresence>
       <PageHeader title={t(title)} className="settings-page-header" />
       <div className="settings-layout">
         <nav className="settings-nav" aria-label={t('设置分类')}>

@@ -1,3 +1,4 @@
+import { MotionPresence } from '../../components/MotionPresence';
 import { usePageState } from '../../lib/page-state';
 import { compactTime } from '../../core/github';
 import { useNow } from '../../lib/useNow';
@@ -252,57 +253,59 @@ export function AuthoredPage({
             </div>
           )}
         </section>
-        {previewVisible && selected && (
-          <aside
-            className="pr-preview"
-            aria-label={t('PR 预览')}
-            ref={preview}
-            tabIndex={-1}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                event.preventDefault();
-                closePreview();
-              }
-            }}
-          >
-            <div className="pr-preview-heading">
-              <Icon name="comment" />
-              <h2>{t('PR 预览')}</h2>
-              <span className="accent">·&nbsp; #{selected.number}</span>
-              <IconButton name="close" label={t('关闭 PR 预览')} onClick={closePreview} />
-            </div>
-            <h3 className="pr-preview-title">{selected.title}</h3>
-            <p className="pr-preview-source">{t('来自上次同步的描述或评论摘要。')}</p>
-            <div className="reviewer-message">
-              <span className="avatar" title={selected.previewAuthor ?? selected.author}>
-                {(selected.previewAuthor ?? selected.author)?.slice(0, 1).toUpperCase() ?? '—'}
-              </span>
-              <div>
-                <p>
-                  {selected.previewAuthor ?? selected.author} · {selected.status} ·{' '}
-                  {selected.updatedAt
-                    ? compactTime(selected.updatedAt, now, timeZone, locale)
-                    : selected.updated}
-                </p>
-                <p>{selected.summary || '暂无描述或评论摘要'}</p>
+        <MotionPresence>
+          {previewVisible && selected && (
+            <aside
+              className="pr-preview"
+              aria-label={t('PR 预览')}
+              ref={preview}
+              tabIndex={-1}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  closePreview();
+                }
+              }}
+            >
+              <div className="pr-preview-heading">
+                <Icon name="comment" />
+                <h2>{t('PR 预览')}</h2>
+                <span className="accent">·&nbsp; #{selected.number}</span>
+                <IconButton name="close" label={t('关闭 PR 预览')} onClick={closePreview} />
               </div>
-            </div>
-            <div className="pr-preview-actions">
-              <button className="outline-button" onClick={() => onOpen(selected)}>
-                {t('打开完整详情')}
-                <Icon name="arrow" />
-              </button>
-              <button
-                className="text-button"
-                onClick={() => onRead(selected.id ?? '')}
-                disabled={readIds.has(selected.id ?? '')}
-              >
-                <Icon name="mark-read" />
-                {readIds.has(selected.id ?? '') ? t('已读') : t('标记已读')}
-              </button>
-            </div>
-          </aside>
-        )}
+              <h3 className="pr-preview-title">{selected.title}</h3>
+              <p className="pr-preview-source">{t('来自上次同步的描述或评论摘要。')}</p>
+              <div className="reviewer-message">
+                <span className="avatar" title={selected.previewAuthor ?? selected.author}>
+                  {(selected.previewAuthor ?? selected.author)?.slice(0, 1).toUpperCase() ?? '—'}
+                </span>
+                <div>
+                  <p>
+                    {selected.previewAuthor ?? selected.author} · {selected.status} ·{' '}
+                    {selected.updatedAt
+                      ? compactTime(selected.updatedAt, now, timeZone, locale)
+                      : selected.updated}
+                  </p>
+                  <p>{selected.summary || '暂无描述或评论摘要'}</p>
+                </div>
+              </div>
+              <div className="pr-preview-actions">
+                <button className="outline-button" onClick={() => onOpen(selected)}>
+                  {t('打开完整详情')}
+                  <Icon name="arrow" />
+                </button>
+                <button
+                  className="text-button"
+                  onClick={() => onRead(selected.id ?? '')}
+                  disabled={readIds.has(selected.id ?? '')}
+                >
+                  <Icon name="mark-read" />
+                  {readIds.has(selected.id ?? '') ? t('已读') : t('标记已读')}
+                </button>
+              </div>
+            </aside>
+          )}
+        </MotionPresence>
       </TabPanel>
     </div>
   );

@@ -1,3 +1,21 @@
+.motion-presence {
+  display: contents;
+}
+.collapsible-content {
+  display: grid;
+  grid-template-rows: 0fr;
+}
+.collapsible-content[data-open='true'] {
+  grid-template-rows: 1fr;
+}
+.collapsible-content > div {
+  min-height: 0;
+  overflow: hidden;
+}
+.collapsible-content[data-open='false'] > div {
+  visibility: hidden;
+}
+
 /* Only opt into motion when both the app and the system allow it. */
 @media (prefers-reduced-motion: no-preference) {
   .workspace-root:not(.reduced-motion) {
@@ -38,6 +56,30 @@
   .workspace-root:not(.reduced-motion) .sidebar {
     transition: flex-basis var(--motion-enter) var(--motion-ease);
   }
+  .workspace-root:not(.reduced-motion) .collapsible-content {
+    transition: grid-template-rows var(--motion-enter) var(--motion-ease);
+  }
+  .workspace-root:not(.reduced-motion) .collapsible-content > div {
+    transition: visibility 0s;
+  }
+  .workspace-root:not(.reduced-motion) .collapsible-content[data-open='false'] > div {
+    transition-delay: var(--motion-enter);
+  }
+  @supports (interpolate-size: allow-keywords) {
+    .workspace-root:not(.reduced-motion) details {
+      interpolate-size: allow-keywords;
+    }
+    .workspace-root:not(.reduced-motion) details::details-content {
+      height: 0;
+      overflow: clip;
+      transition:
+        height var(--motion-enter) var(--motion-ease),
+        content-visibility var(--motion-enter) allow-discrete;
+    }
+    .workspace-root:not(.reduced-motion) details[open]::details-content {
+      height: auto;
+    }
+  }
 
   .workspace-root:not(.reduced-motion) .modal[open] {
     animation: motion-dialog-in var(--motion-enter) var(--motion-ease);
@@ -45,16 +87,25 @@
   .workspace-root:not(.reduced-motion) .modal[open]::backdrop {
     animation: motion-fade-in var(--motion-fast) ease;
   }
+  .workspace-root:not(.reduced-motion) .motion-presence[aria-hidden='true'] .modal::backdrop {
+    animation: motion-fade-out var(--motion-fast) ease-in forwards;
+  }
   .workspace-root:not(.reduced-motion) .pr-preview {
     animation: motion-preview-in var(--motion-enter) var(--motion-ease);
   }
 
-  /* Fade page containers without transforms: their fixed previews stay viewport-bound. */
-  .workspace-root:not(.reduced-motion) .page-view:not([hidden]) > :not([hidden]),
+  /* Animate one layer per region; parent and child fades must not compound. */
+  .workspace-root:not(.reduced-motion) .page-header,
+  .workspace-root:not(.reduced-motion) .location,
+  .workspace-root:not(.reduced-motion) .profile-heading,
+  .workspace-root:not(.reduced-motion) .profile-identity,
+  .workspace-root:not(.reduced-motion) .profile-toolbar,
+  .workspace-root:not(.reduced-motion) .activity-controls,
+  .workspace-root:not(.reduced-motion) .pull-tabs,
+  .workspace-root:not(.reduced-motion) .settings-nav,
+  .workspace-root:not(.reduced-motion) .onboarding-page,
   .workspace-root:not(.reduced-motion) .pr-summary,
-  .workspace-root:not(.reduced-motion) .detail-columns,
-  .workspace-root:not(.reduced-motion) .settings-content,
-  .workspace-root:not(.reduced-motion) [role='tabpanel']:not([hidden]) {
+  .workspace-root:not(.reduced-motion) .settings-content {
     animation: motion-fade-in var(--motion-enter) ease-out;
   }
 
@@ -65,8 +116,6 @@
       .snooze-selection,
       .detail-card,
       .check-row,
-      .appearance-group,
-      .setting-row,
       .profile-stat,
       .contribution-card,
       .contribution-chart,
@@ -76,9 +125,10 @@
     ) {
     animation: motion-fade-in var(--motion-fast) ease-out;
   }
-  .workspace-root:not(.reduced-motion) details[open] > :not(summary),
-  .workspace-root:not(.reduced-motion) .activity-list > section > div:not([hidden]) {
-    animation: motion-fade-in var(--motion-fast) ease-out;
+  .workspace-root:not(.reduced-motion)
+    :is(.modal, .settings-content, .pr-preview, .onboarding-page)
+    :where(.detail-card, .resource-status, .activity-empty) {
+    animation: none;
   }
   .workspace-root:not(.reduced-motion) .floating-warning-panel,
   .workspace-root:not(.reduced-motion) .floating-warning-launcher {
@@ -103,6 +153,14 @@
   }
   to {
     opacity: 1;
+  }
+}
+@keyframes motion-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 @keyframes motion-dialog-in {
@@ -137,6 +195,7 @@
 .reduced-motion *,
 .reduced-motion *::before,
 .reduced-motion *::after,
+.reduced-motion *::details-content,
 .reduced-motion *::backdrop {
   animation: none !important;
   transition: none !important;
@@ -146,6 +205,7 @@
   .workspace-root *,
   .workspace-root *::before,
   .workspace-root *::after,
+  .workspace-root *::details-content,
   .workspace-root *::backdrop {
     animation: none !important;
     transition: none !important;

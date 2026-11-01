@@ -363,22 +363,27 @@ export function ActivityPage({
               </h2>
               <div
                 id={collapsible ? `${tabsId}-merged-records` : undefined}
-                hidden={collapsible && !mergedExpanded}
+                className="collapsible-content"
+                data-open={!collapsible || mergedExpanded}
+                aria-hidden={(collapsible && !mergedExpanded) || undefined}
+                inert={collapsible && !mergedExpanded}
               >
-                {items.map((record) => (
-                  <ActivityRecord
-                    now={now}
-                    timeStyle={view === 'inbox' ? 'short' : 'compact'}
-                    key={record.id}
-                    record={record}
-                    showKind={view === 'inbox'}
-                    showSummary={view !== 'issues'}
-                    onOpen={onOpen}
-                    onRead={view === 'inbox' ? onRead : undefined}
-                    onSnooze={view === 'inbox' ? onSnooze : undefined}
-                    isRead={readIds.has(record.id)}
-                  />
-                ))}
+                <div>
+                  {items.map((record) => (
+                    <ActivityRecord
+                      now={now}
+                      timeStyle={view === 'inbox' ? 'short' : 'compact'}
+                      key={record.id}
+                      record={record}
+                      showKind={view === 'inbox'}
+                      showSummary={view !== 'issues'}
+                      onOpen={onOpen}
+                      onRead={view === 'inbox' ? onRead : undefined}
+                      onSnooze={view === 'inbox' ? onSnooze : undefined}
+                      isRead={readIds.has(record.id)}
+                    />
+                  ))}
+                </div>
               </div>
             </section>
           );

@@ -1,5 +1,6 @@
-import { PageStateProvider, PageScrollRestoration } from './components/PageStateProvider';
+import { MotionPresence } from './components/MotionPresence';
 import { Select } from './components/Select';
+import { PageStateProvider, PageScrollRestoration } from './components/PageStateProvider';
 import { FloatingUpdate, FloatingWarning, FloatingWarnings } from './components/FloatingWarnings';
 import { typographyStyle } from './lib/appearance';
 import { themeStyle, useColorMode } from './lib/theme';
@@ -611,64 +612,72 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
               </PageStateProvider>
             </fieldset>
           </WorkspaceShell>
-          {recordPreview && github.session && (
-            <IssuePreview
-              key={`${github.key}:${recordPreview.number}`}
-              cache={resourceCache}
-              record={latestIssue ?? recordPreview}
-              repo={github.repo}
-              accountId={github.session.user.id}
-              gateway={github.gateway}
-              onClose={() => setRecordPreview(null)}
-              onRead={() => toggleRead(recordPreview.id)}
-              isRead={effectiveReadIds.has(recordPreview.id)}
-              onSnooze={() => {
-                setSnoozeIds([recordPreview.id]);
-                setRecordPreview(null);
-              }}
-            />
-          )}
-          {(github.auth.busy || github.auth.state.status === 'error') && (
-            <GitHubLoginDialog github={github} />
-          )}
-          {repositoryPicker && (
-            <RepositoryPicker
-              github={github}
-              onClose={() => setRepositoryPicker(false)}
-              onSelected={() => {
-                setRepositoryPicker(false);
-                navigate('authored');
-              }}
-            />
-          )}
-          {snoozeIds && (
-            <SnoozeDialog
-              count={snoozeIds.length}
-              onClose={() => setSnoozeIds(null)}
-              onConfirm={(until) => {
-                update((current) => ({
-                  ...current,
-                  snoozed: {
-                    ...current.snoozed,
-                    ...Object.fromEntries(snoozeIds.map((id) => [id, until])),
-                  },
-                  snoozeRecords: {
-                    ...current.snoozeRecords,
-                    ...Object.fromEntries(
-                      records
-                        .filter((record) => snoozeIds.includes(record.id))
-                        .map((record) => [
-                          record.id,
-                          { ...record, summary: record.summary.slice(0, 1000) },
-                        ]),
-                    ),
-                  },
-                  restored: current.restored.filter((id) => !snoozeIds.includes(id)),
-                }));
-                setSnoozeIds(null);
-              }}
-            />
-          )}
+          <MotionPresence>
+            {recordPreview && github.session && (
+              <IssuePreview
+                key={`${github.key}:${recordPreview.number}`}
+                cache={resourceCache}
+                record={latestIssue ?? recordPreview}
+                repo={github.repo}
+                accountId={github.session.user.id}
+                gateway={github.gateway}
+                onClose={() => setRecordPreview(null)}
+                onRead={() => toggleRead(recordPreview.id)}
+                isRead={effectiveReadIds.has(recordPreview.id)}
+                onSnooze={() => {
+                  setSnoozeIds([recordPreview.id]);
+                  setRecordPreview(null);
+                }}
+              />
+            )}
+          </MotionPresence>
+          <MotionPresence>
+            {(github.auth.busy || github.auth.state.status === 'error') && (
+              <GitHubLoginDialog github={github} />
+            )}
+          </MotionPresence>
+          <MotionPresence>
+            {repositoryPicker && (
+              <RepositoryPicker
+                github={github}
+                onClose={() => setRepositoryPicker(false)}
+                onSelected={() => {
+                  setRepositoryPicker(false);
+                  navigate('authored');
+                }}
+              />
+            )}
+          </MotionPresence>
+          <MotionPresence>
+            {snoozeIds && (
+              <SnoozeDialog
+                count={snoozeIds.length}
+                onClose={() => setSnoozeIds(null)}
+                onConfirm={(until) => {
+                  update((current) => ({
+                    ...current,
+                    snoozed: {
+                      ...current.snoozed,
+                      ...Object.fromEntries(snoozeIds.map((id) => [id, until])),
+                    },
+                    snoozeRecords: {
+                      ...current.snoozeRecords,
+                      ...Object.fromEntries(
+                        records
+                          .filter((record) => snoozeIds.includes(record.id))
+                          .map((record) => [
+                            record.id,
+                            { ...record, summary: record.summary.slice(0, 1000) },
+                          ]),
+                      ),
+                    },
+                    restored: current.restored.filter((id) => !snoozeIds.includes(id)),
+                  }));
+                  setSnoozeIds(null);
+                }}
+              />
+            )}
+          </MotionPresence>
         </FloatingWarnings>
       </div>
     </I18nContext.Provider>

@@ -46,6 +46,13 @@ it('shows the overview while discussion is pending and requests files/checks onl
   disclosure.open = true;
   fireEvent(disclosure, new Event('toggle'));
   await screen.findByText(/@@ -1/);
+  const patch = screen.getByText(/@@ -1/);
+  disclosure.open = false;
+  fireEvent(disclosure, new Event('toggle'));
+  expect(patch.isConnected).toBe(true);
+  disclosure.open = true;
+  fireEvent(disclosure, new Event('toggle'));
+  expect(screen.getByText(/@@ -1/)).toBe(patch);
   fireEvent.click(screen.getByRole('tab', { name: '检查' }));
   await screen.findByText('当前 HEAD 没有检查记录。');
   expect(vi.mocked(gateway.request).mock.calls.filter(([op]) => op === 'files')[0]?.[4]).toBe(

@@ -340,9 +340,13 @@ function ReviewCommentCode({
 function FilePatch({ file }: { file: Files['files'][number][number] }) {
   const { t } = useI18n();
 
-  const [expanded, setExpanded] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   return (
-    <details onToggle={(event) => setExpanded(event.currentTarget.open)}>
+    <details
+      onToggle={(event) => {
+        if (event.currentTarget.open) setLoaded(true);
+      }}
+    >
       <summary className="file-record">
         <code>{file.filename}</code>
         <span className="change-stats">
@@ -350,7 +354,7 @@ function FilePatch({ file }: { file: Files['files'][number][number] }) {
           <span className="danger">−{file.deletions}</span>
         </span>
       </summary>
-      {expanded &&
+      {loaded &&
         (file.patch ? (
           <CodeDiff patch={file.patch} filename={file.filename} />
         ) : (
