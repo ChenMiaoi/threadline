@@ -166,7 +166,7 @@ export function AppearanceSettings({
                 colorTheme: 'threadline',
                 themeGradient: true,
                 density: 'comfortable',
-                reducedMotion: true,
+                reducedMotion: false,
               })
             }
           >

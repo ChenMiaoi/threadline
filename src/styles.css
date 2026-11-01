@@ -786,14 +786,6 @@ select {
 .theme-light .avatar {
   color: var(--text-ink, var(--text));
 }
-.reduced-motion *,
-.reduced-motion *::before,
-.reduced-motion *::after {
-  animation: none !important;
-  transition: none !important;
-  scroll-behavior: auto !important;
-}
-
 .workspace-body {
   display: contents;
 }

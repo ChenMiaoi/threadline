@@ -36,7 +36,7 @@ it('restores theme and layout defaults without changing typography', async () =>
     colorTheme: 'threadline',
     themeGradient: true,
     density: 'comfortable',
-    reducedMotion: true,
+    reducedMotion: false,
   });
   expect(screen.getByLabelText('界面字号')).toHaveProperty('value', '18');
   await screen.findByText('return');

@@ -505,7 +505,7 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                 </div>
               ) : (
                 <>
-                  <div className="page-view" hidden={Boolean(openedPull)}>
+                  <div key={view} className="page-view" hidden={Boolean(openedPull)}>
                     {view === 'profile' && github.session && github.repo ? (
                       <ProfilePage
                         key={github.session.user.id}

@@ -372,6 +372,31 @@ describe('workspace interactions', () => {
     fireEvent.click(await screen.findByRole('button', { name: '外观' }));
     expect(screen.getByRole('button', { name: '浅色' }).getAttribute('aria-pressed')).toBe('true');
   });
+  it('applies reduced motion immediately and retains the choice after reopening', async () => {
+    const app = render(<App gateway={createGateway()} />);
+    await screen.findByRole('textbox', { name: '搜索 PR' });
+    expect(document.querySelector('.workspace-root.reduced-motion')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '设置' }));
+    fireEvent.click(await screen.findByRole('button', { name: '外观' }));
+    const toggle = await screen.findByRole('switch', { name: '减少动效' });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(toggle);
+    expect(document.querySelector('.workspace-root.reduced-motion')).not.toBeNull();
+    await waitFor(() =>
+      expect(
+        JSON.parse(window.localStorage.getItem('threadline.workspace.v1')!).preferences
+          .reducedMotion,
+      ).toBe(true),
+    );
+    app.unmount();
+    render(<App gateway={createGateway()} />);
+    await screen.findByRole('textbox', { name: '搜索 PR' });
+    expect(document.querySelector('.workspace-root.reduced-motion')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '设置' }));
+    fireEvent.click(await screen.findByRole('button', { name: '外观' }));
+    fireEvent.click(await screen.findByRole('switch', { name: '减少动效' }));
+    expect(document.querySelector('.workspace-root.reduced-motion')).toBeNull();
+  });
   it('does not dismiss dialogs during Strict Mode effect cleanup', async () => {
     const onClose = vi.fn();
     render(

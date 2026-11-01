@@ -167,7 +167,7 @@ export function SettingsPage({
             </button>
           ))}
         </nav>
-        <section className="settings-content">
+        <section key={section} className="settings-content">
           {section === 'language' ? (
             <>
               <SettingRow title={t('界面语言')}>

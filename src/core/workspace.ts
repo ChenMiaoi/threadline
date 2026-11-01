@@ -66,7 +66,7 @@ export function defaultWorkspace(): WorkspaceData {
       colorTheme: 'threadline',
       themeGradient: true,
       density: 'comfortable',
-      reducedMotion: true,
+      reducedMotion: false,
       autoCheckUpdates: true,
       notifyAttention: true,
       notifyCommits: true,

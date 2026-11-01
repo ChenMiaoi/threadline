@@ -14,6 +14,17 @@ import { notifications, user, repo } from '../test/github.fixture';
 
 const now = new Date(2026, 9, 29, 15).getTime();
 describe('local workspace data', () => {
+  it('enables motion by default while preserving an explicit reduced motion choice', () => {
+    expect(defaultWorkspace().preferences.reducedMotion).toBe(false);
+    expect(normalizeWorkspace({ version: 1, preferences: {} }, now).preferences.reducedMotion).toBe(
+      false,
+    );
+    for (const reducedMotion of [true, false])
+      expect(
+        normalizeWorkspace({ version: 1, preferences: { reducedMotion } }, now).preferences
+          .reducedMotion,
+      ).toBe(reducedMotion);
+  });
   it('starts without synthetic snoozes and persists real account-scoped records', () => {
     expect(defaultWorkspace().snoozed).toEqual({});
     const record = notificationFromGitHub(notifications[0], user.id);

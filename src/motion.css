@@ -1,0 +1,154 @@
+/* Only opt into motion when both the app and the system allow it. */
+@media (prefers-reduced-motion: no-preference) {
+  .workspace-root:not(.reduced-motion) {
+    --motion-fast: 120ms;
+    --motion-enter: 180ms;
+    --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  .workspace-root:not(.reduced-motion)
+    :where(
+      button,
+      a,
+      input,
+      textarea,
+      select,
+      summary,
+      .search-field,
+      .pull-row,
+      .activity-record,
+      .repository-choice,
+      .theme-preview,
+      .profile-stat
+    ) {
+    transition:
+      background-color var(--motion-fast) ease,
+      color var(--motion-fast) ease,
+      border-color var(--motion-fast) ease,
+      box-shadow var(--motion-fast) ease;
+  }
+
+  .workspace-root:not(.reduced-motion) .toggle-track {
+    transition: background-color var(--motion-fast) ease;
+  }
+  .workspace-root:not(.reduced-motion) .toggle-track > span {
+    transition: transform var(--motion-fast) var(--motion-ease);
+  }
+
+  .workspace-root:not(.reduced-motion) .sidebar {
+    transition: flex-basis var(--motion-enter) var(--motion-ease);
+  }
+
+  .workspace-root:not(.reduced-motion) .modal[open] {
+    animation: motion-dialog-in var(--motion-enter) var(--motion-ease);
+  }
+  .workspace-root:not(.reduced-motion) .modal[open]::backdrop {
+    animation: motion-fade-in var(--motion-fast) ease;
+  }
+  .workspace-root:not(.reduced-motion) .pr-preview {
+    animation: motion-preview-in var(--motion-enter) var(--motion-ease);
+  }
+
+  /* Fade page containers without transforms: their fixed previews stay viewport-bound. */
+  .workspace-root:not(.reduced-motion) .page-view:not([hidden]) > :not([hidden]),
+  .workspace-root:not(.reduced-motion) .pr-summary,
+  .workspace-root:not(.reduced-motion) .detail-columns,
+  .workspace-root:not(.reduced-motion) .settings-content,
+  .workspace-root:not(.reduced-motion) [role='tabpanel']:not([hidden]) {
+    animation: motion-fade-in var(--motion-enter) ease-out;
+  }
+
+  .workspace-root:not(.reduced-motion)
+    :where(
+      .pull-list-entry,
+      .activity-record,
+      .snooze-selection,
+      .detail-card,
+      .check-row,
+      .appearance-group,
+      .setting-row,
+      .profile-stat,
+      .contribution-card,
+      .contribution-chart,
+      .activity-empty,
+      .empty-state,
+      .resource-status
+    ) {
+    animation: motion-fade-in var(--motion-fast) ease-out;
+  }
+  .workspace-root:not(.reduced-motion) details[open] > :not(summary),
+  .workspace-root:not(.reduced-motion) .activity-list > section > div:not([hidden]) {
+    animation: motion-fade-in var(--motion-fast) ease-out;
+  }
+  .workspace-root:not(.reduced-motion) .floating-warning-panel,
+  .workspace-root:not(.reduced-motion) .floating-warning-launcher {
+    animation: motion-dialog-in var(--motion-enter) var(--motion-ease);
+  }
+
+  .workspace-root:not(.reduced-motion) .contribution-day {
+    transition:
+      background-color var(--motion-fast) ease,
+      outline-color var(--motion-fast) ease;
+  }
+  .workspace-root:not(.reduced-motion)
+    .contribution-calendar
+    .contribution-day[data-selected='true'] {
+    animation: motion-date-select var(--motion-enter) ease-out;
+  }
+}
+
+@keyframes motion-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes motion-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes motion-preview-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes motion-date-select {
+  from {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.reduced-motion *,
+.reduced-motion *::before,
+.reduced-motion *::after,
+.reduced-motion *::backdrop {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace-root *,
+  .workspace-root *::before,
+  .workspace-root *::after,
+  .workspace-root *::backdrop {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
