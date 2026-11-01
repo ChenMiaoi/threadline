@@ -1,13 +1,49 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { ActivityPage, ActivityRecord } from './ActivityPage';
 import { demoActivities } from '../../test/activities.fixture';
 import { describePull } from '../../core/pull-status';
 import { issueFromGitHub } from '../../core/github';
 import { record, repo, user } from '../../test/github.fixture';
 import { I18nContext, useLanguage } from '../../i18n/I18n';
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
+
+it('shares one updating clock across activity rows and catches up after resuming', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-11-01T12:00:00Z'));
+  const items = demoActivities.review
+    .slice(0, 2)
+    .map((record) => ({ ...record, updatedAt: '2026-11-01T11:50:00Z', group: '待处理' }));
+  const props = {
+    view: 'review' as const,
+    repo,
+    read: [],
+    onOpen: vi.fn(),
+    onRead: vi.fn(),
+    onSnooze: vi.fn(),
+  };
+  const { container, rerender, unmount } = render(<ActivityPage {...props} items={items} />);
+  expect(container.querySelector('.record-status time')?.textContent).toBe('10m');
+  expect(vi.getTimerCount()).toBe(1);
+  act(() => vi.advanceTimersByTime(3_600_000));
+  expect(container.querySelector('.record-status time')?.textContent).toBe('1h');
+  rerender(
+    <ActivityPage
+      {...props}
+      items={items.map((record) => ({ ...record, updatedAt: '2026-11-01T12:58:00Z' }))}
+    />,
+  );
+  expect(container.querySelector('.record-status time')?.textContent).toBe('2m');
+  vi.setSystemTime(new Date('2026-11-01T17:00:00Z'));
+  act(() => window.dispatchEvent(new Event('focus')));
+  expect(container.querySelector('.record-status time')?.textContent).toBe('4h');
+  unmount();
+  expect(vi.getTimerCount()).toBe(0);
+});
 
 it('updates inbox timestamps across dates when the display zone changes, preserving their absolute format', () => {
   const item = { ...demoActivities.inbox[0], updatedAt: '2026-01-01T20:30:00Z' };

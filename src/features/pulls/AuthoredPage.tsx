@@ -1,4 +1,5 @@
 import { compactTime } from '../../core/github';
+import { useNow } from '../../lib/useNow';
 import { useI18n } from '../../i18n/I18n';
 import { useEffect, useLayoutEffect, useId, useMemo, useRef, useState } from 'react';
 import { TabList, TabPanel } from '../../components/Tabs';
@@ -28,7 +29,7 @@ export function AuthoredPage({
   repo: string;
 }) {
   const { t, locale, timeZone } = useI18n();
-  const [now] = useState(Date.now);
+  const now = useNow();
 
   const [state, setState] = useState<PullState>('open');
   const tabsId = useId();

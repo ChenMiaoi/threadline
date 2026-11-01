@@ -8,6 +8,7 @@ import { chronological } from '../../core/inbox';
 import { PageHeader } from '../../components/PageHeader';
 import { IssueIcon } from '../../components/IssueIcon';
 import { compactTime, shortTime } from '../../core/github';
+import { useNow } from '../../lib/useNow';
 import { Icon } from '../../components/Icon';
 import {
   activityCounts,
@@ -65,6 +66,7 @@ export function ActivityRecord({
   showSummary = true,
   displayTime,
   timeStyle = 'compact',
+  now,
 }: {
   record: Activity;
   selected?: boolean;
@@ -76,9 +78,9 @@ export function ActivityRecord({
   showSummary?: boolean;
   displayTime?: string;
   timeStyle?: 'compact' | 'short';
+  now?: number;
 }) {
   const { t, locale, timeZone } = useI18n();
-  const [now] = useState(Date.now);
   const issueList = record.kind === 'issue' && !showSummary;
 
   return (
@@ -159,7 +161,9 @@ export function ActivityRecord({
               (record.updatedAt
                 ? timeStyle === 'short'
                   ? shortTime(record.updatedAt, timeZone, locale)
-                  : compactTime(record.updatedAt, now, timeZone, locale)
+                  : now === undefined
+                    ? record.updated
+                    : compactTime(record.updatedAt, now, timeZone, locale)
                 : record.updated)}
           </time>
         </span>
@@ -206,6 +210,7 @@ export function ActivityPage({
   repo: string;
 }) {
   const { t } = useI18n();
+  const now = useNow();
 
   const settings = config[view];
   const tabsId = useId();
@@ -357,6 +362,7 @@ export function ActivityPage({
               >
                 {items.map((record) => (
                   <ActivityRecord
+                    now={now}
                     timeStyle={view === 'inbox' ? 'short' : 'compact'}
                     key={record.id}
                     record={record}

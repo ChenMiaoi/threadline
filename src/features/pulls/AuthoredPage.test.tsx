@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { AuthoredPage } from './AuthoredPage';
 import { pullFromGitHub } from '../../core/github';
 import { record, repo, user } from '../../test/github.fixture';
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 const pulls = [
   record,
   { ...record, number: 1031, title: 'Another open pull' },
@@ -13,6 +16,21 @@ const pulls = [
 function mount() {
   render(<AuthoredPage pulls={pulls} repo={repo} onOpen={vi.fn()} read={[]} onRead={vi.fn()} />);
 }
+
+it('advances relative time without reopening and formats background updates with the current clock', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-11-01T12:00:00Z'));
+  const item = { ...pulls[0], updatedAt: '2026-11-01T11:50:00Z' };
+  const props = { repo, onOpen: vi.fn(), read: [], onRead: vi.fn() };
+  const { rerender, container } = render(<AuthoredPage {...props} pulls={[item]} />);
+  expect(container.querySelector('.row-time')?.textContent).toBe('10m');
+  act(() => vi.advanceTimersByTime(3_600_000));
+  expect(container.querySelector('.row-time')?.textContent).toBe('1h');
+  rerender(<AuthoredPage {...props} pulls={[{ ...item, updatedAt: '2026-11-01T12:58:00Z' }]} />);
+  expect(container.querySelector('.row-time')?.textContent).toBe('2m');
+  fireEvent.click(screen.getByRole('button', { name: /#1042/ }));
+  expect(screen.getAllByText(/2m/).length).toBeGreaterThan(1);
+});
 describe('authored selection and filtering', () => {
   it('shows review requests without repeating status as generic advice in list rows', () => {
     render(
