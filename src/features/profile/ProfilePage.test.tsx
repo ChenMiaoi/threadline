@@ -44,8 +44,8 @@ it('locates today in the chosen display zone without shifting daily contribution
     ),
   );
   expect(
-    screen.getByText('PR、Issue 和评审按 America/Los_Angeles 统计；提交按 GitHub 日期统计。'),
-  ).toBeTruthy();
+    screen.queryByText('PR、Issue 和评审按 America/Los_Angeles 统计；提交按 GitHub 日期统计。'),
+  ).toBeNull();
   await waitFor(() => expect(gateway.request).toHaveBeenCalledTimes(2));
 });
 const profile: GitHubProfile = {
@@ -80,6 +80,102 @@ const profile: GitHubProfile = {
     },
   },
 };
+
+it('distinguishes today, selection and future dates without presenting future dates as zero contributions', async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-01-02T12:00:00Z'));
+  const gateway = createGateway();
+  const payload = structuredClone(profile);
+  payload.contributionsCollection.contributionCalendar.weeks[0].contributionDays.push({
+    date: '2026-01-03',
+    weekday: 6,
+    contributionCount: 0,
+    contributionLevel: 'NONE',
+  });
+  gateway.request = vi.fn().mockResolvedValue(response(payload));
+  await act(async () => {
+    render(<ProfilePage repo={repo} user={user} gateway={gateway} cache={createResourceCache()} />);
+  });
+  const today = screen.getByRole('listitem', { name: '2026-01-02：0 次贡献' });
+  const past = screen.getByRole('listitem', { name: '2026-01-01：3 次贡献' });
+  const future = screen.getByRole('listitem', { name: '2026-01-03：未来日期' });
+  expect(today.getAttribute('aria-current')).toBe('date');
+  expect(today.dataset.selected).toBe('true');
+  fireEvent.click(past);
+  expect(today.dataset.today).toBe('true');
+  expect(today.dataset.selected).toBe('false');
+  expect(past.dataset.selected).toBe('true');
+  expect(past.getAttribute('aria-describedby')).toBe('contribution-selection-label');
+  expect(future.dataset.future).toBe('true');
+  fireEvent.click(future);
+  expect(future.dataset.selected).toBe('true');
+  expect(document.getElementById('contribution-selected-day')?.textContent).toBe(
+    '2026-01-03：未来日期',
+  );
+  expect(screen.queryByRole('listitem', { name: '2026-01-03：0 次贡献' })).toBeNull();
+});
+
+it('moves today at midnight in the selected zone while keeping an explicit selection', async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-01-01T15:59:45Z'));
+  const gateway = createGateway();
+  gateway.request = vi.fn().mockResolvedValue(response(profile));
+  function Preview() {
+    const language = useLanguage('zh-CN', 'Asia/Shanghai');
+    return (
+      <I18nContext.Provider value={language}>
+        <ProfilePage repo={repo} user={user} gateway={gateway} cache={cache} />
+      </I18nContext.Provider>
+    );
+  }
+  const cache = createResourceCache();
+  await act(async () => {
+    render(<Preview />);
+  });
+  const first = screen.getByRole('listitem', { name: '2026-01-01：3 次贡献' });
+  const second = screen.getByRole('listitem', { name: '2026-01-02：未来日期' });
+  expect(first.getAttribute('aria-current')).toBe('date');
+  fireEvent.click(first);
+  act(() => vi.advanceTimersByTime(30_000));
+  expect(first.dataset.selected).toBe('true');
+  expect(first.hasAttribute('aria-current')).toBe(false);
+  expect(second.getAttribute('aria-current')).toBe('date');
+  expect(second.dataset.future).toBe('false');
+  expect(second.getAttribute('aria-label')).toBe('2026-01-02：0 次贡献');
+  expect(gateway.request).toHaveBeenCalledTimes(1);
+});
+
+it('follows the new year automatically when no historical year was chosen', async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-12-31T15:59:45Z'));
+  const gateway = createGateway();
+  gateway.request = vi.fn().mockResolvedValue(response(profile));
+  function Preview() {
+    const language = useLanguage('zh-CN', 'Asia/Shanghai');
+    return (
+      <I18nContext.Provider value={language}>
+        <ProfilePage repo={repo} user={user} gateway={gateway} cache={cache} />
+      </I18nContext.Provider>
+    );
+  }
+  const cache = createResourceCache();
+  await act(async () => {
+    render(<Preview />);
+  });
+  await act(async () => {
+    vi.advanceTimersByTime(30_000);
+  });
+  expect(screen.getByRole('combobox', { name: '贡献年份' })).toHaveProperty('value', '2027');
+  expect(gateway.request).toHaveBeenLastCalledWith(
+    'profile',
+    repo,
+    user.id,
+    2027,
+    '',
+    0,
+    'Asia/Shanghai',
+  );
+});
 
 it('selects today by default and resets an explicit selection when changing years', async () => {
   vi.useFakeTimers({ toFake: ['Date'] });

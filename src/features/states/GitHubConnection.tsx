@@ -10,9 +10,11 @@ import { GitHubLoginButton } from './GitHubLogin';
 export function GitHubConnection({
   github,
   onChoose,
+  onEnter,
 }: {
   github: GitHubWorkspace;
   onChoose: () => void;
+  onEnter: () => void;
 }) {
   const { t } = useI18n();
 
@@ -42,9 +44,16 @@ export function GitHubConnection({
           {github.connecting ? (
             <p role="status">{t('正在检查 ThreadLine 登录状态…')}</p>
           ) : github.session ? (
-            <button className="chip accent" onClick={onChoose}>
-              {github.repo ? t('切换仓库') : t('选择仓库')}
-            </button>
+            <>
+              {github.repo && (
+                <button className="chip accent" onClick={onEnter}>
+                  {t('进入工作区')}
+                </button>
+              )}
+              <button className={github.repo ? 'chip' : 'chip accent'} onClick={onChoose}>
+                {github.repo ? t('切换仓库') : t('选择仓库')}
+              </button>
+            </>
           ) : null}
           <GitHubLoginButton github={github} />
           {!github.session && !github.connecting && (

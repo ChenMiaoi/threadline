@@ -516,7 +516,11 @@ export default function App({ gateway }: { gateway?: GitHubGateway }) {
                       />
                     ) : view !== 'settings' &&
                       (!github.session || !github.repo || view === 'onboarding') ? (
-                      <GitHubConnection github={github} onChoose={chooseRepository} />
+                      <GitHubConnection
+                        github={github}
+                        onChoose={chooseRepository}
+                        onEnter={() => navigate('authored')}
+                      />
                     ) : currentPage && !github.times[currentPage] ? (
                       <div className="list-empty" role="status">
                         {github.syncing

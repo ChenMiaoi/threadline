@@ -9,6 +9,7 @@ import { useGitHubResource, type ResourceCache } from '../../lib/useGitHubResour
 import type { GitHubProfile } from './model';
 import './profile.css';
 import { calendarDate, resolveTimeZone } from '../../core/time-zone';
+import { useNow } from '../../lib/useNow';
 
 const levels = ['NONE', 'FIRST_QUARTILE', 'SECOND_QUARTILE', 'THIRD_QUARTILE', 'FOURTH_QUARTILE'];
 export function ProfilePage({
@@ -25,10 +26,11 @@ export function ProfilePage({
   const { t, locale, timeZone } = useI18n();
 
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  const now = new Date();
+  const now = useNow();
   const today = calendarDate(now, timeZone);
   const currentYear = Number(today.slice(0, 4));
-  const [year, setYear] = useState(currentYear);
+  const [chosenYear, setYear] = useState<number | null>(null);
+  const year = chosenYear ?? currentYear;
   const profileZone = timeZone ?? resolveTimeZone();
   const resource = useGitHubResource<GitHubProfile>(
     gateway,
@@ -198,26 +200,55 @@ export function ProfilePage({
                         style={{ gridRow: day.weekday + 2 }}
                         onClick={() => setSelectedDay(days.indexOf(day))}
                         data-selected={activeDay?.date === day.date}
-                        aria-label={t('{0}：{1} 次贡献', [day.date, day.contributionCount])}
-                        data-tooltip={t('{0} · {1} 次贡献', [day.date, day.contributionCount])}
-                        title={t('{0}：{1} 次贡献', [day.date, day.contributionCount])}
+                        data-today={day.date === today}
+                        data-future={day.date > today}
+                        aria-current={day.date === today ? 'date' : undefined}
+                        aria-describedby={
+                          activeDay?.date === day.date ? 'contribution-selection-label' : undefined
+                        }
+                        aria-label={
+                          day.date > today
+                            ? t('{0}：未来日期', [day.date])
+                            : t('{0}：{1} 次贡献', [day.date, day.contributionCount])
+                        }
+                        data-tooltip={
+                          day.date > today
+                            ? t('{0}：未来日期', [day.date])
+                            : t('{0} · {1} 次贡献', [day.date, day.contributionCount])
+                        }
+                        title={
+                          day.date > today
+                            ? t('{0}：未来日期', [day.date])
+                            : t('{0}：{1} 次贡献', [day.date, day.contributionCount])
+                        }
                       />
                     ))}
                   </div>
                 ))}
               </div>
             </div>
-            <p id="contribution-selected-day" aria-live="polite">
-              {activeDay
-                ? t('{0}：{1} 次贡献', [activeDay.date, activeDay.contributionCount])
-                : t('该年度没有可显示的贡献日期')}
-            </p>
             <div className="contribution-footer">
-              <span>
-                {t('PR、Issue 和评审按 {0} 统计；提交按 GitHub 日期统计。', [
-                  collection.timeZone ?? profileZone,
-                ])}
-              </span>
+              <p id="contribution-selected-day" aria-live="polite">
+                {activeDay
+                  ? activeDay.date > today
+                    ? t('{0}：未来日期', [activeDay.date])
+                    : t('{0}：{1} 次贡献', [activeDay.date, activeDay.contributionCount])
+                  : t('该年度没有可显示的贡献日期')}
+              </p>
+              <div className="contribution-date-legend" aria-label={t('日期标识')}>
+                <span>
+                  <i className="contribution-day" data-today="true" aria-hidden="true" />
+                  {t('今天')}
+                </span>
+                <span id="contribution-selection-label">
+                  <i className="contribution-day" data-selected="true" aria-hidden="true" />
+                  {t('选中日期')}
+                </span>
+                <span>
+                  <i className="contribution-day" data-future="true" aria-hidden="true" />
+                  {t('未来日期')}
+                </span>
+              </div>
               <div className="contribution-legend" aria-label={t('颜色由浅到深表示贡献由少到多')}>
                 {t('少')}{' '}
                 {levels.map((level, index) => (

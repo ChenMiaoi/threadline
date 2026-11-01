@@ -1,4 +1,7 @@
 .onboarding-page {
+  width: min(100%, 760px);
+  margin: auto;
+  flex-shrink: 0;
   padding: 32px;
   max-width: 960px;
   display: flex;

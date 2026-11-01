@@ -232,6 +232,13 @@
   gap: 16px;
   padding: 48px 20px;
   text-align: center;
+  flex: 1;
+  justify-content: center;
+  min-height: 240px;
+}
+.activity-list:has(> .activity-empty) {
+  display: flex;
+  flex-direction: column;
 }
 .activity-empty h1 {
   font-size: calc(20px * var(--ui-scale, 1));
